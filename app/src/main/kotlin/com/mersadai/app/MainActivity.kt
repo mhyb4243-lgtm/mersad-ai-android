@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        container.syncScheduler.enqueueInitialSync()
         setContent {
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = com.mersadai.app.domain.model.AppSettings(),

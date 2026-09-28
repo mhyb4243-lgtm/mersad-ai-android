@@ -2,8 +2,10 @@ package com.mersadai.app.feature.explore.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,14 +56,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mersadai.app.R
 import com.mersadai.app.data.local.SettingsRepository
@@ -73,6 +78,7 @@ import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
 import com.mersadai.app.feature.explore.ExploreViewModel
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -122,7 +128,6 @@ fun HomeScreen(
                         listOf(
                             R.string.category_latest,
                             R.string.category_ai,
-                            R.string.category_free,
                             R.string.category_android,
                             R.string.category_models,
                             R.string.category_prompts,
@@ -156,19 +161,23 @@ fun HomeScreen(
                     Text(stringResource(R.string.syncing), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            SyncState.FAILURE -> item { StatusBanner(stringResource(R.string.sync_failed), isError = true) }
+            SyncState.FAILURE -> item { StatusBanner(syncRecord?.message ?: stringResource(R.string.sync_failed), isError = true) }
             SyncState.NOT_CONFIGURED -> item { StatusBanner(stringResource(R.string.sync_not_configured)) }
+            SyncState.SUCCESS -> syncRecord?.message?.let { message -> item { StatusBanner(message) } }
             else -> Unit
         }
         item {
             Text(
-                syncRecord?.lastFinishedAt?.let { timestamp ->
+                syncRecord?.lastSuccessAt?.let { timestamp ->
                     val formatted = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale("ar")).format(Date(timestamp))
                     stringResource(R.string.last_updated, formatted)
                 } ?: stringResource(R.string.not_updated_yet),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        item {
+            Text(stringResource(R.string.local_cache_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item { Text(stringResource(R.string.latest_content), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
         if (items.isEmpty()) {
@@ -331,8 +340,30 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
             content.originalDescription?.takeIf { it != content.description }?.let { original ->
                 item { DetailValue(R.string.original_description, original) }
             }
+            content.publishedAt?.let { published ->
+                item { DetailValue(R.string.published_date, formatDate(published)) }
+            }
+            content.sourceUpdatedAt?.let { updated ->
+                item { DetailValue(R.string.source_updated, formatDate(updated)) }
+            }
             item { DetailValue(R.string.content_type, stringResource(content.contentType.stringResource())) }
             content.category?.let { category -> item { DetailValue(R.string.category, category.name) } }
+            content.language?.let { item { DetailValue(R.string.language, it, forceLtr = true) } }
+            content.starsCount?.let { item { DetailValue(R.string.stars, it.toString(), forceLtr = true) } }
+            content.forksCount?.let { item { DetailValue(R.string.forks, it.toString(), forceLtr = true) } }
+            content.openIssuesCount?.let { item { DetailValue(R.string.open_issues, it.toString(), forceLtr = true) } }
+            content.pipelineTag?.let { item { DetailValue(R.string.pipeline, it, forceLtr = true) } }
+            content.pipelineCategory?.let { item { DetailValue(R.string.pipeline_category, it) } }
+            content.downloads?.let { item { DetailValue(R.string.downloads, it.toString(), forceLtr = true) } }
+            content.likes?.let { item { DetailValue(R.string.likes, it.toString(), forceLtr = true) } }
+            content.trendingScore?.let { item { DetailValue(R.string.trending_score, it.toString(), forceLtr = true) } }
+            if (content.contentType == ContentType.ANDROID_PROJECT || content.contentType == ContentType.MODEL) {
+                item { DetailValue(R.string.license, content.license ?: stringResource(R.string.license_unknown), forceLtr = true) }
+            }
+            content.sdk?.let { item { DetailValue(R.string.sdk, it, forceLtr = true) } }
+            content.tags.takeIf { it.isNotEmpty() }?.let { tags -> item { DetailValue(R.string.tags, tags.joinToString("، ")) } }
+            content.author?.let { item { DetailValue(R.string.author, it, forceLtr = true) } }
+            content.contributor?.let { item { DetailValue(R.string.contributor, it) } }
             item { DetailValue(R.string.free_status, stringResource(content.freeStatus.stringResource())) }
             item { DetailValue(R.string.verification, stringResource(content.verificationLevel.stringResource())) }
             item { DetailValue(R.string.source, content.source?.name ?: stringResource(R.string.source_not_available), forceLtr = content.source != null) }
@@ -378,6 +409,17 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
                     }
                 }
             }
+            if (content.contentType == ContentType.PROMPT && !content.originalDescription.isNullOrBlank()) {
+                item {
+                    val clipboard = LocalClipboardManager.current
+                    OutlinedButton(onClick = {
+                        clipboard.setText(AnnotatedString(content.originalDescription.orEmpty()))
+                        Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text(stringResource(R.string.copy_prompt))
+                    }
+                }
+            }
         }
     }
 }
@@ -392,10 +434,39 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            val safeThumbnail = item.thumbnailUrl?.takeIf { Uri.parse(it).scheme == "https" }
+            if (safeThumbnail != null) {
+                AsyncImage(
+                    model = safeThumbnail,
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(item.emoji ?: item.title.firstOrNull()?.toString().orEmpty(), style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+            Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 item.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                Text(stringResource(item.freeStatus.stringResource()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    listOfNotNull(item.source?.name, stringResource(item.contentType.stringResource()), item.freeStatus.takeIf { it != FreeStatus.UNKNOWN }?.let { stringResource(it.stringResource()) }).joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                (item.publishedAt ?: item.sourceUpdatedAt)?.let { timestamp ->
+                    Text(formatDate(timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             IconButton(onClick = { viewModel.setFavorite(item.id, !isFavorite) }) {
                 Icon(if (isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkAdd, contentDescription = stringResource(if (isFavorite) R.string.remove_favorite else R.string.save_favorite))
@@ -403,6 +474,9 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
         }
     }
 }
+
+private fun formatDate(timestamp: Long): String =
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale("ar")).format(Date(timestamp))
 
 @Composable
 private fun EmptyState(title: Int, message: Int) {

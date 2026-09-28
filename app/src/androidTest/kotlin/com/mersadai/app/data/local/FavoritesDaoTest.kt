@@ -40,6 +40,28 @@ class FavoritesDaoTest {
         }
     }
 
+    @Test
+    fun localSearchFindsSourceTagsAndCategory() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = Room.inMemoryDatabaseBuilder(context, MersadDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val dao = database.contentDao()
+            dao.upsertRemoteContent(
+                item("model").copy(tags = "text-generation\nlicense:apache-2.0"),
+                SourceEntity("hf-models", "Hugging Face", "hub", "https://huggingface.co", "https://huggingface.co/api/models"),
+                CategoryEntity("models", "Models", null),
+            )
+
+            assertEquals("model", dao.searchItems("apache-2.0").first().single().item.id)
+            assertEquals("model", dao.searchItems("Hugging Face").first().single().item.id)
+            assertEquals("model", dao.searchItems("Models").first().single().item.id)
+        } finally {
+            database.close()
+        }
+    }
+
     private fun item(id: String) = ItemEntity(
         id = id,
         title = id,

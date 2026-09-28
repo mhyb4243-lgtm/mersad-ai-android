@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ContentDao {
     @Transaction
-    @Query("SELECT * FROM items ORDER BY createdAt DESC")
+    @Query("SELECT * FROM items ORDER BY COALESCE(publishedAt, sourceUpdatedAt, createdAt) DESC")
     fun observeItems(): Flow<List<ItemWithMetadata>>
 
     @Transaction
@@ -23,7 +23,7 @@ interface ContentDao {
     fun observeItem(id: String): Flow<ItemWithMetadata?>
 
     @Transaction
-    @Query("SELECT * FROM items WHERE :query = '' OR title LIKE '%' || :query || '%' OR originalTitle LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR originalDescription LIKE '%' || :query || '%' ORDER BY createdAt DESC")
+    @Query("SELECT * FROM items WHERE :query = '' OR title LIKE '%' || :query || '%' OR originalTitle LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR originalDescription LIKE '%' || :query || '%' OR EXISTS (SELECT 1 FROM sources INNER JOIN item_sources ON sources.id = item_sources.sourceId WHERE item_sources.itemId = items.id AND sources.name LIKE '%' || :query || '%') OR tags LIKE '%' || :query || '%' OR id IN (SELECT item_categories.itemId FROM item_categories INNER JOIN categories ON categories.id = item_categories.categoryId WHERE categories.name LIKE '%' || :query || '%') ORDER BY COALESCE(publishedAt, sourceUpdatedAt, createdAt) DESC")
     fun searchItems(query: String): Flow<List<ItemWithMetadata>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE itemId = :id)")
@@ -43,6 +43,17 @@ interface ContentDao {
 
     @Upsert
     suspend fun upsertCategory(category: CategoryEntity)
+
+    @Transaction
+    suspend fun upsertRemoteContent(item: ItemEntity, source: SourceEntity, category: CategoryEntity?) {
+        upsertSource(source)
+        upsertItem(item)
+        upsertItemSource(ItemSourceEntity(item.id, source.id))
+        if (category != null) {
+            upsertCategory(category)
+            upsertItemCategory(ItemCategoryEntity(item.id, category.id))
+        }
+    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertItemSource(relation: ItemSourceEntity)
@@ -75,6 +86,12 @@ interface ContentDao {
 
     @Query("SELECT * FROM sync_state WHERE id = :id LIMIT 1")
     fun observeSyncState(id: String): Flow<SyncStateEntity?>
+
+    @Query("SELECT * FROM sync_state")
+    fun observeSyncStates(): Flow<List<SyncStateEntity>>
+
+    @Query("SELECT * FROM sync_state WHERE id = :id LIMIT 1")
+    suspend fun getSyncState(id: String): SyncStateEntity?
 
     companion object {
         const val EXTERNAL_SYNC_ID = "external_sources"

@@ -10,7 +10,7 @@
 | Android Developers RSS | `https://android-developers.googleblog.com/feeds/posts/default?alt=rss`، عنوان ورابط ووصف وتاريخ وGUID وتصنيفات فقط. | 6 ساعات | HTTP 200، `application/rss+xml; charset=UTF-8`، 486,737 bytes؛ RSS/XML. |
 | Google Developers RSS | `https://developers.googleblog.com/feeds/posts/default?alt=rss`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `application/rss+xml; charset=utf-8`، 18,985 bytes؛ RSS 2.0. |
 | OpenAI News RSS | `https://openai.com/news/rss.xml`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `text/xml; charset=utf-8`، 750,532 bytes؛ RSS 2.0 مع namespaces وCDATA. |
-| prompts.chat | `GET https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100`. تُستخدم `row_idx` وحقول `act`, `prompt`, `for_devs`, `type`, `contributor` و`num_rows_total`. رابط العنصر هو صفحة المصدر العامة، لا رابطًا مخترعًا لكل صف. | 24 ساعة | HTTP 200، `application/json`، 3,687 bytes لعينة 5؛ الجذر `features`, `num_rows_per_page`, `num_rows_total`, `partial`, `rows`. ظهر داخل `row` الحقول الخمسة المذكورة. |
+| prompts.chat | `GET https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100`. تُستخدم `row_idx` وحقول `act`, `prompt`, `for_devs`, `type`, `contributor` و`num_rows_total`. يحتفظ العنصر بترخيص بيانات المجموعة CC0-1.0 ورابط prompts.chat العام؛ لا يُخترع رابط فردي لكل صف ولا يثبت الترخيص أن خدمة ما مجانية. | 24 ساعة | HTTP 200، `application/json`، 3,687 bytes لعينة 5؛ الجذر `features`, `num_rows_per_page`, `num_rows_total`, `partial`, `rows`. ظهر داخل `row` الحقول الخمسة المذكورة. |
 
 ## المزامنة والتعامل مع الأخطاء
 

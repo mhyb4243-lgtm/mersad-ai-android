@@ -167,6 +167,7 @@ object SourceParsers {
                 createdAt = now,
                 updatedAt = now,
                 tags = listOfNotNull(record.string("type")),
+                license = "CC0-1.0",
                 author = record.string("contributor"),
                 promptForDevelopers = record.boolean("for_devs"),
                 promptType = record.string("type"),

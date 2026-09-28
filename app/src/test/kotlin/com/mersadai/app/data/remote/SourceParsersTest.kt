@@ -71,6 +71,7 @@ class SourceParsersTest {
         assertEquals("Write a short note.", item.originalDescription)
         assertEquals("https://prompts.chat/", item.url)
         assertEquals("contributor", item.contributor)
+        assertEquals("CC0-1.0", item.license)
         assertEquals(VerificationLevel.COMMUNITY_SOURCE, item.verificationLevel)
         assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
     }
@@ -86,7 +87,7 @@ class SourceParsersTest {
     private companion object {
         const val GITHUB_FIXTURE = """{"total_count":1,"incomplete_results":false,"items":[{"id":42,"name":"android-app","full_name":"octo/android-app","description":null,"html_url":"https://github.com/octo/android-app","owner":{"login":"octo","avatar_url":"https://avatars.githubusercontent.com/u/42"},"language":"Kotlin","stargazers_count":17,"forks_count":2,"open_issues_count":1,"license":{"spdx_id":"NOASSERTION"},"topics":["android"],"created_at":"2024-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","pushed_at":"2025-01-02T00:00:00Z","archived":false,"fork":false}]}"""
         const val MODEL_FIXTURE = """[{"id":"org/model","author":"org","createdAt":"2024-01-01T00:00:00Z","lastModified":"2025-01-01T00:00:00Z","downloads":100,"likes":5,"trendingScore":2.5,"pipeline_tag":"text-generation","library_name":"transformers","tags":["license:apache-2.0"],"gated":false,"private":false}]"""
-        const val SPACE_FIXTURE = """[{"id":"org/demo","author":"org","lastModified":"2025-01-01T00:00:00Z","likes":9,"trendingScore":3.5,"sdk":"gradio","tags":["chat"],"createdAt":"2024-01-01T00:00:00Z"}]"""
+        const val SPACE_FIXTURE = """[{"id":"org/demo","author":"org","lastModified":"2025-01-01T00:00:00Z","likes":9,"trendingScore":3.5,"sdk":"gradio","tags":["chat"],"cardData":{"title":"Demo"},"createdAt":"2024-01-01T00:00:00Z"}]"""
         const val RSS_FIXTURE = """<?xml version="1.0"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><item><title><![CDATA[A & B]]></title><link>https://openai.com/news/example</link><description><![CDATA[<p>Useful <b>update</b></p>]]></description><pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate><guid>post-1</guid><category>AI</category><dc:creator>OpenAI</dc:creator></item></channel></rss>"""
         const val PROMPTS_FIXTURE = """{"num_rows_total":1,"rows":[{"row_idx":7,"row":{"act":"Writing helper","prompt":"Write a short note.","for_devs":false,"type":"writing","contributor":"contributor"}}]}"""
     }

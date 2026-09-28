@@ -26,9 +26,11 @@ class FavoritesDaoTest {
             val dao = database.contentDao()
             dao.upsertItems(listOf(item("saved"), item("temporary")))
             dao.setFavorite("saved", true, 10L)
+            dao.upsertItem(item("saved").copy(title = "updated"))
             dao.deleteUnfavoritedItems()
 
             assertEquals(listOf("saved"), dao.observeFavorites().first().map { it.item.id })
+            assertEquals("updated", dao.observeFavorites().first().single().item.title)
             assertTrue(dao.isFavorite("saved"))
 
             dao.setFavorite("saved", false, 20L)

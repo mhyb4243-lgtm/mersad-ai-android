@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
@@ -32,16 +33,16 @@ interface ContentDao {
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE itemId = :id)")
     suspend fun isFavorite(id: String): Boolean
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertItem(item: ItemEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertItems(items: List<ItemEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertSource(source: SourceEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertCategory(category: CategoryEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

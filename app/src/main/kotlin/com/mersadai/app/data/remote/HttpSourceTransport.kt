@@ -13,7 +13,7 @@ data class SourceHttpResponse(
 }
 
 fun interface SourceHttpTransport {
-    suspend fun get(url: String, headers: Map<String, String> = emptyMap()): SourceHttpResponse
+    suspend fun get(url: String, headers: Map<String, String>): SourceHttpResponse
 }
 
 class OkHttpSourceTransport : SourceHttpTransport {

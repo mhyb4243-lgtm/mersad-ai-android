@@ -184,7 +184,7 @@ object SourceParsers {
             else -> Category("developer-tools", "Developer Tools")
         }
         return entries.mapNotNull { entry ->
-            val title = entry.childText("title")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val title = entry.childText("title")?.shortText(240) ?: return@mapNotNull null
             val links = entry.getElementsByTag("link")
             val linkElement = links.firstOrNull { it.attr("rel").isBlank() || it.attr("rel").equals("alternate", true) }
                 ?: links.firstOrNull()
@@ -202,7 +202,7 @@ object SourceParsers {
             ContentItem(
                 id = "$sourceId:$stableId",
                 externalId = "$sourceId:$stableId",
-                title = title.shortText(240),
+                title = title,
                 originalTitle = title,
                 description = description,
                 originalDescription = description,

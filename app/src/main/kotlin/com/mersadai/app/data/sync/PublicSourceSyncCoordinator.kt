@@ -202,8 +202,9 @@ class PublicSourceSyncCoordinator(
         metadata: FetchOutcome,
     ): FetchOutcome {
         val reset = metadata.rateLimitResetAt
-        val retryAfter = response.header("Retry-After").toLongOrNull()?.let { now() + it * 1000 }
-            ?: response.header("Retry-After")?.httpDateMillis()
+        val retryAfterHeader = response.header("Retry-After")
+        val retryAfter = retryAfterHeader?.toLongOrNull()?.let { now() + it * 1000 }
+            ?: retryAfterHeader?.httpDateMillis()
         val isRateLimited = response.statusCode == 429 || metadata.rateLimitRemaining == 0L || retryAfter != null
         val allowedAt = retryAfter ?: reset ?: (now() + RATE_LIMIT_COOLDOWN)
         return metadata.copy(

@@ -53,6 +53,7 @@ fun ContentItem.toEntity(): ItemEntity = ItemEntity(
     pushedAt = pushedAt,
     gated = gated,
     isPrivate = isPrivate,
+    libraryName = libraryName,
 )
 
 fun com.mersadai.app.domain.model.Source.toEntity(): SourceEntity = SourceEntity(
@@ -107,6 +108,7 @@ fun ItemWithMetadata.toDomain(): ContentItem = ContentItem(
     pushedAt = item.pushedAt,
     gated = item.gated,
     isPrivate = item.isPrivate,
+    libraryName = item.libraryName,
 )
 
 fun SyncStateEntity.toDomain(): SyncRecord = SyncRecord(

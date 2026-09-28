@@ -45,6 +45,7 @@ data class ItemEntity(
     val pushedAt: Long? = null,
     val gated: Boolean? = null,
     val isPrivate: Boolean? = null,
+    val libraryName: String? = null,
 )
 
 @Entity(tableName = "sources")
@@ -119,6 +120,7 @@ data class SyncStateEntity(
     val rateLimitResetAt: Long? = null,
     val nextAllowedSyncAt: Long? = null,
     val isSyncing: Boolean = false,
+    val remoteTotalCount: Long? = null,
 )
 
 @Entity(

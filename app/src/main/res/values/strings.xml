@@ -49,6 +49,7 @@
     <string name="open_issues">المشكلات المفتوحة</string>
     <string name="pipeline">مهمة النموذج</string>
     <string name="pipeline_category">نوع النموذج</string>
+    <string name="model_library">مكتبة النموذج</string>
     <string name="downloads">التنزيلات</string>
     <string name="likes">الإعجابات</string>
     <string name="trending_score">مؤشر الانتشار</string>

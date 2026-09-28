@@ -103,6 +103,7 @@ object SourceParsers {
                 author = model.string("author") ?: id.substringBefore('/'),
                 gated = model.boolean("gated"),
                 isPrivate = model.boolean("private"),
+                libraryName = model.string("library_name"),
             )
         }
     }
@@ -175,6 +176,10 @@ object SourceParsers {
             )
         }
     }
+
+    fun promptsChatTotalCount(body: String): Long? = runCatching {
+        JsonParser.parseString(body).asObjectOrNull()?.long("num_rows_total")
+    }.getOrNull()
 
     fun rssFeed(body: String, sourceId: String, sourceName: String, feedUrl: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
         val document = Jsoup.parse(body, "", Parser.xmlParser())

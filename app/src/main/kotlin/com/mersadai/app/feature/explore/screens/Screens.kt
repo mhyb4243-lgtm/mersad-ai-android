@@ -354,6 +354,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
             content.openIssuesCount?.let { item { DetailValue(R.string.open_issues, it.toString(), forceLtr = true) } }
             content.pipelineTag?.let { item { DetailValue(R.string.pipeline, it, forceLtr = true) } }
             content.pipelineCategory?.let { item { DetailValue(R.string.pipeline_category, it) } }
+            content.libraryName?.let { item { DetailValue(R.string.model_library, it, forceLtr = true) } }
             content.downloads?.let { item { DetailValue(R.string.downloads, it.toString(), forceLtr = true) } }
             content.likes?.let { item { DetailValue(R.string.likes, it.toString(), forceLtr = true) } }
             content.trendingScore?.let { item { DetailValue(R.string.trending_score, it.toString(), forceLtr = true) } }

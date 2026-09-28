@@ -61,6 +61,7 @@ class PublicSourceSyncCoordinatorTest {
         assertTrue(githubCalls.all { it.second["User-Agent"]?.contains("MersadAI-Android") == true })
         assertEquals(3, store.items.count { it.externalId?.startsWith("github:") == true })
         assertTrue(store.items.all { it.freeStatus == "UNKNOWN" })
+        assertEquals(0L, store.states.getValue("prompts-chat").remoteTotalCount)
     }
 
     @Test

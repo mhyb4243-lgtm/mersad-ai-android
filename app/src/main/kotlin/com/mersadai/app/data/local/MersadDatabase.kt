@@ -35,13 +35,14 @@ abstract class MersadDatabase : RoomDatabase() {
                     "emoji TEXT", "publishedAt INTEGER", "author TEXT", "promptForDevelopers INTEGER",
                     "promptType TEXT", "contributor TEXT", "archived INTEGER", "isFork INTEGER",
                     "sourceUpdatedAt INTEGER",
-                    "pushedAt INTEGER", "gated INTEGER", "isPrivate INTEGER",
+                    "pushedAt INTEGER", "gated INTEGER", "isPrivate INTEGER", "libraryName TEXT",
                 ).forEach { column -> database.execSQL("ALTER TABLE items ADD COLUMN $column") }
                 listOf(
                     "lastAttemptAt INTEGER", "lastSuccessAt INTEGER", "lastHttpStatus INTEGER",
                     "lastError TEXT", "etag TEXT", "lastModifiedHeader TEXT", "rateLimitRemaining INTEGER",
                     "rateLimitResetAt INTEGER", "nextAllowedSyncAt INTEGER",
                     "isSyncing INTEGER NOT NULL DEFAULT 0",
+                    "remoteTotalCount INTEGER",
                 ).forEach { column -> database.execSQL("ALTER TABLE sync_state ADD COLUMN $column") }
             }
         }

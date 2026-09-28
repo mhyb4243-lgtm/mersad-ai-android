@@ -18,6 +18,7 @@ class SourceParsersTest {
         assertEquals("https://github.com/octo/android-app", item.url)
         assertEquals("Kotlin", item.language)
         assertEquals(17L, item.starsCount)
+        assertTrue((item.pushedAt ?: 0L) > 10L)
         assertEquals("octo", item.author)
         assertNull(item.description)
         assertNull(item.license)
@@ -33,6 +34,10 @@ class SourceParsersTest {
         assertEquals(ContentType.MODEL, item.contentType)
         assertEquals("Text", item.pipelineCategory)
         assertEquals("apache-2.0", item.license)
+        assertEquals("transformers", item.libraryName)
+        assertEquals(false, item.gated)
+        assertEquals(false, item.isPrivate)
+        assertEquals("transformers", item.libraryName)
         assertNull(item.description)
         assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
     }
@@ -72,6 +77,7 @@ class SourceParsersTest {
         assertEquals("https://prompts.chat/", item.url)
         assertEquals("contributor", item.contributor)
         assertEquals("CC0-1.0", item.license)
+        assertEquals(1L, SourceParsers.promptsChatTotalCount(PROMPTS_FIXTURE))
         assertEquals(VerificationLevel.COMMUNITY_SOURCE, item.verificationLevel)
         assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
     }

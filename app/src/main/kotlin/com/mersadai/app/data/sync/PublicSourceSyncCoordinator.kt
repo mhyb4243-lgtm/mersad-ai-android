@@ -90,6 +90,7 @@ class PublicSourceSyncCoordinator(
                     rateLimitResetAt = outcome.rateLimitResetAt,
                     nextAllowedSyncAt = outcome.nextAllowedSyncAt,
                     isSyncing = false,
+                    remoteTotalCount = outcome.remoteTotalCount ?: previous?.remoteTotalCount,
                 ),
             )
         }
@@ -104,7 +105,12 @@ class PublicSourceSyncCoordinator(
             fetchSingle(source, previous, source.endpoint) { body ->
                 SourceParsers.rssFeed(body, source.id, source.name, source.endpoint)
             }
-        "prompts-chat" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.promptsChat(it) }
+        "prompts-chat" -> fetchSingle(
+            source,
+            previous,
+            source.endpoint,
+            totalCount = SourceParsers::promptsChatTotalCount,
+        ) { SourceParsers.promptsChat(it) }
         else -> FetchOutcome(error = "مصدر غير معروف.")
     }
 
@@ -112,6 +118,7 @@ class PublicSourceSyncCoordinator(
         source: SourceDefinition,
         previous: SyncStateEntity?,
         url: String,
+        totalCount: ((String) -> Long?)? = null,
         parser: (String) -> List<ContentItem>,
     ): FetchOutcome {
         val headers = conditionalHeaders(previous)
@@ -129,7 +136,7 @@ class PublicSourceSyncCoordinator(
             )
         }
         return try {
-            headerData.copy(items = parser(response.body))
+            headerData.copy(items = parser(response.body), remoteTotalCount = totalCount?.invoke(response.body))
         } catch (_: Exception) {
             headerData.copy(error = "تغير تنسيق بيانات ${source.name}؛ احتُفظ بالنسخة المخزنة.")
         }
@@ -256,6 +263,7 @@ class PublicSourceSyncCoordinator(
         val rateLimitResetAt: Long? = null,
         val nextAllowedSyncAt: Long? = null,
         val notModified: Boolean = false,
+        val remoteTotalCount: Long? = null,
     )
 
     private companion object {

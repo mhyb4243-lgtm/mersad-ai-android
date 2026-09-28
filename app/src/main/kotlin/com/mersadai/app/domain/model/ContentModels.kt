@@ -61,6 +61,7 @@ data class ContentItem(
     val pushedAt: Long? = null,
     val gated: Boolean? = null,
     val isPrivate: Boolean? = null,
+    val libraryName: String? = null,
 )
 
 data class SyncRecord(

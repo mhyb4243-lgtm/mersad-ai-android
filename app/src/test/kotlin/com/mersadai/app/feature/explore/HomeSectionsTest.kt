@@ -21,6 +21,7 @@ class HomeSectionsTest {
                 item("model", ContentType.MODEL, "hf-models", sourceUpdatedAt = now),
                 item("prompt", ContentType.PROMPT, "prompts-chat"),
                 item("image-prompt", ContentType.PROMPT, "image-prompts"),
+                item("character-prompt", ContentType.PROMPT, "video-prompts").copy(category = Category("character-prompts", "تحويل الشخصيات والعوالم")),
                 item("news", ContentType.NEWS, "openai-news", publishedAt = now),
                 item("dev-news", ContentType.NEWS, "google-developers", publishedAt = now),
             ),
@@ -28,7 +29,8 @@ class HomeSectionsTest {
 
         assertEquals(
             setOf(HomeSection.LATEST, HomeSection.AI_TOOLS, HomeSection.ANDROID_PROJECTS, HomeSection.MODELS,
-                HomeSection.PROMPTS, HomeSection.IMAGE_PROMPTS, HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
+                HomeSection.PROMPTS, HomeSection.IMAGE_PROMPTS, HomeSection.CHARACTER_PROMPTS,
+                HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
             sections.map(HomeSectionContent::section).toSet(),
         )
         assertTrue(sections.all { it.items.isNotEmpty() })
@@ -65,13 +67,19 @@ class HomeSectionsTest {
     }
 
     @Test
-    fun promptSubcategoriesAreIndependentAndExcludeAbstractContent() {
+    fun promptSubcategoriesKeepCreativeStylesAndExcludeOnlyEmptyAbstractBackgrounds() {
         val reels = item("reel-1", ContentType.PROMPT, "curated-prompts").copy(category = Category("reels-prompts", "ريلز"))
+        val character = item("avatar-1", ContentType.PROMPT, "curated-prompts").copy(
+            title = "Surreal cyberpunk character transformation",
+            category = Category("character-prompts", "تحويل الشخصيات والعوالم"),
+        )
         val photorealistic = item("photo-1", ContentType.PROMPT, "curated-prompts").copy(category = Category("photorealistic-prompts", "صور واقعية"))
-        val excluded = reels.copy(id = "abstract-1", originalDescription = "Surreal abstract dreamlike art")
+        val excluded = reels.copy(id = "abstract-1", originalDescription = "Abstract shapes background, no subject")
 
         assertTrue(reels.belongsToHomeSection(HomeSection.REELS_PROMPTS))
         assertFalse(reels.belongsToHomeSection(HomeSection.PHOTOREALISTIC_PROMPTS))
+        assertTrue(character.belongsToHomeSection(HomeSection.CHARACTER_PROMPTS))
+        assertFalse(character.hasExcludedPromptStyle())
         assertTrue(photorealistic.belongsToHomeSection(HomeSection.PHOTOREALISTIC_PROMPTS))
         assertFalse(excluded.belongsToHomeSection(HomeSection.REELS_PROMPTS))
     }

@@ -742,6 +742,7 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.PROMPTS -> R.string.section_prompts
     HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
     HomeSection.REELS_PROMPTS -> R.string.section_reels_prompts
+    HomeSection.CHARACTER_PROMPTS -> R.string.section_character_prompts
     HomeSection.PHOTOREALISTIC_PROMPTS -> R.string.section_photorealistic_prompts
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
@@ -754,6 +755,7 @@ private fun Category.displayName(): String = when (id) {
     "models" -> stringResource(R.string.section_models)
     "prompts" -> stringResource(R.string.section_prompts)
     "reels-prompts" -> stringResource(R.string.section_reels_prompts)
+    "character-prompts" -> stringResource(R.string.section_character_prompts)
     "photorealistic-prompts" -> stringResource(R.string.section_photorealistic_prompts)
     "ai-news" -> stringResource(R.string.section_ai_news)
     "android-news" -> stringResource(R.string.category_android_news)

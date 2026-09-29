@@ -151,7 +151,36 @@ class PublicSourceSyncCoordinator(
             totalCount = SourceParsers::promptsChatTotalCount,
         ) { SourceParsers.promptsChat(it) }
         "image-prompts" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.imageGenerationPrompts(it) }
+        "video-prompts" -> fetchLatestVideoPrompts(source, previous)
         else -> FetchOutcome(error = "مصدر غير معروف.")
+    }
+
+    private suspend fun fetchLatestVideoPrompts(
+        source: SourceDefinition,
+        previous: SyncStateEntity?,
+    ): FetchOutcome {
+        val countResponse = transport.get("${source.endpoint}&offset=0&length=1", emptyMap())
+        val countMetadata = responseMetadata(countResponse)
+        if (countResponse.statusCode == 403 || countResponse.statusCode == 429) {
+            return rateLimited(source, countResponse, previous, countMetadata)
+        }
+        if (countResponse.statusCode !in 200..299) {
+            return countMetadata.copy(
+                error = "تعذر تحديث ${source.name} (HTTP ${countResponse.statusCode}).",
+                transient = countResponse.statusCode >= 500,
+                nextAllowedSyncAt = if (countResponse.statusCode >= 500) null else now() + FAILURE_COOLDOWN,
+            )
+        }
+        val totalCount = SourceParsers.videoGenerationPromptsTotalCount(countResponse.body)
+            ?: return countMetadata.copy(error = "تغير تنسيق بيانات ${source.name}؛ احتُفظ بالنسخة المخزنة.")
+        val offset = (totalCount - VIDEO_PROMPT_PAGE_SIZE).coerceAtLeast(0)
+        return fetchSingle(
+            source,
+            previous,
+            "${source.endpoint}&offset=$offset&length=$VIDEO_PROMPT_PAGE_SIZE",
+            totalCount = { body -> SourceParsers.videoGenerationPromptsTotalCount(body) ?: totalCount },
+            parser = SourceParsers::videoGenerationPrompts,
+        )
     }
 
     private suspend fun fetchSingle(
@@ -311,6 +340,7 @@ class PublicSourceSyncCoordinator(
         const val RATE_LIMIT_COOLDOWN = HOUR
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
+        const val VIDEO_PROMPT_PAGE_SIZE = 100L
         val githubQueries = listOf("android language:Kotlin", "android \"Jetpack Compose\"", "android AI")
         val sources = listOf(
             SourceDefinition("github", "GitHub", "https://api.github.com/search/repositories", 6 * HOUR),
@@ -321,6 +351,7 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("openai-news", "OpenAI News", "https://openai.com/news/rss.xml", 6 * HOUR),
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
             SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
+            SourceDefinition("video-prompts", "AI Video Prompt Book 2026", "https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train", 6 * HOUR),
         )
     }
 }

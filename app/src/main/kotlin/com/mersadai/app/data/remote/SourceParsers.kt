@@ -221,6 +221,66 @@ object SourceParsers {
         }
     }
 
+    fun videoGenerationPrompts(body: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
+        val root = JsonParser.parseString(body).asObjectOrNull()
+            ?: throw SourceSchemaException("Video prompt dataset response is not an object")
+        val rows = root.array("rows") ?: throw SourceSchemaException("Video prompt dataset response has no rows array")
+        return rows.mapNotNull { element ->
+            val rowElement = element.asObjectOrNull() ?: return@mapNotNull null
+            val row = rowElement.obj("row") ?: rowElement
+            val prompt = row.string("prompt")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val id = rowElement.long("row_idx") ?: row.long("id") ?: return@mapNotNull null
+            val group = row.string("group")?.takeIf(String::isNotBlank)
+            val categoryText = listOfNotNull(row.string("category"), group, prompt).joinToString(" ").lowercase()
+            val isCharacterPrompt = listOf("character", "avatar", "transform", "anime", "cyberpunk", "historical")
+                .any(categoryText::contains)
+            val categoryId = if (isCharacterPrompt) "character-prompts" else "reels-prompts"
+            val categoryName = if (isCharacterPrompt) "🧬 تحويل الشخصيات والعوالم" else "🎬 برومبتات ريلز وفيديو سينمائي"
+            val title = if (isCharacterPrompt) "فكرة تحول شخصية #${id + 1}" else "فكرة فيديو رائجة #${id + 1}"
+            val tags = buildList {
+                add("ai-video")
+                add("video-generation")
+                add("viral-trend")
+                add("reels")
+                add("Veo")
+                add("Sora")
+                add("Kling")
+                if ("runway" in categoryText) add("Runway")
+                if ("luma" in categoryText) add("Luma")
+                if ("9:16" in categoryText || "vertical" in categoryText) add("9:16")
+            }
+            ContentItem(
+                id = "video-prompts:$id",
+                externalId = "video-prompts:$id",
+                title = title,
+                originalTitle = group,
+                description = "${if (isCharacterPrompt) "فكرة لتحويل الشخصيات والعوالم" else "فكرة فيديو قصيرة قابلة للتطوير"} من مجموعة ${group ?: "AI Video Prompt Book 2026"}.",
+                originalDescription = prompt,
+                url = "https://huggingface.co/datasets/hrrcne/ai-video-prompt-book-2026",
+                contentType = ContentType.PROMPT,
+                category = Category(categoryId, categoryName),
+                freeStatus = FreeStatus.UNKNOWN,
+                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+                source = Source(
+                    "video-prompts",
+                    "AI Video Prompt Book 2026",
+                    "hrrcne/ai-video-prompt-book-2026",
+                    "https://huggingface.co/datasets/hrrcne/ai-video-prompt-book-2026",
+                    "https://datasets-server.huggingface.co/rows",
+                ),
+                createdAt = now,
+                updatedAt = now,
+                tags = tags,
+                license = "cc-by-4.0",
+                promptType = "text-to-video",
+            )
+        }
+    }
+
+    fun videoGenerationPromptsTotalCount(body: String): Long? = runCatching {
+        JsonParser.parseString(body).asObjectOrNull()?.long("num_rows_total")
+    }.getOrNull()
+
     fun rssFeed(body: String, sourceId: String, sourceName: String, feedUrl: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
         val document = Jsoup.parse(body, "", Parser.xmlParser())
         val entries = document.getElementsByTag("item").ifEmpty { document.getElementsByTag("entry") }

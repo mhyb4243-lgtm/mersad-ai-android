@@ -13,9 +13,11 @@ object SeedContentProvider {
         addAll(androidReadyAiCatalog(now))
         addAll(imagePrompts(now))
         addAll(creatorPrompts(now))
+        addAll(creativeTrendPrompts(now))
     }
 
-    fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> = creatorPrompts(now)
+    fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
+        creatorPrompts(now) + creativeTrendPrompts(now)
 
     private fun androidReadyAiCatalog(now: Long): List<ContentItem> = listOf(
         ContentItem(
@@ -309,6 +311,51 @@ object SeedContentProvider {
             "Extend the supplied coastal architecture photograph into a seamless photorealistic matte painting. Continue the existing shoreline, distant headland, cloud direction, haze, and horizon height with geographically plausible terrain. Match the source camera perspective, 35mm full-frame lens character, late-afternoon sun angle, atmospheric perspective, shadow softness, and sensor grain. Keep the original building untouched and readable; integrate all new edges naturally, no fantasy structures, no text, no watermark.",
             "photorealistic-prompts", "🎨 دمج وتصميم فوتوغرافي واقعي", "matte-painting", now - 5 * DAY,
             listOf("Flux", "Midjourney", "photorealistic", "matte-painting", "35mm", "compositing"),
+        ),
+    )
+
+    private fun creativeTrendPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-character-prompt-01", "شخصية واحدة عبر عصور الأزياء",
+            "حوّل صورة المستخدم إلى مشاهد أزياء تاريخية متعددة مع الحفاظ على الهوية والملامح؛ استبدل [CHARACTER AND ERA] بوصف الشخصية والعصر.",
+            "Use the uploaded user photo as the identity reference. Replace [CHARACTER AND ERA] with your character description and chosen era. Create a vertical 9:16 transformation sequence showing the same person in historically grounded royal attire across three eras. Preserve facial identity, age, skin tone, and recognizable features in every frame; change only wardrobe, hair styling, and set dressing. Smooth match-cut transitions, cinematic portrait lighting, detailed fabric, no text, no logos.",
+            "character-prompts", "🧬 تحويل الشخصيات والعوالم", "character-transformation", now - 1 * DAY,
+            listOf("avatar", "character-transformation", "historical-fashion", "identity-reference", "9:16", "Veo", "Kling", "Sora"),
+        ),
+        creatorPrompt(
+            "seed-character-prompt-02", "أفاتار أنمي واقعي في مدينة سايبربانك",
+            "أنشئ أفاتاراً سينمائياً من صورة المستخدم بأسلوب أنمي واقعي؛ استبدل [USER PHOTO] و[WORLD STYLE] بما يناسبك.",
+            "Use [USER PHOTO] as the identity reference and replace [WORLD STYLE] with your chosen fictional world. Reimagine the same person as a cinematic realistic-anime protagonist in a rain-soaked cyberpunk Tokyo-inspired street at night. Preserve recognizable facial structure and expression while adapting clothing and environment to the selected world. Slow camera orbit, practical neon reflections, expressive but natural eyes, detailed 3D-rendered materials, restrained film grain, vertical 9:16, no text, no watermark.",
+            "character-prompts", "🧬 تحويل الشخصيات والعوالم", "avatar-transformation", now - 2 * DAY,
+            listOf("avatar", "anime", "cyberpunk", "character-transformation", "3D", "9:16", "Flux", "Midjourney"),
+        ),
+        creatorPrompt(
+            "seed-viral-prompt-01", "انتقال ريلز من المكتب إلى عالم مصغر",
+            "فكرة قصيرة بتحول مفاجئ من مشهد يومي إلى عالم مصغر داخل غرض على المكتب.",
+            "Vertical 9:16 TikTok/Reels micro-story. A creator taps a coffee mug on a cluttered desk; the camera dives through the coffee surface into a tiny cinematic city where miniature commuters cross a bridge made of cinnamon sticks. One continuous whip-zoom transition, clear readable action, playful surreal scale, warm practical desk light shifting into golden-hour miniature lighting, satisfying final reveal, 6 seconds, no captions, no logos.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "viral-video-concept", now - 1 * DAY,
+            listOf("TikTok", "viral-trend", "reels", "9:16", "surreal", "miniature", "Kling", "Veo", "Sora"),
+        ),
+        creatorPrompt(
+            "seed-viral-prompt-02", "تحريك كلمات الأغنية داخل المشهد",
+            "حرّك الكلمات كأنها جزء من المكان والإضاءة، مع ترك مساحة لمزامنتها لاحقاً مع الصوت.",
+            "Create a vertical 9:16 music-driven Reels visual with kinetic typography integrated into the physical scene. Replace [LYRIC] with one short lyric or phrase. Let each word appear as luminous lettering reflected in a rain puddle, then rise and travel along the street perspective in sync with the beat. Keep the central subject unobstructed and reserve clean safe margins for platform UI. Dynamic but legible motion, one smooth dolly shot, high-contrast night color, 5 seconds, render no extra text beyond [LYRIC], no watermark.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "kinetic-typography", now - 2 * DAY,
+            listOf("TikTok", "kinetic-typography", "text-animation", "music-video", "9:16", "Runway", "Luma"),
+        ),
+        creatorPrompt(
+            "seed-viral-prompt-03", "تحول لقطة واحدة بين أربعة عوالم",
+            "تريند انتقال سريع يحافظ على حركة الكاميرا نفسها بينما تتغير البيئة حول الشخصية.",
+            "Vertical 9:16 seamless four-world transition trend. Keep the person centered and preserve the same walking motion as the surroundings transform on each footstep: sunlit desert bazaar, misty medieval forest, glowing cyberpunk avenue, then a vivid animated world. Use the uploaded photo as identity reference; preserve face and body proportions. Match camera height, lens perspective, and step timing across worlds. Energetic 7-second edit, cinematic lighting changes, imaginative visual effects, no hard cuts, no text.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "viral-transition", now - 3 * DAY,
+            listOf("TikTok", "viral-trend", "transition", "fantasy", "cyberpunk", "anime", "9:16", "Kling", "Veo", "Sora"),
+        ),
+        creatorPrompt(
+            "seed-cinematic-prompt-01", "بوابة ضوئية تفتح على مدينة عائمة",
+            "مشهد خيالي سينمائي يتحول من غرفة واقعية إلى مدينة عائمة مع حركة كاميرا متصلة.",
+            "Vertical 9:16 cinematic visual-effects shot. A thin line of warm light opens across an ordinary apartment wall; the camera slowly pushes through the widening portal to reveal a vast floating city above the clouds at sunset. Surreal yet coherent architecture, atmospheric depth, wind moving fabric in the foreground, volumetric light rays, physically motivated exposure transition, elegant orchestral mood, detailed production design, 8 seconds, no titles or watermark.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "cinematic-vfx", now - 4 * DAY,
+            listOf("cinematic", "visual-effects", "surreal", "fantasy", "portal", "9:16", "Sora", "Runway", "Luma"),
         ),
     )
 

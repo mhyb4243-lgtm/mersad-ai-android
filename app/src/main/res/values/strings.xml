@@ -23,6 +23,7 @@
     <string name="section_prompts">برومبت / أمر توليد</string>
     <string name="section_image_prompts">أوامر صور وتصميم</string>
     <string name="section_reels_prompts">🎬 برومبتات ريلز وفيديو سينمائي</string>
+    <string name="section_character_prompts">🧬 تحويل الشخصيات والعوالم</string>
     <string name="section_photorealistic_prompts">🎨 دمج وتصميم فوتوغرافي واقعي</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>

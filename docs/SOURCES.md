@@ -1,6 +1,6 @@
 # المصادر العامة
 
-يتصل تطبيق Android مباشرة بالمصادر عبر HTTPS؛ لا يوجد Backend أو Proxy ولا Token. جرى اختبار نقاط النهاية من Terminal باستخدام `curl` في 2026-09-28. نتائج الاختبار تصف تلك اللحظة ولا تضمن التوفر المستقبلي.
+يتصل تطبيق Android مباشرة بالمصادر عبر HTTPS؛ لا يوجد Backend أو Proxy ولا Token. جرى اختبار نقاط النهاية من Terminal باستخدام `curl` في 2026-09-29. نتائج الاختبار تصف تلك اللحظة ولا تضمن التوفر المستقبلي.
 
 | المصدر | Endpoint والبيانات المستخدمة | Cache TTL | تحقق curl |
 | --- | --- | --- | --- |
@@ -11,13 +11,14 @@
 | Google Developers RSS | `https://developers.googleblog.com/feeds/posts/default?alt=rss`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `application/rss+xml; charset=utf-8`، 18,985 bytes؛ RSS 2.0. |
 | OpenAI News RSS | `https://openai.com/news/rss.xml`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `text/xml; charset=utf-8`، 750,532 bytes؛ RSS 2.0 مع namespaces وCDATA. |
 | prompts.chat | `GET https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100`. تُستخدم `row_idx` وحقول `act`, `prompt`, `for_devs`, `type`, `contributor` و`num_rows_total`. يحتفظ العنصر بترخيص بيانات المجموعة CC0-1.0 ورابط prompts.chat العام؛ لا يُخترع رابط فردي لكل صف ولا يثبت الترخيص أن خدمة ما مجانية. | 24 ساعة | HTTP 200، `application/json`، 3,687 bytes لعينة 5؛ الجذر `features`, `num_rows_per_page`, `num_rows_total`, `partial`, `rows`. ظهر داخل `row` الحقول الخمسة المذكورة. |
+| AI Video Prompt Book 2026 | `GET https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train`. يستعلم التطبيق عن `num_rows_total` أولاً، ثم يجلب أحدث صفحة (`offset=max(total-100,0)`, `length=100`). تُستخدم `row_idx`, `id`, `category`, `group`, `prompt`, و`num_rows_total`. تُصنف الصفوف آلياً إلى أفكار ريلز أو تحولات شخصيات بحسب وصف المجموعة والنص. رابط المصدر ظاهر لكل عنصر؛ رخصة المجموعة CC BY 4.0. | 6 ساعات | HTTP 200 عند الفحص؛ مجموعة عامة، 698 صفاً، split `default/train`، وآخر تعديل ظاهر 2026-09-26. أكدت عينة الصفوف الحقول المذكورة ووسوم Veo وSora وKling. |
 
 ## المزامنة والتعامل مع الأخطاء
 
 - لكل مصدر سجل مستقل في `sync_state`. Room هي مصدر الحقيقة للواجهة، وتبقى البيانات القديمة عند الفشل أو `304`.
 - التشغيل الأولي يفحص الصلاحية؛ التحديث اليدوي يتجاوز TTL. يستخدم WorkManager عملاً واحدًا فريدًا مع شرط اتصال الشبكة.
 - GitHub يرسل ثلاثة استعلامات كحد أقصى في التشغيل، بحد 20 نتيجة لكل استعلام. لا تُطلب بيانات Releases.
-- Hugging Face يطلب 20 Model و20 Space، وDataset Server يطلب 100 صف فقط.
+- Hugging Face يطلب 20 Model و20 Space، وDataset Server يطلب حتى 100 صف لكل مجموعة؛ لا تُحمّل ملفات المجموعة كاملة.
 - البحث محلي باستعلام Room محدود الحقول و`LIKE` لأن هذا الإصدار يخزن صفحات صغيرة محدودة؛ لم نضف FTS لتجنب Migration وفهرسة إضافية لهذا الحجم.
 - تُرتب Home النتائج بمجموعات حتمية من `sourceId` و`ContentType` وحقول المصدر. لا يصنف Space كأداة AI إلا بوسم مهمة/AI صريح؛ وإلا يبقى `OTHER`. لا يظهر قسم فارغ، و«جديد» يعتمد على `publishedAt` أو `pushedAt` أو `sourceUpdatedAt` الحقيقي ضمن الأيام السبعة الأخيرة؛ لا يُستخدم `createdAt` الاحتياطي لهذه الشارة.
 - تُترجم العناوين والأوصاف المؤهلة تدريجيًا عند ظهور البطاقات عبر ML Kit، بينما لا يُترجم نص Prompt إلا بطلب صريح من التفاصيل. تحفظ الترجمة محليًا في Room مع النص الأصلي واللغة المصدرية. لا تحدث ترجمة أثناء جلب المصادر، ولا تُستبدل النصوص الأصلية.
@@ -44,4 +45,5 @@
 - قد يغيب `cardData` أو وصف أو تاريخ أو رخصة؛ تبقى هذه القيم فارغة ولا يُختلق بديل.
 - RSS قد يتغير أو يتوقف، والخلاصة الكبيرة لـOpenAI تُحلل لاستخراج ملخص قصير فقط ولا تُخزن كاملة.
 - prompts.chat مجتمع المصدر؛ البيانات لا تحدد رابطًا عامًا منفصلًا لكل صف، ولا يجري ترجمة النصوص أثناء المزامنة.
+- AI Video Prompt Book مجموعة مجتمعية قابلة للتغيير؛ يوفر Hugging Face صفحة واحدة بحد أقصى 100 صف في كل مزامنة. تُحفظ العناصر في Room، ويظهر رابط المصدر وترخيص CC BY 4.0 للمستخدم.
 - اختبار `curl` تحقق من الاستجابة في التاريخ أعلاه؛ Unit Tests تستخدم fixtures محلية ولا تعتمد على الإنترنت.

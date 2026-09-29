@@ -13,8 +13,8 @@ android {
         applicationId = "com.mersadai.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.5.4"
+        versionCode = 3
+        versionName = "0.5.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

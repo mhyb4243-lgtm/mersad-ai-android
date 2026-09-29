@@ -32,7 +32,7 @@ class PublicSourceSyncCoordinatorTest {
         val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertFalse(result.hasTransientFailure)
-        assertEquals(8, store.states.size)
+        assertEquals(9, store.states.size)
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals(403, store.states.getValue("github").lastHttpStatus)
         assertEquals(now + 3_600_000, store.states.getValue("github").nextAllowedSyncAt)
@@ -65,6 +65,29 @@ class PublicSourceSyncCoordinatorTest {
     }
 
     @Test
+    fun liveVideoPromptDatasetIsSyncedAndSavedWithItsCreativeCategory() = runBlocking {
+        val store = FakeStore()
+        val calls = mutableListOf<String>()
+        val transport = SourceHttpTransport { url, _ ->
+            calls += url
+            if (url.contains("hrrcne%2Fai-video-prompt-book-2026")) {
+                response(200, body = VIDEO_PROMPTS_FIXTURE)
+            } else {
+                successFor(url)
+            }
+        }
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        val item = store.items.single { it.externalId == "video-prompts:22" }
+        assertEquals("character-prompts", itemCategory(store, item.id))
+        assertEquals("cc-by-4.0", item.license)
+        assertEquals("SUCCESS", store.states.getValue("video-prompts").state)
+        assertEquals(698L, store.states.getValue("video-prompts").remoteTotalCount)
+        assertTrue(calls.any { it.contains("offset=598&length=100") })
+    }
+
+    @Test
     fun notModifiedKeepsCachedItemsAndCountsAsSuccess() = runBlocking {
         val store = FakeStore()
         val existing = item("cached")
@@ -81,7 +104,7 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun freshCacheSkipsAllNetworkRequests() = runBlocking {
         val store = FakeStore()
-        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts")
+        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts", "video-prompts")
             .forEach { id -> store.states[id] = SyncStateEntity(id, "SUCCESS", now, now, null, lastAttemptAt = now, lastSuccessAt = now) }
         var requests = 0
         val transport = SourceHttpTransport { _, _ -> requests++; response(200) }
@@ -159,6 +182,8 @@ class PublicSourceSyncCoordinatorTest {
     private fun response(status: Int, headers: Map<String, String> = emptyMap(), body: String = "") =
         SourceHttpResponse(status, headers, body)
 
+    private fun itemCategory(store: FakeStore, itemId: String): String? = store.categories[itemId]
+
     private fun item(id: String) = ItemEntity(
         id = id,
         title = id,
@@ -180,6 +205,7 @@ class PublicSourceSyncCoordinatorTest {
     private class FakeStore : SyncStore {
         val states = mutableMapOf<String, SyncStateEntity>()
         val items = mutableListOf<ItemEntity>()
+        val categories = mutableMapOf<String, String?>()
         val notifications = mutableListOf<com.mersadai.app.data.local.NotificationHistoryEntity>()
 
         override suspend fun getState(sourceId: String): SyncStateEntity? = states[sourceId]
@@ -188,11 +214,16 @@ class PublicSourceSyncCoordinatorTest {
             val inserted = items.none { it.id == item.id || (item.externalId != null && it.externalId == item.externalId) }
             items.removeAll { it.id == item.id }
             items += item
+            categories[item.id] = category?.id
             return inserted
         }
 
         override suspend fun enqueueNotifications(entries: List<com.mersadai.app.data.local.NotificationHistoryEntity>) {
             notifications += entries
         }
+    }
+
+    private companion object {
+        const val VIDEO_PROMPTS_FIXTURE = """{"num_rows_total":698,"rows":[{"row_idx":22,"row":{"id":23,"category":"pack:character-transformation","group":"Character transformation trend","prompt":"Vertical 9:16 cyberpunk avatar transformation"}}]}"""
     }
 }

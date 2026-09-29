@@ -109,6 +109,20 @@ class SourceParsersTest {
     }
 
     @Test
+    fun parsesLiveVideoPromptsAndClassifiesCharacterTransformationTrends() {
+        val item = SourceParsers.videoGenerationPrompts(VIDEO_PROMPTS_FIXTURE, now = 10L).single()
+
+        assertEquals("video-prompts:8", item.externalId)
+        assertEquals("فكرة تحول شخصية #9", item.title)
+        assertEquals("character-prompts", item.category?.id)
+        assertEquals("Vertical 9:16 cyberpunk avatar transformation", item.originalDescription)
+        assertEquals("AI Video Prompt Book 2026", item.source?.name)
+        assertEquals("cc-by-4.0", item.license)
+        assertTrue(item.tags.containsAll(listOf("ai-video", "viral-trend", "Veo", "Sora", "Kling", "9:16")))
+        assertEquals(698L, SourceParsers.videoGenerationPromptsTotalCount(VIDEO_PROMPTS_FIXTURE))
+    }
+
+    @Test
     fun malformedRootIsRejectedButMissingOptionalFieldsAreAccepted() {
         assertTrue(SourceParsers.huggingFaceModels("[{}]").isEmpty())
         assertTrue(runCatching { SourceParsers.githubRepositories("[]") }.isFailure)
@@ -123,5 +137,6 @@ class SourceParsersTest {
         const val RSS_FIXTURE = """<?xml version="1.0"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title><![CDATA[A & B]]></title><link>https://openai.com/news/example</link><description><![CDATA[<p>Useful <b>update</b></p>]]></description><media:thumbnail url="https://openai.com/news/image.jpg"/><pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate><guid>post-1</guid><category>AI</category><dc:creator>OpenAI</dc:creator></item></channel></rss>"""
         const val PROMPTS_FIXTURE = """{"num_rows_total":1,"rows":[{"row_idx":7,"row":{"act":"Writing helper","prompt":"Write a short note.","for_devs":false,"type":"writing","contributor":"contributor"}}]}"""
         const val IMAGE_PROMPTS_FIXTURE = """{"rows":[{"row_idx":3,"row":{"Prompt":"A cinematic landscape"}}]}"""
+        const val VIDEO_PROMPTS_FIXTURE = """{"num_rows_total":698,"rows":[{"row_idx":8,"row":{"id":9,"category":"pack:character-transformation","group":"Character transformation trend","prompt":"Vertical 9:16 cyberpunk avatar transformation"}}]}"""
     }
 }

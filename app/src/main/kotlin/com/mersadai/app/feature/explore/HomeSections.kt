@@ -11,6 +11,7 @@ enum class HomeSection {
     PROMPTS,
     IMAGE_PROMPTS,
     REELS_PROMPTS,
+    CHARACTER_PROMPTS,
     PHOTOREALISTIC_PROMPTS,
     AI_NEWS,
     DEVELOPER_TOOLS,
@@ -41,6 +42,7 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.PROMPTS -> contentType == ContentType.PROMPT && source?.id == "prompts-chat" && !hasExcludedPromptStyle()
     HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts" && !hasExcludedPromptStyle()
     HomeSection.REELS_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "reels-prompts" && !hasExcludedPromptStyle()
+    HomeSection.CHARACTER_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "character-prompts" && !hasExcludedPromptStyle()
     HomeSection.PHOTOREALISTIC_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "photorealistic-prompts" && !hasExcludedPromptStyle()
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&
@@ -53,6 +55,14 @@ fun ContentItem.hasExcludedPromptStyle(): Boolean {
         .plus(tags)
         .joinToString(" ")
         .lowercase()
-    return listOf("surreal", "abstract", "dreamlike", "non-euclidean", "سريالي", "تجريدي")
+    return listOf(
+        "abstract texture only",
+        "abstract shapes background",
+        "purely abstract backdrop",
+        "non-euclidean noise",
+        "خلفية تجريدية فقط",
+        "أشكال تجريدية بلا موضوع",
+        "ملمس تجريدي فقط",
+    )
         .any(searchableText::contains)
 }

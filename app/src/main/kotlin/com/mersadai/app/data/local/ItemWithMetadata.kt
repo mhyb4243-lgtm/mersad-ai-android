@@ -1,6 +1,6 @@
 package com.mersadai.app.data.local
 
-import androidx.room.Embedded
+    val translations: List<TranslationEntity> = emptyList(),
 import androidx.room.Junction
 import androidx.room.Relation
 

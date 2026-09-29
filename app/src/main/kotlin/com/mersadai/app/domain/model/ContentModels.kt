@@ -22,6 +22,23 @@ enum class TriState { YES, NO, UNKNOWN }
 
 enum class SyncState { IDLE, SYNCING, SUCCESS, FAILURE, NOT_CONFIGURED }
 
+object FreeAiClassifier {
+    private val openSourceLicenses = setOf(
+        "apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "gpl-2.0", "gpl-3.0",
+        "lgpl-2.1", "lgpl-3.0", "mpl-2.0", "epl-1.0", "epl-2.0", "agpl-3.0", "isc",
+    )
+
+    fun hasOpenSourceLicense(license: String?): Boolean = license.orEmpty()
+        .split(Regex("[,/|]"))
+        .map { it.trim().lowercase() }
+        .any { it in openSourceLicenses }
+
+    fun classify(status: FreeStatus, license: String?): FreeStatus {
+        if (hasOpenSourceLicense(license)) return FreeStatus.OPEN_SOURCE
+        return status
+    }
+}
+
 data class Category(val id: String, val name: String, val parentId: String? = null)
 
 data class Source(
@@ -85,29 +102,21 @@ data class ContentItem(
     val displayTitleAr: String? = null,
     val displayDescriptionAr: String? = null,
 ) {
-    fun isFreeNow(): Boolean = freeStatus in setOf(
+    fun classifiedFreeStatus(): FreeStatus = FreeAiClassifier.classify(freeStatus, license)
+
+    fun isFreeNow(): Boolean = classifiedFreeStatus() in setOf(
         FreeStatus.FULLY_FREE,
         FreeStatus.FREE_TIER,
         FreeStatus.FREE_CREDIT,
         FreeStatus.TEMPORARY_OFFER,
+        FreeStatus.OPEN_SOURCE,
     ) && (endAt == null || endAt > System.currentTimeMillis())
 
     fun isOpenSource(): Boolean = openSourceStatus == OpenSourceStatus.OPEN_SOURCE ||
         openSourceStatus == OpenSourceStatus.OPEN_WEIGHT ||
-        freeStatus in setOf(FreeStatus.OPEN_SOURCE, FreeStatus.OPEN_WEIGHT) ||
-        license?.let { value ->
-            value.split(Regex("[,/|]"), limit = 20)
-                .map(String::trim)
-                .any { candidate ->
-                    candidate.equals("MIT", ignoreCase = true) ||
-                        candidate.equals("Apache-2.0", ignoreCase = true) ||
-                        candidate.equals("BSD-3-Clause", ignoreCase = true) ||
-                        candidate.equals("GPL-3.0", ignoreCase = true) ||
-                        candidate.equals("MPL-2.0", ignoreCase = true) ||
-                        candidate.contains("apache", ignoreCase = true) ||
-                        candidate.contains("mit", ignoreCase = true)
-                }
-        } == true ||
+        classifiedFreeStatus() == FreeStatus.OPEN_SOURCE ||
+        freeStatus == FreeStatus.OPEN_WEIGHT ||
+        FreeAiClassifier.hasOpenSourceLicense(license) ||
         tags.any { tag ->
             tag.contains("open-source", ignoreCase = true) ||
                 tag.contains("openweight", ignoreCase = true) ||

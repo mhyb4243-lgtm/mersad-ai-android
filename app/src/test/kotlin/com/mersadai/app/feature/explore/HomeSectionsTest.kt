@@ -19,6 +19,7 @@ class HomeSectionsTest {
                 item("repo", ContentType.ANDROID_PROJECT, "github", pushedAt = now),
                 item("model", ContentType.MODEL, "hf-models", sourceUpdatedAt = now),
                 item("prompt", ContentType.PROMPT, "prompts-chat"),
+                item("image-prompt", ContentType.PROMPT, "image-prompts"),
                 item("news", ContentType.NEWS, "openai-news", publishedAt = now),
                 item("dev-news", ContentType.NEWS, "google-developers", publishedAt = now),
             ),
@@ -26,7 +27,7 @@ class HomeSectionsTest {
 
         assertEquals(
             setOf(HomeSection.LATEST, HomeSection.AI_TOOLS, HomeSection.ANDROID_PROJECTS, HomeSection.MODELS,
-                HomeSection.PROMPTS, HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
+                HomeSection.PROMPTS, HomeSection.IMAGE_PROMPTS, HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
             sections.map(HomeSectionContent::section).toSet(),
         )
         assertTrue(sections.all { it.items.isNotEmpty() })

@@ -9,6 +9,7 @@ import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.FreeStatus
+import com.mersadai.app.domain.model.FreeAiClassifier
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.VerificationLevel
 import org.jsoup.Jsoup
@@ -45,7 +46,7 @@ object SourceParsers {
                 url = repository.string("html_url")?.httpsUrl(),
                 contentType = ContentType.ANDROID_PROJECT,
                 category = Category("android", "Android"),
-                freeStatus = FreeStatus.UNKNOWN,
+                freeStatus = if (license == null) FreeStatus.OPEN_SOURCE else FreeAiClassifier.classify(FreeStatus.UNKNOWN, license),
                 verificationLevel = VerificationLevel.OFFICIAL,
                 source = Source("github", "GitHub", "github", "https://github.com", "https://api.github.com"),
                 createdAt = repository.string("created_at").epochMillis() ?: now,
@@ -87,12 +88,14 @@ object SourceParsers {
                 url = "https://huggingface.co/$id",
                 contentType = ContentType.MODEL,
                 category = Category("models", "Models"),
-                freeStatus = FreeStatus.UNKNOWN,
+                freeStatus = FreeAiClassifier.classify(FreeStatus.UNKNOWN, license),
                 verificationLevel = VerificationLevel.OFFICIAL,
                 source = Source("hf-models", "Hugging Face", "huggingface-models", "https://huggingface.co", "https://huggingface.co/api/models"),
                 createdAt = created ?: now,
                 updatedAt = model.string("lastModified").epochMillis() ?: now,
                 sourceUpdatedAt = model.string("lastModified").epochMillis(),
+                originalTitle = id,
+                displayTitleAr = modelDisplayTitle(pipeline, tags),
                 tags = tags,
                 license = license,
                 pipelineTag = pipeline,
@@ -182,6 +185,42 @@ object SourceParsers {
         JsonParser.parseString(body).asObjectOrNull()?.long("num_rows_total")
     }.getOrNull()
 
+    fun imageGenerationPrompts(body: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
+        val root = JsonParser.parseString(body).asObjectOrNull()
+            ?: throw SourceSchemaException("Dataset response is not an object")
+        val rows = root.array("rows") ?: throw SourceSchemaException("Dataset response has no rows array")
+        return rows.mapNotNull { element ->
+            val rowElement = element.asObjectOrNull() ?: return@mapNotNull null
+            val row = rowElement.obj("row") ?: rowElement
+            val prompt = listOf("prompt", "Prompt", "text", "text_prompt", "prompt_text")
+                .firstNotNullOfOrNull { key -> row.string(key) } ?: return@mapNotNull null
+            val index = rowElement.long("row_idx") ?: rowElement.long("id") ?: return@mapNotNull null
+            val title = "وصف لتوليد صورة ${index + 1}"
+            ContentItem(
+                id = "image-prompts:$index",
+                externalId = "image-prompts:$index",
+                title = title,
+                description = prompt.take(180),
+                originalDescription = prompt,
+                url = "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
+                contentType = ContentType.PROMPT,
+                category = Category("image-prompts", "أوامر صور وتصميم"),
+                freeStatus = FreeStatus.UNKNOWN,
+                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+                source = Source(
+                    "image-prompts",
+                    "Stable Diffusion Prompts",
+                    "Gustavosta/Stable-Diffusion-Prompts",
+                    "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
+                    "https://datasets-server.huggingface.co/rows",
+                ),
+                createdAt = now,
+                updatedAt = now,
+                tags = listOf("text-to-image", "stable-diffusion", "image-generation"),
+            )
+        }
+    }
+
     fun rssFeed(body: String, sourceId: String, sourceName: String, feedUrl: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
         val document = Jsoup.parse(body, "", Parser.xmlParser())
         val entries = document.getElementsByTag("item").ifEmpty { document.getElementsByTag("entry") }
@@ -235,13 +274,30 @@ object SourceParsers {
     fun pipelineCategory(pipeline: String?): String {
         val value = pipeline.orEmpty().lowercase(Locale.ROOT)
         return when {
-            value.contains("speech") -> "Speech"
-            value.contains("multimodal") || value.contains("visual-question-answering") -> "Multimodal"
-            value.contains("video") -> "Video"
-            value.contains("image") -> "Image"
-            value.contains("audio") -> "Audio"
-            value.contains("text") || value.contains("translation") || value.contains("summarization") -> "Text"
-            else -> "Other"
+            value.contains("ocr") || value.contains("document") -> "قراءة مستندات OCR"
+            value.contains("text-to-image") || value.contains("image-generation") -> "توليد صور"
+            value.contains("image-to-image") -> "تعديل صور"
+            value.contains("image") || value.contains("visual-question-answering") -> "رؤية حاسوبية"
+            value.contains("speech") -> "تحويل الكلام إلى نص"
+            value.contains("audio") -> "معالجة الصوت"
+            value.contains("video") -> "معالجة الفيديو"
+            value.contains("multimodal") -> "نماذج متعددة الوسائط"
+            value.contains("translation") -> "ترجمة النصوص"
+            value.contains("text") || value.contains("summarization") -> "معالجة النصوص"
+            else -> "ذكاء اصطناعي عام"
+        }
+    }
+
+    private fun modelDisplayTitle(pipeline: String?, tags: List<String>): String {
+        val task = (listOfNotNull(pipeline) + tags).joinToString(" ").lowercase(Locale.ROOT)
+        return when {
+            "ocr" in task || "document" in task -> "نموذج لقراءة المستندات وOCR"
+            "text-to-image" in task || "image-generation" in task -> "نموذج لتوليد الصور"
+            "image-to-image" in task -> "نموذج لتعديل الصور"
+            "image" in task || "computer-vision" in task || "object-detection" in task -> "نموذج للرؤية الحاسوبية"
+            "speech" in task || "audio" in task -> "نموذج للصوت والكلام"
+            "translation" in task -> "نموذج لترجمة النصوص"
+            else -> "نموذج لمعالجة النصوص"
         }
     }
 

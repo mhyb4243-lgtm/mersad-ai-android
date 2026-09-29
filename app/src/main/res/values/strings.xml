@@ -95,6 +95,9 @@
     <string name="free_tier">خطة مجانية محدودة</string>
     <string name="free_credit">أرصدة مجانية</string>
     <string name="temporary_offer">عرض مؤقت</string>
+    <string name="free_open_source">مفتوح المصدر</string>
+    <string name="free_open_weight">وزن مفتوح / Open Weight</string>
+    <string name="free_local_runnable">يمكن تشغيله محليًا</string>
     <string name="expired_offer">عرض منتهٍ</string>
     <string name="free_unknown">غير معروف</string>
     <string name="verification_official">مصدر رسمي</string>

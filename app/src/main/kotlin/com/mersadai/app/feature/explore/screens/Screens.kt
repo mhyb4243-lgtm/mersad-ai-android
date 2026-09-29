@@ -736,6 +736,9 @@ private fun FreeStatus.stringResource(): Int = when (this) {
     FreeStatus.FREE_TIER -> R.string.free_tier
     FreeStatus.FREE_CREDIT -> R.string.free_credit
     FreeStatus.TEMPORARY_OFFER -> R.string.temporary_offer
+    FreeStatus.OPEN_SOURCE -> R.string.free_open_source
+    FreeStatus.OPEN_WEIGHT -> R.string.free_open_weight
+    FreeStatus.LOCAL_RUNNABLE -> R.string.free_local_runnable
     FreeStatus.EXPIRED -> R.string.expired_offer
     FreeStatus.UNKNOWN -> R.string.free_unknown
 }

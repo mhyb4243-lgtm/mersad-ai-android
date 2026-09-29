@@ -20,7 +20,8 @@
     <string name="section_ai_tools">أدوات الذكاء الاصطناعي</string>
     <string name="section_android_projects">مشاريع Android وOpen Source</string>
     <string name="section_models">نماذج الذكاء الاصطناعي</string>
-    <string name="section_prompts">المطالبات النصية</string>
+    <string name="section_prompts">برومبت / أمر توليد</string>
+    <string name="section_image_prompts">أوامر صور وتصميم</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>
     <string name="category_android_news">أخبار Android</string>
@@ -77,7 +78,7 @@
     <string name="tags">الوسوم</string>
     <string name="author">الناشر</string>
     <string name="contributor">المساهم</string>
-    <string name="copy_prompt">نسخ النص الأصلي</string>
+    <string name="copy_prompt">نسخ البرومبت / أمر التوليد</string>
     <string name="prompt_copied">تم نسخ النص</string>
     <string name="source_not_available">المصدر غير محدد</string>
     <string name="open_source">فتح المصدر</string>
@@ -88,7 +89,7 @@
     <string name="type_ai_tool">أداة ذكاء اصطناعي</string>
     <string name="type_android_project">مشروع Android</string>
     <string name="type_model">نموذج</string>
-    <string name="type_prompt">مطالبة</string>
+    <string name="type_prompt">برومبت / أمر توليد</string>
     <string name="type_news">خبر</string>
     <string name="type_other">أخرى</string>
     <string name="free_fully">مجاني بالكامل</string>
@@ -96,6 +97,7 @@
     <string name="free_credit">أرصدة مجانية</string>
     <string name="temporary_offer">عرض مؤقت</string>
     <string name="free_open_source">مفتوح المصدر</string>
+    <string name="free_open_source_free">مفتوح المصدر ومجاني</string>
     <string name="free_open_weight">وزن مفتوح / Open Weight</string>
     <string name="free_local_runnable">يمكن تشغيله محليًا</string>
     <string name="expired_offer">عرض منتهٍ</string>
@@ -128,7 +130,7 @@
     <string name="notification_count_ai_tools">%1$d أداة ذكاء اصطناعي</string>
     <string name="notification_count_android">%1$d مشروع Android</string>
     <string name="notification_count_models">%1$d نموذج</string>
-    <string name="notification_count_prompts">%1$d مطالبة</string>
+    <string name="notification_count_prompts">%1$d برومبت / أمر توليد</string>
     <string name="notification_count_news">%1$d خبر</string>
     <string name="share_chooser">مشاركة العنصر</string>
     <string name="no_description">لا يوجد وصف متاح.</string>

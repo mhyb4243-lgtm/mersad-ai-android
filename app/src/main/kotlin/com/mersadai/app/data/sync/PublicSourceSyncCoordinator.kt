@@ -65,8 +65,15 @@ class PublicSourceSyncCoordinator(
                     val itemSource = item.source ?: continue
                     try {
                         val discoveredAt = now()
+                        val persistedItem = item.copy(
+                            freeStatus = if (item.license == null && item.freeStatus == com.mersadai.app.domain.model.FreeStatus.OPEN_SOURCE) {
+                                com.mersadai.app.domain.model.FreeStatus.UNKNOWN
+                            } else {
+                                item.freeStatus
+                            },
+                        )
                         val inserted = store.saveContent(
-                            item = item.toEntity(),
+                            item = persistedItem.toEntity(),
                             source = itemSource.toEntity(),
                             category = item.category?.let { CategoryEntity(it.id, it.name, it.parentId) },
                         )
@@ -143,6 +150,7 @@ class PublicSourceSyncCoordinator(
             source.endpoint,
             totalCount = SourceParsers::promptsChatTotalCount,
         ) { SourceParsers.promptsChat(it) }
+        "image-prompts" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.imageGenerationPrompts(it) }
         else -> FetchOutcome(error = "مصدر غير معروف.")
     }
 
@@ -249,8 +257,7 @@ class PublicSourceSyncCoordinator(
         return metadata.copy(
             error = if (isRateLimited) "وصل ${source.name} إلى حد الطلبات؛ ستبقى البيانات المخزنة متاحة." else "رفض ${source.name} الطلب (HTTP 403).",
             nextAllowedSyncAt = allowedAt,
-            etag = metadata.etag ?: previous?.etag,
-        )
+            etag = metadata.etag ?: previous?.etag,            transient = false,        )
     }
 
     private fun conditionalHeaders(previous: SyncStateEntity?): Map<String, String> = buildMap {
@@ -313,6 +320,7 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("google-developers", "Google Developers", "https://developers.googleblog.com/feeds/posts/default?alt=rss", 6 * HOUR),
             SourceDefinition("openai-news", "OpenAI News", "https://openai.com/news/rss.xml", 6 * HOUR),
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
+            SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
         )
     }
 }

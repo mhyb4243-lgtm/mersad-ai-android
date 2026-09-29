@@ -4,6 +4,7 @@ import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.Source
+import com.mersadai.app.data.local.SeedContentProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -48,6 +49,22 @@ class LocalContentSearchTest {
         assertEquals(listOf("news"), LocalContentSearch.search(items, "Google", SearchFilters(sourceId = "google-developers")).map(ContentItem::id))
         assertTrue(LocalContentSearch.search(items, "مشاريع Android").any { it.id == "project" })
         assertEquals(listOf("news"), LocalContentSearch.search(items, "developer tools").map(ContentItem::id))
+    }
+
+    @Test
+    fun recognizesPromptAndGenerationTerms() {
+        val prompt = item("prompt", title = "AI photo prompt", type = ContentType.PROMPT)
+
+        assertTrue(LocalContentSearch.search(listOf(prompt), "برومبت").any { it.id == "prompt" })
+        assertTrue(LocalContentSearch.search(listOf(prompt), "أمر توليد").any { it.id == "prompt" })
+    }
+
+    @Test
+    fun seedsAndroidReadyAiCatalog() {
+        val items = SeedContentProvider.items()
+
+        assertTrue(items.any { it.contentType == ContentType.ANDROID_PROJECT && it.title.contains("Android") })
+        assertTrue(items.any { it.contentType == ContentType.MODEL && it.title.contains("Gemma") })
     }
 
     private fun item(

@@ -19,6 +19,7 @@ class HomeSectionsTest {
                 item("repo", ContentType.ANDROID_PROJECT, "github", pushedAt = now),
                 item("model", ContentType.MODEL, "hf-models", sourceUpdatedAt = now),
                 item("prompt", ContentType.PROMPT, "prompts-chat"),
+                item("image-prompt", ContentType.PROMPT, "image-prompts"),
                 item("news", ContentType.NEWS, "openai-news", publishedAt = now),
                 item("dev-news", ContentType.NEWS, "google-developers", publishedAt = now),
             ),
@@ -26,7 +27,7 @@ class HomeSectionsTest {
 
         assertEquals(
             setOf(HomeSection.LATEST, HomeSection.AI_TOOLS, HomeSection.ANDROID_PROJECTS, HomeSection.MODELS,
-                HomeSection.PROMPTS, HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
+                HomeSection.PROMPTS, HomeSection.IMAGE_PROMPTS, HomeSection.AI_NEWS, HomeSection.DEVELOPER_TOOLS),
             sections.map(HomeSectionContent::section).toSet(),
         )
         assertTrue(sections.all { it.items.isNotEmpty() })
@@ -50,6 +51,16 @@ class HomeSectionsTest {
         assertTrue(recent.isNewAt(now))
         assertFalse(old.isNewAt(now))
         assertFalse(future.isNewAt(now))
+    }
+
+    @Test
+    fun seedContentForImagePromptsAndAiDealsShowsInHomeSections() {
+        val offer = item("chatgpt-free", ContentType.AI_TOOL, "ai-offers", sourceUpdatedAt = now)
+        val prompt = item("image-1", ContentType.PROMPT, "image-prompts", sourceUpdatedAt = now)
+
+        assertTrue(offer.belongsToHomeSection(HomeSection.AI_TOOLS))
+        assertTrue(prompt.belongsToHomeSection(HomeSection.IMAGE_PROMPTS))
+        assertTrue(homeSections(listOf(offer, prompt)).map { it.section }.toSet().containsAll(setOf(HomeSection.AI_TOOLS, HomeSection.IMAGE_PROMPTS)))
     }
 
     private fun item(

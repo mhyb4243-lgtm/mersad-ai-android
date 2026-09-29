@@ -32,7 +32,7 @@ class PublicSourceSyncCoordinatorTest {
         val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertFalse(result.hasTransientFailure)
-        assertEquals(7, store.states.size)
+        assertEquals(8, store.states.size)
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals(403, store.states.getValue("github").lastHttpStatus)
         assertEquals(now + 3_600_000, store.states.getValue("github").nextAllowedSyncAt)
@@ -81,7 +81,7 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun freshCacheSkipsAllNetworkRequests() = runBlocking {
         val store = FakeStore()
-        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat")
+        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts")
             .forEach { id -> store.states[id] = SyncStateEntity(id, "SUCCESS", now, now, null, lastAttemptAt = now, lastSuccessAt = now) }
         var requests = 0
         val transport = SourceHttpTransport { _, _ -> requests++; response(200) }

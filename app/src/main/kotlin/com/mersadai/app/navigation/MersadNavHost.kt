@@ -51,7 +51,7 @@ fun MersadNavHost(
     viewModel: ExploreViewModel,
     settings: AppSettings,
     settingsRepository: SettingsRepository,
-    onManualSync: () -> Unit,
+    onManualSync: suspend () -> Unit,
     initialDiscoverySection: HomeSection? = null,
 ) {
     val navController = rememberNavController()

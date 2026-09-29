@@ -6,6 +6,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.mersadai.app.data.mapper.toEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Database(
     entities = [
@@ -65,11 +69,24 @@ abstract class MersadDatabase : RoomDatabase() {
             }
         }
 
-        fun create(context: Context): MersadDatabase =
-            Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
+        fun create(context: Context): MersadDatabase {
+            val database = Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
                 .build()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                if (database.contentDao().countItems() == 0) {
+                    SeedContentProvider.items().forEach { item ->
+                        val source = item.source ?: return@forEach
+                        val category = item.category
+                        database.contentDao().upsertRemoteContent(item.toEntity(), source.toEntity(), category?.toEntity())
+                    }
+                }
+            }
+
+            return database
+        }
     }
 }

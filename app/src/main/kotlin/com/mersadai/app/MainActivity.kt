@@ -17,6 +17,8 @@ import com.mersadai.app.feature.explore.ExploreViewModel
 import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.navigation.MersadNavHost
 import com.mersadai.app.ui.theme.MersadTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val container by lazy { AppContainer(applicationContext) }
@@ -41,7 +43,12 @@ class MainActivity : ComponentActivity() {
                         viewModel = exploreViewModel,
                         settings = settings,
                         settingsRepository = container.settingsRepository,
-                        onManualSync = container.syncScheduler::enqueueManualSync,
+                        onManualSync = {
+                            withContext(Dispatchers.IO) {
+                                container.syncCoordinator.synchronize(force = true)
+                            }
+                            container.syncScheduler.enqueueManualSync()
+                        },
                         initialDiscoverySection = intent.getStringExtra(EXTRA_DISCOVERY_SECTION)
                             ?.let { runCatching { HomeSection.valueOf(it) }.getOrNull() },
                     )

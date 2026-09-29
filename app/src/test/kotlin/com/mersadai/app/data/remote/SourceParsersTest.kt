@@ -22,7 +22,7 @@ class SourceParsersTest {
         assertEquals("octo", item.author)
         assertNull(item.description)
         assertNull(item.license)
-        assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
+        assertEquals(FreeStatus.OPEN_SOURCE, item.freeStatus)
         assertEquals(VerificationLevel.OFFICIAL, item.verificationLevel)
     }
 
@@ -32,14 +32,14 @@ class SourceParsersTest {
 
         assertEquals("hf:model:org/model", item.externalId)
         assertEquals(ContentType.MODEL, item.contentType)
-        assertEquals("Text", item.pipelineCategory)
+        assertEquals("معالجة النصوص", item.pipelineCategory)
         assertEquals("apache-2.0", item.license)
         assertEquals("transformers", item.libraryName)
         assertEquals(false, item.gated)
         assertEquals(false, item.isPrivate)
         assertEquals("transformers", item.libraryName)
         assertNull(item.description)
-        assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
+        assertEquals(FreeStatus.OPEN_SOURCE, item.freeStatus)
     }
 
     @Test
@@ -98,11 +98,22 @@ class SourceParsersTest {
     }
 
     @Test
+    fun parsesStableDiffusionImagePromptsAsTheirOwnFunctionalCategory() {
+        val item = SourceParsers.imageGenerationPrompts(IMAGE_PROMPTS_FIXTURE, now = 10L).single()
+
+        assertEquals("image-prompts:3", item.externalId)
+        assertEquals("وصف لتوليد صورة 4", item.title)
+        assertEquals("A cinematic landscape", item.originalDescription)
+        assertEquals("image-prompts", item.source?.id)
+        assertEquals(listOf("text-to-image", "stable-diffusion", "image-generation"), item.tags)
+    }
+
+    @Test
     fun malformedRootIsRejectedButMissingOptionalFieldsAreAccepted() {
         assertTrue(SourceParsers.huggingFaceModels("[{}]").isEmpty())
         assertTrue(runCatching { SourceParsers.githubRepositories("[]") }.isFailure)
-        assertEquals("Video", SourceParsers.pipelineCategory("text-to-video"))
-        assertEquals("Speech", SourceParsers.pipelineCategory("text-to-speech"))
+        assertEquals("معالجة الفيديو", SourceParsers.pipelineCategory("text-to-video"))
+        assertEquals("تحويل الكلام إلى نص", SourceParsers.pipelineCategory("text-to-speech"))
     }
 
     private companion object {
@@ -111,5 +122,6 @@ class SourceParsersTest {
         const val SPACE_FIXTURE = """[{"id":"org/demo","author":"org","lastModified":"2025-01-01T00:00:00Z","likes":9,"trendingScore":3.5,"sdk":"gradio","tags":["llm","gradio"],"cardData":{"title":"Demo"},"createdAt":"2024-01-01T00:00:00Z"}]"""
         const val RSS_FIXTURE = """<?xml version="1.0"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title><![CDATA[A & B]]></title><link>https://openai.com/news/example</link><description><![CDATA[<p>Useful <b>update</b></p>]]></description><media:thumbnail url="https://openai.com/news/image.jpg"/><pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate><guid>post-1</guid><category>AI</category><dc:creator>OpenAI</dc:creator></item></channel></rss>"""
         const val PROMPTS_FIXTURE = """{"num_rows_total":1,"rows":[{"row_idx":7,"row":{"act":"Writing helper","prompt":"Write a short note.","for_devs":false,"type":"writing","contributor":"contributor"}}]}"""
+        const val IMAGE_PROMPTS_FIXTURE = """{"rows":[{"row_idx":3,"row":{"Prompt":"A cinematic landscape"}}]}"""
     }
 }

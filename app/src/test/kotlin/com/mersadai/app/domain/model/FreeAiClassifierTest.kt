@@ -1,6 +1,7 @@
 package com.mersadai.app.domain.model
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,6 +32,7 @@ class FreeAiClassifierTest {
 
         assertTrue(free.isFreeNow())
         assertTrue(free.isOpenSource())
+        assertEquals(FreeStatus.OPEN_SOURCE, free.classifiedFreeStatus())
         assertTrue(tier.isFreeNow())
         assertFalse(tier.requiresPaymentCard == true)
     }
@@ -69,5 +71,23 @@ class FreeAiClassifierTest {
         assertFalse(unknown.isFreeNow())
         assertFalse(unknown.isOpenSource())
         assertFalse(unknown.isLocalRunnable())
+    }
+
+    @Test
+    fun explicitOpenSourceLicensesAreClassifiedAsFreeAndOpenSource() {
+        listOf("apache-2.0", "MIT", "bsd-3-clause").forEach { license ->
+            val item = ContentItem(
+                id = license,
+                title = "Licensed model",
+                contentType = ContentType.MODEL,
+                license = license,
+                createdAt = 1L,
+                updatedAt = 1L,
+            )
+
+            assertEquals(FreeStatus.OPEN_SOURCE, item.classifiedFreeStatus())
+            assertTrue(item.isFreeNow())
+            assertTrue(item.isOpenSource())
+        }
     }
 }

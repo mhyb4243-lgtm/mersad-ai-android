@@ -36,7 +36,7 @@ interface ContentDao {
                 OR (categories.id = 'ai-tools' AND :query LIKE '%أدوات الذكاء الاصطناعي%')
                 OR (categories.id = 'android' AND :query LIKE '%مشاريع Android%')
                 OR (categories.id = 'models' AND :query LIKE '%نماذج%')
-                OR (categories.id = 'prompts' AND :query LIKE '%المطالبات%')
+                OR (categories.id = 'prompts' AND (:query LIKE '%برومبت%' OR :query LIKE '%برومبتات%' OR :query LIKE '%أمر توليد%' OR :query LIKE '%أوامر توليد%' OR :query LIKE '%prompt%' OR :query LIKE '%prompts%'))
                 OR (categories.id = 'ai-news' AND :query LIKE '%أخبار الذكاء الاصطناعي%')
                 OR (categories.id = 'android-news' AND :query LIKE '%أخبار Android%')
                 OR (categories.id = 'developer-tools' AND :query LIKE '%أدوات المطورين%'))
@@ -44,11 +44,14 @@ interface ContentDao {
             OR (contentType = 'AI_TOOL' AND (:query LIKE '%أداة%' OR :query LIKE '%أدوات الذكاء الاصطناعي%'))
             OR (contentType = 'ANDROID_PROJECT' AND (:query LIKE '%مشروع Android%' OR :query LIKE '%مشاريع Android%' OR :query LIKE '%أندرويد%'))
             OR (contentType = 'MODEL' AND (:query LIKE '%نموذج%' OR :query LIKE '%نماذج%'))
-            OR (contentType = 'PROMPT' AND (:query LIKE '%مطالبة%' OR :query LIKE '%المطالبات%'))
+            OR (contentType = 'PROMPT' AND (:query LIKE '%برومبت%' OR :query LIKE '%برومبتات%' OR :query LIKE '%أمر توليد%' OR :query LIKE '%أوامر توليد%' OR :query LIKE '%prompt%' OR :query LIKE '%prompts%' OR :query LIKE '%مطالبة%' OR :query LIKE '%المطالبات%'))
             OR (contentType = 'NEWS' AND (:query LIKE '%خبر%' OR :query LIKE '%أخبار%'))
             ORDER BY COALESCE(publishedAt, sourceUpdatedAt, pushedAt, createdAt) DESC""",
     )
     fun searchItems(query: String): Flow<List<ItemWithMetadata>>
+
+    @Query("SELECT COUNT(*) FROM items")
+    suspend fun countItems(): Int
 
     @Query("SELECT * FROM translations WHERE itemId = :itemId AND field = :field AND language = :language LIMIT 1")
     suspend fun getTranslation(itemId: String, field: String, language: String): TranslationEntity?

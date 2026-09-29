@@ -9,6 +9,7 @@ enum class HomeSection {
     ANDROID_PROJECTS,
     MODELS,
     PROMPTS,
+    IMAGE_PROMPTS,
     AI_NEWS,
     DEVELOPER_TOOLS,
 }
@@ -32,10 +33,11 @@ fun homeSections(items: List<ContentItem>, limit: Int = 5): List<HomeSectionCont
 
 fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (section) {
     HomeSection.LATEST -> sourceTimestamp() != null
-    HomeSection.AI_TOOLS -> contentType == ContentType.AI_TOOL && source?.id == "hf-spaces"
+    HomeSection.AI_TOOLS -> contentType == ContentType.AI_TOOL && source?.id in setOf("hf-spaces", "ai-offers")
     HomeSection.ANDROID_PROJECTS -> contentType == ContentType.ANDROID_PROJECT && source?.id == "github"
     HomeSection.MODELS -> contentType == ContentType.MODEL && source?.id == "hf-models"
     HomeSection.PROMPTS -> contentType == ContentType.PROMPT && source?.id == "prompts-chat"
+    HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts"
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&
         source?.id in setOf("android-developers", "google-developers")

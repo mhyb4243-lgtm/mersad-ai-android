@@ -1,14 +1,37 @@
-# مصادر المحتوى المخطط لها
+# المصادر العامة
 
-لم يُفعّل أي مصدر خارجي في هذه النسخة. واجهات الشبكة موجودة كأساس فقط، ولا يجري scraping أو طلب بيانات عند تشغيل التطبيق. ستُنفذ عمليات الربط لاحقًا مع التخزين المحلي والتصفح المحدود والالتزام بشروط كل مصدر.
+يتصل تطبيق Android مباشرة بالمصادر عبر HTTPS؛ لا يوجد Backend أو Proxy ولا Token. جرى اختبار نقاط النهاية من Terminal باستخدام `curl` في 2026-09-28. نتائج الاختبار تصف تلك اللحظة ولا تضمن التوفر المستقبلي.
 
-| المصدر | الطريقة المخطط لها | ملاحظات |
-| --- | --- | --- |
-| GitHub REST API | Search Repositories API | Pagination عبر page/per_page، وETag عبر If-None-Match، وقراءة رؤوس Rate Limit. يجب التعامل مع 403 و429 واحترام وقت إعادة المحاولة. لا Token داخل التطبيق ولا Proxy. |
-| Hugging Face Hub API | Models API | pagination باستخدام limit/offset وطلبات محدودة. لا Token في هذه المرحلة؛ يعالج 429 وتُستخدم Room كذاكرة محلية. |
-| Android Developers | RSS | قارئ RSS صريح للعنوان الرسمي؛ لا scraping للموقع. |
-| Google Developers | RSS | قارئ RSS صريح للخلاصات الرسمية. |
-| OpenAI News | RSS | استخدام الخلاصة العامة إن توفرت واستمرت؛ لا scraping. |
-| prompts.chat | مصدر عام / API موثق إن توفر | لم يُحدد API مستقر بعد؛ يلزم التحقق من الإتاحة والترخيص قبل الربط، ولا يُنشأ scraper هش. |
+| المصدر | Endpoint والبيانات المستخدمة | Cache TTL | تحقق curl |
+| --- | --- | --- | --- |
+| GitHub REST API | `GET https://api.github.com/search/repositories` بثلاثة استعلامات بحث ثابتة، `sort=updated`، `order=desc`، `per_page=20`. الحقول تشمل `id`, `full_name`, `description`, `html_url`, `owner`, اللغة، النجوم، forks، issues، license، topics والتواريخ وحالتي archive/fork. | 6 ساعات | HTTP 200، `application/json; charset=utf-8`، 33,413 bytes لطلب العينة ذي 5 نتائج في إعادة الفحص؛ الجذر `total_count`, `incomplete_results`, `items`. |
+| Hugging Face Models | `GET https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20&full=true`. Metadata المتوفرة مثل `id`, `author`, `createdAt`, `lastModified`, `downloads`, `likes`, `trendingScore`, `pipeline_tag`, `library_name`, `tags`, `gated`, `private`. | 3 ساعات | HTTP 200، `application/json; charset=utf-8`، 10,031 bytes لعينة 5؛ Array. ظهرت الحقول الأساسية، ولم يظهر `cardData` في أول عنصر العينة. |
+| Hugging Face Spaces | `GET https://huggingface.co/api/spaces?sort=trendingScore&direction=-1&limit=20&full=true`. الحقول تشمل `id`, `author`, `lastModified`, `likes`, `trendingScore`, `sdk`, `tags`, `cardData`, `createdAt`. | 3 ساعات | HTTP 200، `application/json; charset=utf-8`، 12,476 bytes لعينة 5؛ Array. |
+| Android Developers RSS | `https://android-developers.googleblog.com/feeds/posts/default?alt=rss`، عنوان ورابط ووصف وتاريخ وGUID وتصنيفات فقط. | 6 ساعات | HTTP 200، `application/rss+xml; charset=UTF-8`، 486,737 bytes؛ RSS/XML. |
+| Google Developers RSS | `https://developers.googleblog.com/feeds/posts/default?alt=rss`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `application/rss+xml; charset=utf-8`، 18,985 bytes؛ RSS 2.0. |
+| OpenAI News RSS | `https://openai.com/news/rss.xml`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `text/xml; charset=utf-8`، 750,532 bytes؛ RSS 2.0 مع namespaces وCDATA. |
+| prompts.chat | `GET https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100`. تُستخدم `row_idx` وحقول `act`, `prompt`, `for_devs`, `type`, `contributor` و`num_rows_total`. يحتفظ العنصر بترخيص بيانات المجموعة CC0-1.0 ورابط prompts.chat العام؛ لا يُخترع رابط فردي لكل صف ولا يثبت الترخيص أن خدمة ما مجانية. | 24 ساعة | HTTP 200، `application/json`، 3,687 bytes لعينة 5؛ الجذر `features`, `num_rows_per_page`, `num_rows_total`, `partial`, `rows`. ظهر داخل `row` الحقول الخمسة المذكورة. |
 
-تُحفظ قيم `externalId` والروابط وبيانات المصادر كحقول Nullable عند غيابها. حالة المجانية تبدأ `UNKNOWN` ولا تتحول تلقائيًا إلى خطة مجانية. الترجمة تحتفظ بالنص الأصلي منفصلًا.
+## المزامنة والتعامل مع الأخطاء
+
+- لكل مصدر سجل مستقل في `sync_state`. Room هي مصدر الحقيقة للواجهة، وتبقى البيانات القديمة عند الفشل أو `304`.
+- التشغيل الأولي يفحص الصلاحية؛ التحديث اليدوي يتجاوز TTL. يستخدم WorkManager عملاً واحدًا فريدًا مع شرط اتصال الشبكة.
+- GitHub يرسل ثلاثة استعلامات كحد أقصى في التشغيل، بحد 20 نتيجة لكل استعلام. لا تُطلب بيانات Releases.
+- Hugging Face يطلب 20 Model و20 Space، وDataset Server يطلب 100 صف فقط.
+- البحث محلي باستعلام Room محدود الحقول و`LIKE` لأن هذا الإصدار يخزن صفحات صغيرة محدودة؛ لم نضف FTS لتجنب Migration وفهرسة إضافية لهذا الحجم.
+- تُرتب Home النتائج بمجموعات حتمية من `sourceId` و`ContentType` وحقول المصدر. لا يصنف Space كأداة AI إلا بوسم مهمة/AI صريح؛ وإلا يبقى `OTHER`. لا يظهر قسم فارغ، و«جديد» يعتمد على `publishedAt` أو `pushedAt` أو `sourceUpdatedAt` الحقيقي ضمن الأيام السبعة الأخيرة؛ لا يُستخدم `createdAt` الاحتياطي لهذه الشارة.
+- تُترجم العناوين والأوصاف المؤهلة تدريجيًا عند ظهور البطاقات عبر ML Kit، بينما لا يُترجم نص Prompt إلا بطلب صريح من التفاصيل. تحفظ الترجمة محليًا في Room مع النص الأصلي واللغة المصدرية. لا تحدث ترجمة أثناء جلب المصادر، ولا تُستبدل النصوص الأصلية.
+- يُنظف وصف RSS لبطاقة العرض مع الاحتفاظ بنص الوصف الأصلي في Room. تُعرض الصور فقط إذا أرسل الخلاصة رابط HTTPS صريحًا.
+- البحث يشمل العناوين والأوصاف الأصلية والترجمات المحفوظة والمصدر والوسوم والتصنيفات وأنواع المحتوى، ولا ينفذ طلبات شبكة عند الكتابة.
+- `403` و`429` لا يؤديان إلى Retry تلقائي؛ يحترم التطبيق `Retry-After` أو وقت reset المتاح، وإلا ينتظر ساعة. الأخطاء المؤقتة مثل انقطاع الشبكة و5xx لها Retry واحد محدود.
+- تُرسل `If-None-Match` و`If-Modified-Since` عندما يعيد المصدر هذه الرؤوس. `304` نجاح بلا حذف أو إعادة كتابة للمحتوى.
+- مصدر واحد متعطل لا يوقف بقية المصادر. لا يحدث scraping ولا تنزيل لنماذج أو README أو نص المقال الكامل.
+- `freeStatus` يبقى `UNKNOWN`؛ وجود عنصر على GitHub أو Hub لا يثبت أنه مجاني.
+
+## حدود معروفة
+
+- استعلامات GitHub بحث محدودة وليست قائمة Trending رسمية؛ قد تتضمن مستودعات غير مرخصة أو غير نشطة، لذلك لا يُستنتج ترخيص أو تقييم جودة من النجوم.
+- قد يغيب `cardData` أو وصف أو تاريخ أو رخصة؛ تبقى هذه القيم فارغة ولا يُختلق بديل.
+- RSS قد يتغير أو يتوقف، والخلاصة الكبيرة لـOpenAI تُحلل لاستخراج ملخص قصير فقط ولا تُخزن كاملة.
+- prompts.chat مجتمع المصدر؛ البيانات لا تحدد رابطًا عامًا منفصلًا لكل صف، ولا يجري ترجمة النصوص أثناء المزامنة.
+- اختبار `curl` تحقق من الاستجابة في التاريخ أعلاه؛ Unit Tests تستخدم fixtures محلية ولا تعتمد على الإنترنت.

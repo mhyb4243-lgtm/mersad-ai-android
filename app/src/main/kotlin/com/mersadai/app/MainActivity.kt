@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        container.syncScheduler.enqueueInitialSync()
         setContent {
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = com.mersadai.app.domain.model.AppSettings(),
@@ -46,5 +47,5 @@ class MainActivity : ComponentActivity() {
 private class ExploreViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-        ExploreViewModel(container.contentRepository, container.networkMonitor) as T
+        ExploreViewModel(container.contentRepository, container.networkMonitor, container.translationService) as T
 }

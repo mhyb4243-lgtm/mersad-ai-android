@@ -85,7 +85,10 @@ fun MersadNavHost(
             composable(Routes.HOME) {
                 HomeScreen(
                     viewModel = viewModel,
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSearch = { section ->
+                        viewModel.selectSearchSection(section)
+                        navController.navigate(Routes.SEARCH)
+                    },
                     onOpenItem = { navController.navigate(Routes.details(it)) },
                     onManualSync = onManualSync,
                     contentPadding = padding,

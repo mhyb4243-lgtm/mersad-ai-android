@@ -6,12 +6,12 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 object NetworkClients {
-    private val client: OkHttpClient by lazy {
+    internal val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .callTimeout(30, TimeUnit.SECONDS)
-            .followRedirects(false)
+            .followRedirects(true)
             .followSslRedirects(false)
             .addInterceptor { chain ->
                 require(chain.request().url.scheme == "https") { "HTTPS is required" }

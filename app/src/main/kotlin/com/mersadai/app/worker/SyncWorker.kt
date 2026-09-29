@@ -9,10 +9,13 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.mersadai.app.data.local.ContentDao.Companion.EXTERNAL_SYNC_ID
 import com.mersadai.app.data.local.MersadDatabase
 import com.mersadai.app.data.local.SyncStateEntity
-import com.mersadai.app.domain.model.SyncState
+import com.mersadai.app.data.remote.OkHttpSourceTransport
+import com.mersadai.app.data.sync.PublicSourceSyncCoordinator
+import com.mersadai.app.data.sync.RoomSyncStore
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -21,22 +24,12 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val dao = database.contentDao()
         val startedAt = System.currentTimeMillis()
         return try {
-            dao.upsertSyncState(
-                SyncStateEntity(EXTERNAL_SYNC_ID, SyncState.SYNCING.name, startedAt, null, null),
-            )
-            dao.upsertSyncState(
-                SyncStateEntity(
-                    EXTERNAL_SYNC_ID,
-                    SyncState.NOT_CONFIGURED.name,
-                    startedAt,
-                    System.currentTimeMillis(),
-                    null,
-                ),
-            )
-            Result.success()
+            val result = PublicSourceSyncCoordinator(RoomSyncStore(dao), OkHttpSourceTransport())
+                .synchronize(force = inputData.getBoolean(FORCE_SYNC, false))
+            if (result.hasTransientFailure && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
         } catch (_: Exception) {
             dao.upsertSyncState(
-                SyncStateEntity(EXTERNAL_SYNC_ID, SyncState.FAILURE.name, startedAt, System.currentTimeMillis(), null),
+                SyncStateEntity(EXTERNAL_SYNC_ID, "FAILURE", startedAt, System.currentTimeMillis(), "تعذر إكمال المزامنة."),
             )
             if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure()
         } finally {
@@ -46,17 +39,23 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
     companion object {
         const val UNIQUE_WORK_NAME = "manual_source_sync"
-        private const val MAX_RETRIES = 2
+        const val FORCE_SYNC = "force_sync"
+        private const val MAX_RETRIES = 1
     }
 }
 
 class SyncScheduler(context: Context) {
     private val workManager = WorkManager.getInstance(context)
 
-    fun enqueueManualSync() {
+    fun enqueueInitialSync() = enqueue(force = false)
+
+    fun enqueueManualSync() = enqueue(force = true)
+
+    private fun enqueue(force: Boolean) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+            .setInputData(workDataOf(SyncWorker.FORCE_SYNC to force))
             .build()
         workManager.enqueueUniqueWork(SyncWorker.UNIQUE_WORK_NAME, ExistingWorkPolicy.KEEP, request)
     }

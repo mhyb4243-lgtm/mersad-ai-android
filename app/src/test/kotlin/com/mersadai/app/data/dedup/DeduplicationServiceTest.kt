@@ -24,6 +24,27 @@ class DeduplicationServiceTest {
         assertEquals(service.keyFor(first), service.keyFor(second))
     }
 
+    @Test
+    fun canonicalUrlRemovesTrackingParameters() {
+        assertEquals(
+            service.canonicalUrl("https://example.org/tool?utm_source=mail&view=full#details"),
+            service.canonicalUrl("https://example.org/tool?view=full"),
+        )
+    }
+
+    @Test
+    fun normalizedTitleDoesNotMergeDifferentSourcesOrTypes() {
+        val github = item(id = "one", title = "Getting started").copy(
+            source = com.mersadai.app.domain.model.Source("github", "GitHub"),
+        )
+        val feed = item(id = "two", title = "Getting started").copy(
+            contentType = com.mersadai.app.domain.model.ContentType.NEWS,
+            source = com.mersadai.app.domain.model.Source("android-news", "Android Developers"),
+        )
+
+        assertEquals(2, service.unique(listOf(github, feed)).size)
+    }
+
     private fun item(
         id: String,
         externalId: String? = null,

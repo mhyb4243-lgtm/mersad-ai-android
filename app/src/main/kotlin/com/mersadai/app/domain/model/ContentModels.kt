@@ -38,9 +38,40 @@ data class ContentItem(
     val language: String? = null,
     val thumbnailUrl: String? = null,
     val externalId: String? = null,
+    val tags: List<String> = emptyList(),
+    val license: String? = null,
+    val starsCount: Long? = null,
+    val forksCount: Long? = null,
+    val openIssuesCount: Long? = null,
+    val pipelineTag: String? = null,
+    val pipelineCategory: String? = null,
+    val downloads: Long? = null,
+    val likes: Long? = null,
+    val trendingScore: Double? = null,
+    val sdk: String? = null,
+    val emoji: String? = null,
+    val publishedAt: Long? = null,
+    val author: String? = null,
+    val promptForDevelopers: Boolean? = null,
+    val promptType: String? = null,
+    val contributor: String? = null,
+    val archived: Boolean? = null,
+    val isFork: Boolean? = null,
+    val sourceUpdatedAt: Long? = null,
+    val pushedAt: Long? = null,
+    val gated: Boolean? = null,
+    val isPrivate: Boolean? = null,
+    val libraryName: String? = null,
+    val displayTitleAr: String? = null,
+    val displayDescriptionAr: String? = null,
 )
 
-data class SyncRecord(val state: SyncState, val lastFinishedAt: Long? = null, val message: String? = null)
+data class SyncRecord(
+    val state: SyncState,
+    val lastFinishedAt: Long? = null,
+    val message: String? = null,
+    val lastSuccessAt: Long? = null,
+)
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 

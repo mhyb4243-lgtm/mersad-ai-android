@@ -5,7 +5,7 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.tasks.await
 
-interface TranslationManager {
+fun interface TranslationManager {
     suspend fun translateToArabic(originalText: String, sourceLanguageCode: String): String?
 }
 

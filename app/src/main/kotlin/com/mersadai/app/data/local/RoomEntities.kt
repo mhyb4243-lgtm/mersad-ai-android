@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 
 @Entity(tableName = "items", indices = [Index("url"), Index("externalId")])
 data class ItemEntity(
@@ -22,6 +23,30 @@ data class ItemEntity(
     val language: String?,
     val thumbnailUrl: String?,
     val externalId: String?,
+    val tags: String? = null,
+    val license: String? = null,
+    val starsCount: Long? = null,
+    val forksCount: Long? = null,
+    val openIssuesCount: Long? = null,
+    val pipelineTag: String? = null,
+    val pipelineCategory: String? = null,
+    val downloads: Long? = null,
+    val likes: Long? = null,
+    val trendingScore: Double? = null,
+    val sdk: String? = null,
+    val emoji: String? = null,
+    val publishedAt: Long? = null,
+    val author: String? = null,
+    val promptForDevelopers: Boolean? = null,
+    val promptType: String? = null,
+    val contributor: String? = null,
+    val archived: Boolean? = null,
+    val isFork: Boolean? = null,
+    val sourceUpdatedAt: Long? = null,
+    val pushedAt: Long? = null,
+    val gated: Boolean? = null,
+    val isPrivate: Boolean? = null,
+    val libraryName: String? = null,
 )
 
 @Entity(tableName = "sources")
@@ -75,6 +100,8 @@ data class TranslationEntity(
     val itemId: String,
     val field: String,
     val language: String,
+    @ColumnInfo(defaultValue = "''") val sourceText: String = "",
+    @ColumnInfo(defaultValue = "'en'") val sourceLanguage: String = "en",
     val translatedText: String,
     val updatedAt: Long,
 )
@@ -86,6 +113,17 @@ data class SyncStateEntity(
     val lastStartedAt: Long?,
     val lastFinishedAt: Long?,
     val message: String?,
+    val lastAttemptAt: Long? = null,
+    val lastSuccessAt: Long? = null,
+    val lastHttpStatus: Int? = null,
+    val lastError: String? = null,
+    val etag: String? = null,
+    val lastModifiedHeader: String? = null,
+    val rateLimitRemaining: Long? = null,
+    val rateLimitResetAt: Long? = null,
+    val nextAllowedSyncAt: Long? = null,
+    val isSyncing: Boolean = false,
+    val remoteTotalCount: Long? = null,
 )
 
 @Entity(

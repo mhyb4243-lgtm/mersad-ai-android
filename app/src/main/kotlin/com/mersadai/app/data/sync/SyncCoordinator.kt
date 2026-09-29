@@ -1,11 +1,11 @@
 package com.mersadai.app.data.sync
 
-import com.mersadai.app.domain.model.SyncState
+data class SyncRunResult(val hasTransientFailure: Boolean)
 
 interface SyncCoordinator {
-    suspend fun synchronize(): SyncState
+    suspend fun synchronize(force: Boolean = false): SyncRunResult
 }
 
 class DeferredSyncCoordinator : SyncCoordinator {
-    override suspend fun synchronize(): SyncState = SyncState.NOT_CONFIGURED
+    override suspend fun synchronize(force: Boolean): SyncRunResult = SyncRunResult(false)
 }

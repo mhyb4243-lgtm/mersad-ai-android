@@ -34,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mersadai.app.R
 import com.mersadai.app.data.local.SettingsRepository
 import com.mersadai.app.domain.model.AppSettings
+import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.FreeStatus
@@ -78,6 +81,12 @@ import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
 import com.mersadai.app.feature.explore.ExploreViewModel
+import com.mersadai.app.feature.explore.HomeSection
+import com.mersadai.app.feature.explore.HomeSectionContent
+import com.mersadai.app.feature.explore.homeSections
+import com.mersadai.app.feature.explore.isNewAt
+import com.mersadai.app.feature.explore.sourceTimestamp
+import com.mersadai.app.data.translation.TranslationFields
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -87,7 +96,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: ExploreViewModel,
-    onOpenSearch: () -> Unit,
+    onOpenSearch: (HomeSection?) -> Unit,
     onOpenItem: (String) -> Unit,
     onManualSync: () -> Unit,
     contentPadding: PaddingValues,
@@ -96,6 +105,7 @@ fun HomeScreen(
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val syncRecord by viewModel.syncRecord.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val sections = remember(items) { homeSections(items) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 28.dp),
@@ -111,12 +121,12 @@ fun HomeScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = viewModel::updateQuery,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenSearch),
+                modifier = Modifier.fillMaxWidth().clickable { onOpenSearch(null) },
                 placeholder = { Text(stringResource(R.string.search_hint)) },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { onOpenSearch() }),
+                keyboardActions = KeyboardActions(onSearch = { onOpenSearch(null) }),
                 readOnly = false,
             )
         }
@@ -124,21 +134,13 @@ fun HomeScreen(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.quick_categories), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(
-                        listOf(
-                            R.string.category_latest,
-                            R.string.category_ai,
-                            R.string.category_android,
-                            R.string.category_models,
-                            R.string.category_prompts,
-                        ),
-                    ) { category ->
+                    items(sections.map(HomeSectionContent::section)) { section ->
                         Surface(
                             shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.clickable(onClick = onOpenSearch),
+                            modifier = Modifier.clickable { onOpenSearch(section) },
                         ) {
-                            Text(stringResource(category), modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(section.stringResource()), modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -147,10 +149,10 @@ fun HomeScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.discover_now), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = onManualSync) {
+                IconButton(onClick = onManualSync, enabled = syncRecord?.state != SyncState.SYNCING) {
                     Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                 }
-                TextButton(onClick = onManualSync) { Text(stringResource(R.string.refresh)) }
+                TextButton(onClick = onManualSync, enabled = syncRecord?.state != SyncState.SYNCING) { Text(stringResource(R.string.refresh)) }
             }
         }
         if (!isOnline) item { StatusBanner(stringResource(R.string.offline_message)) }
@@ -179,14 +181,31 @@ fun HomeScreen(
         item {
             Text(stringResource(R.string.local_cache_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item { Text(stringResource(R.string.latest_content), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
-        if (items.isEmpty()) {
+        if (sections.isEmpty()) {
             item { EmptyState(R.string.empty_home_title, R.string.empty_home_message) }
         } else {
-            items(items, key = ContentItem::id) { item ->
-                ContentCard(item = item, viewModel = viewModel, onClick = { onOpenItem(item.id) })
+            sections.forEach { section ->
+                item(key = "section-${section.section.name}") {
+                    HomeSectionHeading(section, onShowAll = { onOpenSearch(section.section) })
+                }
+                items(section.items, key = { "${section.section.name}:${it.id}" }) { content ->
+                    ContentCard(item = content, viewModel = viewModel, onClick = { onOpenItem(content.id) })
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSectionHeading(section: HomeSectionContent, onShowAll: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            stringResource(section.section.stringResource()),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onShowAll) { Text(stringResource(R.string.show_all)) }
     }
 }
 
@@ -194,6 +213,7 @@ fun HomeScreen(
 fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, contentPadding: PaddingValues) {
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val results by viewModel.searchResults.collectAsStateWithLifecycle()
+    val selectedSection by viewModel.searchSection.collectAsStateWithLifecycle()
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(20.dp),
@@ -211,7 +231,25 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             )
         }
-        if (query.isBlank()) {
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = selectedSection == null,
+                        onClick = { viewModel.selectSearchSection(null) },
+                        label = { Text(stringResource(R.string.filter_all)) },
+                    )
+                }
+                items(HomeSection.entries) { section ->
+                    FilterChip(
+                        selected = selectedSection == section,
+                        onClick = { viewModel.selectSearchSection(section) },
+                        label = { Text(stringResource(section.stringResource())) },
+                    )
+                }
+            }
+        }
+        if (query.isBlank() && selectedSection == null) {
             item { EmptyState(R.string.search_start_message, R.string.empty_home_message) }
         } else if (results.isEmpty()) {
             item { EmptyState(R.string.empty_search_title, R.string.empty_search_message) }
@@ -317,6 +355,8 @@ fun SettingsScreen(
 fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: PaddingValues) {
     val item by viewModel.observeItem(itemId).collectAsStateWithLifecycle(initialValue = null)
     val isFavorite by viewModel.observeFavorite(itemId).collectAsStateWithLifecycle(initialValue = false)
+    val translating by viewModel.translatingFields.collectAsStateWithLifecycle()
+    val failedTranslations by viewModel.failedTranslations.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
@@ -328,17 +368,50 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
             item { EmptyState(R.string.item_not_found, R.string.offline_message) }
         } else {
             val content = item!!
+            val canTranslateTitle = content.contentType == ContentType.NEWS ||
+                content.contentType == ContentType.PROMPT ||
+                (content.contentType == ContentType.AI_TOOL && content.title != content.originalTitle)
+            val sourceDescription = content.description ?: content.originalDescription
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(content.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    content.originalTitle?.takeIf { it != content.title }?.let {
+                    Text(content.displayTitleAr ?: content.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    content.originalTitle?.takeIf { it != (content.displayTitleAr ?: content.title) }?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.ContentOrLtr), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            item { DetailValue(R.string.description, content.description ?: content.originalDescription ?: stringResource(R.string.no_description)) }
-            content.originalDescription?.takeIf { it != content.description }?.let { original ->
-                item { DetailValue(R.string.original_description, original) }
+            if (canTranslateTitle && content.displayTitleAr == null) {
+                item {
+                    TranslationButton(
+                        fieldKey = "${content.id}:${TranslationFields.TITLE}",
+                        translating = translating,
+                        failed = failedTranslations,
+                        onTranslate = { viewModel.translateToArabic(content.id, TranslationFields.TITLE, content.title) },
+                    )
+                }
+            }
+            item {
+                DetailValue(
+                    if (content.displayDescriptionAr != null) R.string.translated_description else R.string.description,
+                    content.displayDescriptionAr ?: sourceDescription ?: stringResource(R.string.no_description),
+                )
+            }
+            if (content.contentType == ContentType.PROMPT) {
+                content.originalDescription?.let { original -> item { DetailValue(R.string.original_description, original) } }
+            } else {
+                content.originalDescription?.takeIf { it != content.description && '<' !in it }?.let { original ->
+                    item { DetailValue(R.string.original_description, original) }
+                }
+            }
+            sourceDescription?.takeIf { it.isNotBlank() && content.displayDescriptionAr == null }?.let { description ->
+                item {
+                    TranslationButton(
+                        fieldKey = "${content.id}:${TranslationFields.DESCRIPTION}",
+                        translating = translating,
+                        failed = failedTranslations,
+                        onTranslate = { viewModel.translateToArabic(content.id, TranslationFields.DESCRIPTION, description) },
+                    )
+                }
             }
             content.publishedAt?.let { published ->
                 item { DetailValue(R.string.published_date, formatDate(published)) }
@@ -347,7 +420,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
                 item { DetailValue(R.string.source_updated, formatDate(updated)) }
             }
             item { DetailValue(R.string.content_type, stringResource(content.contentType.stringResource())) }
-            content.category?.let { category -> item { DetailValue(R.string.category, category.name) } }
+            content.category?.let { category -> item { DetailValue(R.string.category, category.displayName()) } }
             content.language?.let { item { DetailValue(R.string.language, it, forceLtr = true) } }
             content.starsCount?.let { item { DetailValue(R.string.stars, it.toString(), forceLtr = true) } }
             content.forksCount?.let { item { DetailValue(R.string.forks, it.toString(), forceLtr = true) } }
@@ -428,6 +501,18 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
 @Composable
 private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick: () -> Unit) {
     val isFavorite by viewModel.observeFavorite(item.id).collectAsStateWithLifecycle(initialValue = false)
+    LaunchedEffect(item.id, item.title, item.description, item.displayTitleAr, item.displayDescriptionAr) {
+        if (item.displayTitleAr == null) {
+            item.translatableTitle()?.let { title ->
+                viewModel.translateToArabic(item.id, TranslationFields.TITLE, title)
+            }
+        }
+        if (item.contentType != ContentType.PROMPT && item.displayDescriptionAr == null) {
+            (item.description ?: item.originalDescription)
+                ?.takeIf { it.isNotBlank() && !it.containsArabic() }
+                ?.let { description -> viewModel.translateToArabic(item.id, TranslationFields.DESCRIPTION, description) }
+        }
+    }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -456,8 +541,24 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
             }
             Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                item.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        item.displayTitleAr ?: item.title,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (item.isNewAt(System.currentTimeMillis())) {
+                        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
+                            Text(stringResource(R.string.badge_new), modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                (item.displayDescriptionAr ?: item.description)?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 Text(
                     listOfNotNull(item.source?.name, stringResource(item.contentType.stringResource()), item.freeStatus.takeIf { it != FreeStatus.UNKNOWN }?.let { stringResource(it.stringResource()) }).joinToString(" · "),
                     style = MaterialTheme.typography.labelMedium,
@@ -465,7 +566,7 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                (item.publishedAt ?: item.sourceUpdatedAt)?.let { timestamp ->
+                item.sourceTimestamp()?.let { timestamp ->
                     Text(formatDate(timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -475,6 +576,30 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
         }
     }
 }
+
+@Composable
+private fun TranslationButton(fieldKey: String, translating: Set<String>, failed: Set<String>, onTranslate: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(onClick = onTranslate, enabled = fieldKey !in translating) {
+            if (fieldKey in translating) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(R.string.translation_in_progress))
+            } else {
+                Text(stringResource(R.string.translate_to_arabic))
+            }
+        }
+        if (fieldKey in failed) Text(stringResource(R.string.translation_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    }
+}
+
+private fun ContentItem.translatableTitle(): String? = when {
+    contentType == ContentType.NEWS || contentType == ContentType.PROMPT -> title
+    contentType == ContentType.AI_TOOL && title != originalTitle -> title
+    else -> null
+}?.takeIf { it.isNotBlank() && !it.containsArabic() }
+
+private fun String.containsArabic(): Boolean = any { character -> character.code in 0x0600..0x06FF }
 
 private fun formatDate(timestamp: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale("ar")).format(Date(timestamp))
@@ -539,6 +664,28 @@ private fun ContentType.stringResource(): Int = when (this) {
     ContentType.PROMPT -> R.string.type_prompt
     ContentType.NEWS -> R.string.type_news
     ContentType.OTHER -> R.string.type_other
+}
+
+private fun HomeSection.stringResource(): Int = when (this) {
+    HomeSection.LATEST -> R.string.section_latest
+    HomeSection.AI_TOOLS -> R.string.section_ai_tools
+    HomeSection.ANDROID_PROJECTS -> R.string.section_android_projects
+    HomeSection.MODELS -> R.string.section_models
+    HomeSection.PROMPTS -> R.string.section_prompts
+    HomeSection.AI_NEWS -> R.string.section_ai_news
+    HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
+}
+
+@Composable
+private fun Category.displayName(): String = when (id) {
+    "ai-tools" -> stringResource(R.string.section_ai_tools)
+    "android" -> stringResource(R.string.section_android_projects)
+    "models" -> stringResource(R.string.section_models)
+    "prompts" -> stringResource(R.string.section_prompts)
+    "ai-news" -> stringResource(R.string.section_ai_news)
+    "android-news" -> stringResource(R.string.category_android_news)
+    "developer-tools" -> stringResource(R.string.section_developer_tools)
+    else -> name
 }
 
 private fun FreeStatus.stringResource(): Int = when (this) {

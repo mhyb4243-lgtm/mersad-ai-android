@@ -18,4 +18,6 @@ data class ItemWithMetadata(
         associateBy = Junction(value = ItemCategoryEntity::class, parentColumn = "itemId", entityColumn = "categoryId"),
     )
     val categories: List<CategoryEntity>,
+    @Relation(parentColumn = "id", entityColumn = "itemId")
+    val translations: List<TranslationEntity>,
 )

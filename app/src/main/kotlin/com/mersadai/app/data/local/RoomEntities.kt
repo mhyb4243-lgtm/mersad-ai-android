@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 
 @Entity(tableName = "items", indices = [Index("url"), Index("externalId")])
 data class ItemEntity(
@@ -99,6 +100,8 @@ data class TranslationEntity(
     val itemId: String,
     val field: String,
     val language: String,
+    @ColumnInfo(defaultValue = "''") val sourceText: String = "",
+    @ColumnInfo(defaultValue = "'en'") val sourceLanguage: String = "en",
     val translatedText: String,
     val updatedAt: Long,
 )

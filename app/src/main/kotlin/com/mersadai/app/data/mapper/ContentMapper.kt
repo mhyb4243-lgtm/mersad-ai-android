@@ -13,6 +13,7 @@ import com.mersadai.app.domain.model.SyncRecord
 import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.data.translation.TranslationFields
 
 fun ContentItem.toEntity(): ItemEntity = ItemEntity(
     id = id,
@@ -109,6 +110,14 @@ fun ItemWithMetadata.toDomain(): ContentItem = ContentItem(
     gated = item.gated,
     isPrivate = item.isPrivate,
     libraryName = item.libraryName,
+    displayTitleAr = translations.firstOrNull {
+        it.field == TranslationFields.TITLE && it.language == TranslationFields.ARABIC &&
+            it.sourceLanguage == "en" && it.sourceText == item.title
+    }?.translatedText,
+    displayDescriptionAr = translations.firstOrNull {
+        it.field == TranslationFields.DESCRIPTION && it.language == TranslationFields.ARABIC &&
+            it.sourceLanguage == "en" && it.sourceText == (item.description ?: item.originalDescription)
+    }?.translatedText,
 )
 
 fun SyncStateEntity.toDomain(): SyncRecord = SyncRecord(

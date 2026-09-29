@@ -117,6 +117,7 @@ object SourceParsers {
             val card = space.obj("cardData")
             val tags = space.strings("tags")
             val created = space.string("createdAt").epochMillis()
+            val isAiSpace = hasAiTaskTags(tags)
             ContentItem(
                 id = "hf:space:$id",
                 externalId = "hf:space:$id",
@@ -125,11 +126,11 @@ object SourceParsers {
                 description = card?.string("short_description")?.shortText(),
                 originalDescription = card?.string("short_description"),
                 url = "https://huggingface.co/spaces/$id",
-                contentType = ContentType.AI_TOOL,
-                category = Category("ai-tools", "AI Tools"),
+                contentType = if (isAiSpace) ContentType.AI_TOOL else ContentType.OTHER,
+                category = if (isAiSpace) Category("ai-tools", "AI Tools") else null,
                 freeStatus = FreeStatus.UNKNOWN,
                 verificationLevel = VerificationLevel.OFFICIAL,
-                source = Source("hf-spaces", "Hugging Face Spaces", "huggingface-spaces", "https://huggingface.co/spaces", "https://huggingface.co/api/spaces"),
+                source = Source("hf-spaces", "Hugging Face", "huggingface-spaces", "https://huggingface.co/spaces", "https://huggingface.co/api/spaces"),
                 createdAt = created ?: now,
                 updatedAt = space.string("lastModified").epochMillis() ?: now,
                 sourceUpdatedAt = space.string("lastModified").epochMillis(),
@@ -197,7 +198,10 @@ object SourceParsers {
             val link = linkElement?.attr("href")?.takeIf(String::isNotBlank)
                 ?: linkElement?.text()?.takeIf(String::isNotBlank)
             val safeLink = link?.httpsUrl() ?: return@mapNotNull null
-            val description = entry.childText("description", "summary", "content:encoded")?.shortText()
+            val originalDescription = entry.childData("description", "summary", "content:encoded")
+            val description = originalDescription?.shortText()
+            val thumbnailUrl = entry.getElementsByTag("media:thumbnail").firstOrNull()?.attr("url")
+                ?: entry.getElementsByTag("enclosure").firstOrNull { it.attr("type").startsWith("image/", ignoreCase = true) }?.attr("url")
             val date = entry.childText("pubDate", "published", "updated", "dc:date").epochMillis()
             val guid = entry.childText("guid", "id")?.takeIf(String::isNotBlank)
             val canonicalUrl = DeduplicationService().canonicalUrl(safeLink) ?: safeLink
@@ -211,13 +215,14 @@ object SourceParsers {
                 title = title,
                 originalTitle = title,
                 description = description,
-                originalDescription = description,
+                originalDescription = originalDescription,
                 url = safeLink,
                 contentType = ContentType.NEWS,
                 category = category,
                 freeStatus = FreeStatus.UNKNOWN,
                 verificationLevel = VerificationLevel.OFFICIAL,
                 source = Source(sourceId, sourceName, sourceId, feedUrl, feedUrl),
+                thumbnailUrl = thumbnailUrl.httpsUrl(),
                 createdAt = date ?: now,
                 updatedAt = date ?: now,
                 sourceUpdatedAt = date,
@@ -240,6 +245,17 @@ object SourceParsers {
         }
     }
 
+    private fun hasAiTaskTags(tags: List<String>): Boolean {
+        val aiTags = setOf(
+            "ai", "artificial-intelligence", "machine-learning", "deep-learning", "transformers", "diffusers",
+            "llm", "large-language-models", "text-generation", "text2text-generation", "text-to-image",
+            "image-generation", "text-to-video", "automatic-speech-recognition", "text-to-speech",
+            "question-answering", "image-classification", "sentence-similarity", "feature-extraction",
+            "translation", "summarization", "computer-vision",
+        )
+        return tags.any { it.lowercase(Locale.ROOT) in aiTags }
+    }
+
     private fun JsonElement.asObjectOrNull(): JsonObject? = takeUnless { isJsonNull || !isJsonObject }?.asJsonObject
     private fun JsonElement.asArrayOrNull(): JsonArray? = takeUnless { isJsonNull || !isJsonArray }?.asJsonArray
     private fun JsonObject.obj(key: String): JsonObject? = get(key)?.asObjectOrNull()
@@ -259,6 +275,12 @@ object SourceParsers {
     private fun org.jsoup.nodes.Element.childText(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
         getElementsByTag(name).firstOrNull()?.let { child ->
             child.attr("href").takeIf(String::isNotBlank) ?: child.text().takeIf(String::isNotBlank)
+        }
+    }
+
+    private fun org.jsoup.nodes.Element.childData(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
+        getElementsByTag(name).firstOrNull()?.let { child ->
+            child.data().takeIf(String::isNotBlank) ?: child.text().takeIf(String::isNotBlank)
         }
     }
 

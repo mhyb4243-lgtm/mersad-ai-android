@@ -110,6 +110,22 @@ class PublicSourceSyncCoordinatorTest {
         assertNull(store.states.getValue("hf-models").lastSuccessAt)
     }
 
+    @Test
+    fun githubFailureKeepsItsCachedItemsWhileOtherSourcesSucceed() = runBlocking {
+        val store = FakeStore()
+        val cached = item("github-cached").copy(externalId = "github:cached")
+        store.items += cached
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.startsWith("https://api.github.com")) error("offline") else successFor(url)
+        }
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertTrue(store.items.contains(cached))
+        assertEquals("FAILURE", store.states.getValue("github").state)
+        assertEquals("SUCCESS", store.states.getValue("hf-spaces").state)
+    }
+
     private fun successFor(url: String): SourceHttpResponse = when {
         url.startsWith("https://api.github.com") -> response(
             200,

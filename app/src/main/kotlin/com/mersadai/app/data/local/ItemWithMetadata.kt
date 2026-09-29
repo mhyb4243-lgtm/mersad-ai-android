@@ -1,6 +1,6 @@
 package com.mersadai.app.data.local
 
-    val translations: List<TranslationEntity> = emptyList(),
+import androidx.room.Embedded
 import androidx.room.Junction
 import androidx.room.Relation
 
@@ -19,5 +19,5 @@ data class ItemWithMetadata(
     )
     val categories: List<CategoryEntity>,
     @Relation(parentColumn = "id", entityColumn = "itemId")
-    val translations: List<TranslationEntity>,
+    val translations: List<TranslationEntity> = emptyList(),
 )

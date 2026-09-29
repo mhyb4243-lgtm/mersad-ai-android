@@ -24,6 +24,7 @@ fun ContentItem.toEntity(): ItemEntity = ItemEntity(
     url = url,
     contentType = contentType.name,
     freeStatus = freeStatus.name,
+    openSourceStatus = openSourceStatus.name,
     verificationLevel = verificationLevel.name,
     lastVerifiedAt = lastVerifiedAt,
     createdAt = createdAt,
@@ -55,6 +56,13 @@ fun ContentItem.toEntity(): ItemEntity = ItemEntity(
     gated = gated,
     isPrivate = isPrivate,
     libraryName = libraryName,
+    requiresAccount = requiresAccount,
+    requiresPaymentCard = requiresPaymentCard,
+    freeLimit = freeLimit,
+    localRunnable = localRunnable,
+    lastVerificationError = lastVerificationError,
+    startAt = startAt,
+    endAt = endAt,
 )
 
 fun com.mersadai.app.domain.model.Source.toEntity(): SourceEntity = SourceEntity(
@@ -77,6 +85,8 @@ fun ItemWithMetadata.toDomain(): ContentItem = ContentItem(
     contentType = runCatching { ContentType.valueOf(item.contentType) }.getOrDefault(ContentType.OTHER),
     category = categories.firstOrNull()?.let { Category(it.id, it.name, it.parentId) },
     freeStatus = runCatching { FreeStatus.valueOf(item.freeStatus) }.getOrDefault(FreeStatus.UNKNOWN),
+    openSourceStatus = runCatching { com.mersadai.app.domain.model.OpenSourceStatus.valueOf(item.openSourceStatus ?: "UNKNOWN") }
+        .getOrDefault(com.mersadai.app.domain.model.OpenSourceStatus.UNKNOWN),
     verificationLevel = runCatching { VerificationLevel.valueOf(item.verificationLevel) }
         .getOrDefault(VerificationLevel.UNVERIFIED),
     source = sources.firstOrNull()?.let { Source(it.id, it.name, it.externalId, it.homepageUrl, it.apiUrl) },
@@ -110,6 +120,13 @@ fun ItemWithMetadata.toDomain(): ContentItem = ContentItem(
     gated = item.gated,
     isPrivate = item.isPrivate,
     libraryName = item.libraryName,
+    requiresAccount = item.requiresAccount,
+    requiresPaymentCard = item.requiresPaymentCard,
+    freeLimit = item.freeLimit,
+    localRunnable = item.localRunnable,
+    lastVerificationError = item.lastVerificationError,
+    startAt = item.startAt,
+    endAt = item.endAt,
     displayTitleAr = translations.firstOrNull {
         it.field == TranslationFields.TITLE && it.language == TranslationFields.ARABIC &&
             it.sourceLanguage == "en" && it.sourceText == item.title

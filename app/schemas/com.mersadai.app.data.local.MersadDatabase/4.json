@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "75ce52cfb2e48fadec1fc51d61b1e7c2",
+    "identityHash": "065186e008f92fdfc3daf8d67e338f32",
     "entities": [
       {
         "tableName": "items",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `originalTitle` TEXT, `description` TEXT, `originalDescription` TEXT, `url` TEXT, `contentType` TEXT NOT NULL, `freeStatus` TEXT NOT NULL, `verificationLevel` TEXT NOT NULL, `lastVerifiedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `language` TEXT, `thumbnailUrl` TEXT, `externalId` TEXT, `tags` TEXT, `license` TEXT, `starsCount` INTEGER, `forksCount` INTEGER, `openIssuesCount` INTEGER, `pipelineTag` TEXT, `pipelineCategory` TEXT, `downloads` INTEGER, `likes` INTEGER, `trendingScore` REAL, `sdk` TEXT, `emoji` TEXT, `publishedAt` INTEGER, `author` TEXT, `promptForDevelopers` INTEGER, `promptType` TEXT, `contributor` TEXT, `archived` INTEGER, `isFork` INTEGER, `sourceUpdatedAt` INTEGER, `pushedAt` INTEGER, `gated` INTEGER, `isPrivate` INTEGER, `libraryName` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `originalTitle` TEXT, `description` TEXT, `originalDescription` TEXT, `url` TEXT, `contentType` TEXT NOT NULL, `freeStatus` TEXT NOT NULL, `openSourceStatus` TEXT, `verificationLevel` TEXT NOT NULL, `lastVerifiedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `language` TEXT, `thumbnailUrl` TEXT, `externalId` TEXT, `tags` TEXT, `license` TEXT, `starsCount` INTEGER, `forksCount` INTEGER, `openIssuesCount` INTEGER, `pipelineTag` TEXT, `pipelineCategory` TEXT, `downloads` INTEGER, `likes` INTEGER, `trendingScore` REAL, `sdk` TEXT, `emoji` TEXT, `publishedAt` INTEGER, `author` TEXT, `promptForDevelopers` INTEGER, `promptType` TEXT, `contributor` TEXT, `archived` INTEGER, `isFork` INTEGER, `sourceUpdatedAt` INTEGER, `pushedAt` INTEGER, `gated` INTEGER, `isPrivate` INTEGER, `libraryName` TEXT, `requiresAccount` INTEGER, `requiresPaymentCard` INTEGER, `freeLimit` TEXT, `localRunnable` INTEGER, `lastVerificationError` TEXT, `startAt` INTEGER, `endAt` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -51,6 +51,11 @@
             "columnName": "freeStatus",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "openSourceStatus",
+            "columnName": "openSourceStatus",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "verificationLevel",
@@ -209,6 +214,41 @@
             "fieldPath": "libraryName",
             "columnName": "libraryName",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "requiresAccount",
+            "columnName": "requiresAccount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "requiresPaymentCard",
+            "columnName": "requiresPaymentCard",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "freeLimit",
+            "columnName": "freeLimit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localRunnable",
+            "columnName": "localRunnable",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastVerificationError",
+            "columnName": "lastVerificationError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startAt",
+            "columnName": "startAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endAt",
+            "columnName": "endAt",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -776,7 +816,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '75ce52cfb2e48fadec1fc51d61b1e7c2')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '065186e008f92fdfc3daf8d67e338f32')"
     ]
   }
 }

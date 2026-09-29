@@ -16,6 +16,7 @@ data class ItemEntity(
     val url: String?,
     val contentType: String,
     val freeStatus: String,
+    val openSourceStatus: String? = null,
     val verificationLevel: String,
     val lastVerifiedAt: Long?,
     val createdAt: Long,
@@ -47,6 +48,13 @@ data class ItemEntity(
     val gated: Boolean? = null,
     val isPrivate: Boolean? = null,
     val libraryName: String? = null,
+    val requiresAccount: Boolean? = null,
+    val requiresPaymentCard: Boolean? = null,
+    val freeLimit: String? = null,
+    val localRunnable: Boolean? = null,
+    val lastVerificationError: String? = null,
+    val startAt: Long? = null,
+    val endAt: Long? = null,
 )
 
 @Entity(tableName = "sources")

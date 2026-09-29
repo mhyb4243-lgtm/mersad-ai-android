@@ -35,6 +35,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +82,7 @@ import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.domain.search.SimilarContent
 import com.mersadai.app.feature.explore.ExploreViewModel
 import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.HomeSectionContent
@@ -214,6 +217,10 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val results by viewModel.searchResults.collectAsStateWithLifecycle()
     val selectedSection by viewModel.searchSection.collectAsStateWithLifecycle()
+    val selectedSource by viewModel.searchSource.collectAsStateWithLifecycle()
+    val content by viewModel.items.collectAsStateWithLifecycle()
+    val sources = remember(content) { content.mapNotNull { it.source }.distinctBy { it.id }.sortedBy { it.name } }
+    var sourceMenuExpanded by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(20.dp),
@@ -246,6 +253,32 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
                         onClick = { viewModel.selectSearchSection(section) },
                         label = { Text(stringResource(section.stringResource())) },
                     )
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = selectedSource != null,
+                            onClick = { sourceMenuExpanded = true },
+                            label = {
+                                Text(
+                                    selectedSource?.let { id -> sources.firstOrNull { it.id == id }?.name }
+                                        ?: stringResource(R.string.filter_source),
+                                )
+                            },
+                        )
+                        DropdownMenu(expanded = sourceMenuExpanded, onDismissRequest = { sourceMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.filter_all_sources)) },
+                                onClick = { viewModel.selectSearchSource(null); sourceMenuExpanded = false },
+                            )
+                            sources.forEach { source ->
+                                DropdownMenuItem(
+                                    text = { Text(source.name) },
+                                    onClick = { viewModel.selectSearchSource(source.id); sourceMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -352,8 +385,9 @@ fun SettingsScreen(
 }
 
 @Composable
-fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: PaddingValues) {
+fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, contentPadding: PaddingValues) {
     val item by viewModel.observeItem(itemId).collectAsStateWithLifecycle(initialValue = null)
+    val availableItems by viewModel.items.collectAsStateWithLifecycle()
     val isFavorite by viewModel.observeFavorite(itemId).collectAsStateWithLifecycle(initialValue = false)
     val translating by viewModel.translatingFields.collectAsStateWithLifecycle()
     val failedTranslations by viewModel.failedTranslations.collectAsStateWithLifecycle()
@@ -368,6 +402,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
             item { EmptyState(R.string.item_not_found, R.string.offline_message) }
         } else {
             val content = item!!
+            val similarItems = SimilarContent.find(content, availableItems)
             val canTranslateTitle = content.contentType == ContentType.NEWS ||
                 content.contentType == ContentType.PROMPT ||
                 (content.contentType == ContentType.AI_TOOL && content.title != content.originalTitle)
@@ -492,6 +527,14 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, contentPadding: P
                     }) {
                         Text(stringResource(R.string.copy_prompt))
                     }
+                }
+            }
+            if (similarItems.isNotEmpty()) {
+                item {
+                    Text(stringResource(R.string.similar_content), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                }
+                items(similarItems, key = { "similar:${it.id}" }) { similar ->
+                    ContentCard(item = similar, viewModel = viewModel, onClick = { onOpenItem(similar.id) })
                 }
             }
         }

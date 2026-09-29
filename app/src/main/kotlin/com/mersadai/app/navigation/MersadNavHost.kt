@@ -12,6 +12,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -27,6 +28,7 @@ import com.mersadai.app.R
 import com.mersadai.app.data.local.SettingsRepository
 import com.mersadai.app.domain.model.AppSettings
 import com.mersadai.app.feature.explore.ExploreViewModel
+import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.screens.DetailsScreen
 import com.mersadai.app.feature.explore.screens.FavoritesScreen
 import com.mersadai.app.feature.explore.screens.HomeScreen
@@ -50,8 +52,15 @@ fun MersadNavHost(
     settings: AppSettings,
     settingsRepository: SettingsRepository,
     onManualSync: () -> Unit,
+    initialDiscoverySection: HomeSection? = null,
 ) {
     val navController = rememberNavController()
+    LaunchedEffect(initialDiscoverySection) {
+        if (initialDiscoverySection != null) {
+            viewModel.selectSearchSection(initialDiscoverySection)
+            navController.navigate(Routes.SEARCH) { launchSingleTop = true }
+        }
+    }
     val backStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = backStackEntry?.destination?.route
     val destinations = listOf(
@@ -115,6 +124,7 @@ fun MersadNavHost(
                 DetailsScreen(
                     itemId = Uri.decode(entry.arguments?.getString("itemId").orEmpty()),
                     viewModel = viewModel,
+                    onOpenItem = { navController.navigate(Routes.details(it)) },
                     contentPadding = padding,
                 )
             }

@@ -12,10 +12,14 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.mersadai.app.data.local.ContentDao.Companion.EXTERNAL_SYNC_ID
 import com.mersadai.app.data.local.MersadDatabase
+import com.mersadai.app.data.local.SettingsRepository
 import com.mersadai.app.data.local.SyncStateEntity
+import com.mersadai.app.data.notifications.LocalNotificationDispatcher
 import com.mersadai.app.data.remote.OkHttpSourceTransport
 import com.mersadai.app.data.sync.PublicSourceSyncCoordinator
 import com.mersadai.app.data.sync.RoomSyncStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -26,6 +30,14 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         return try {
             val result = PublicSourceSyncCoordinator(RoomSyncStore(dao), OkHttpSourceTransport())
                 .synchronize(force = inputData.getBoolean(FORCE_SYNC, false))
+            try {
+                LocalNotificationDispatcher(applicationContext, dao)
+                    .publish(SettingsRepository(applicationContext).settings.first())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Notification failures must not turn a successful source sync into a retry.
+            }
             if (result.hasTransientFailure && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
         } catch (_: Exception) {
             dao.upsertSyncState(

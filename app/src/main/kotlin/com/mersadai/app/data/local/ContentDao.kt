@@ -53,6 +53,18 @@ interface ContentDao {
     @Query("SELECT * FROM translations WHERE itemId = :itemId AND field = :field AND language = :language LIMIT 1")
     suspend fun getTranslation(itemId: String, field: String, language: String): TranslationEntity?
 
+    @Query("SELECT * FROM notification_history WHERE notifiedAt IS NULL ORDER BY discoveredAt ASC")
+    suspend fun getPendingNotificationHistory(): List<NotificationHistoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun enqueueNotificationHistory(entries: List<NotificationHistoryEntity>): List<Long>
+
+    @Query("UPDATE notification_history SET notifiedAt = :notifiedAt WHERE notificationKey IN (:keys) AND notifiedAt IS NULL")
+    suspend fun markNotificationsHandled(keys: List<String>, notifiedAt: Long)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM items WHERE id = :id OR (:externalId IS NOT NULL AND externalId = :externalId))")
+    suspend fun hasRemoteIdentity(id: String, externalId: String?): Boolean
+
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE itemId = :id)")
     fun observeFavorite(id: String): Flow<Boolean>
 
@@ -72,7 +84,12 @@ interface ContentDao {
     suspend fun upsertCategory(category: CategoryEntity)
 
     @Transaction
-    suspend fun upsertRemoteContent(item: ItemEntity, source: SourceEntity, category: CategoryEntity?) {
+    suspend fun upsertRemoteContent(
+        item: ItemEntity,
+        source: SourceEntity,
+        category: CategoryEntity?,
+    ): Boolean {
+        val isNew = !hasRemoteIdentity(item.id, item.externalId)
         upsertSource(source)
         upsertItem(item)
         upsertItemSource(ItemSourceEntity(item.id, source.id))
@@ -80,6 +97,7 @@ interface ContentDao {
             upsertCategory(category)
             upsertItemCategory(ItemCategoryEntity(item.id, category.id))
         }
+        return isNew
     }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -90,6 +108,9 @@ interface ContentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTranslation(translation: TranslationEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertNotificationHistory(entries: List<NotificationHistoryEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSyncState(state: SyncStateEntity)

@@ -122,8 +122,27 @@ class PublicSourceSyncCoordinatorTest {
         PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertTrue(store.items.contains(cached))
+        assertTrue(store.notifications.isEmpty())
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals("SUCCESS", store.states.getValue("hf-spaces").state)
+    }
+
+    @Test
+    fun onlyNewItemsWithRecentRealSourceDatesAreReportedAfterSuccessfulSync() = runBlocking {
+        val store = FakeStore()
+        val body = """{"items":[
+            {"id":11,"full_name":"octo/recent","html_url":"https://github.com/octo/recent","pushed_at":"${java.time.Instant.ofEpochMilli(now - 60_000).toString()}"},
+            {"id":12,"full_name":"octo/old","html_url":"https://github.com/octo/old","pushed_at":"${java.time.Instant.ofEpochMilli(now - 30L * 24 * 60 * 60 * 1000).toString()}"}
+        ]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.startsWith("https://api.github.com")) response(200, body = body) else successFor(url)
+        }
+
+        val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertEquals(listOf("github:11"), result.newlyDiscoveredItems.map { it.externalId })
+        assertEquals(listOf("external:github:11"), store.notifications.map { it.notificationKey })
+        assertEquals("android-projects", store.notifications.single().notificationType)
     }
 
     private fun successFor(url: String): SourceHttpResponse = when {
@@ -161,12 +180,19 @@ class PublicSourceSyncCoordinatorTest {
     private class FakeStore : SyncStore {
         val states = mutableMapOf<String, SyncStateEntity>()
         val items = mutableListOf<ItemEntity>()
+        val notifications = mutableListOf<com.mersadai.app.data.local.NotificationHistoryEntity>()
 
         override suspend fun getState(sourceId: String): SyncStateEntity? = states[sourceId]
         override suspend fun saveState(state: SyncStateEntity) { states[state.id] = state }
-        override suspend fun saveContent(item: ItemEntity, source: SourceEntity, category: CategoryEntity?) {
+        override suspend fun saveContent(item: ItemEntity, source: SourceEntity, category: CategoryEntity?): Boolean {
+            val inserted = items.none { it.id == item.id || (item.externalId != null && it.externalId == item.externalId) }
             items.removeAll { it.id == item.id }
             items += item
+            return inserted
+        }
+
+        override suspend fun enqueueNotifications(entries: List<com.mersadai.app.data.local.NotificationHistoryEntity>) {
+            notifications += entries
         }
     }
 }

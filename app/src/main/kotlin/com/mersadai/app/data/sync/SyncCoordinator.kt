@@ -1,6 +1,11 @@
 package com.mersadai.app.data.sync
 
-data class SyncRunResult(val hasTransientFailure: Boolean)
+import com.mersadai.app.domain.model.ContentItem
+
+data class SyncRunResult(
+    val hasTransientFailure: Boolean,
+    val newlyDiscoveredItems: List<ContentItem> = emptyList(),
+)
 
 interface SyncCoordinator {
     suspend fun synchronize(force: Boolean = false): SyncRunResult

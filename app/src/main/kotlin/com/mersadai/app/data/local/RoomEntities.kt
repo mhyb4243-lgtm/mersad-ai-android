@@ -138,3 +138,12 @@ data class StarSnapshotEntity(
     val starsCount: Long?,
     val capturedAt: Long,
 )
+
+@Entity(tableName = "notification_history", indices = [Index("notifiedAt"), Index("discoveredAt")])
+data class NotificationHistoryEntity(
+    @PrimaryKey val notificationKey: String,
+    val itemId: String,
+    val notificationType: String,
+    val discoveredAt: Long,
+    val notifiedAt: Long? = null,
+)

@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.mersadai.app.data.dedup.DeduplicationService
 import com.mersadai.app.data.local.CategoryEntity
+import com.mersadai.app.data.local.NotificationHistoryEntity
 import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
 import com.mersadai.app.data.mapper.toEntity
@@ -29,6 +30,7 @@ class PublicSourceSyncCoordinator(
 
     override suspend fun synchronize(force: Boolean): SyncRunResult {
         var transientFailure = false
+        val newlyDiscovered = mutableListOf<ContentItem>()
         sources.forEach { source ->
             val previous = store.getState(source.id)
             val timestamp = now()
@@ -56,20 +58,38 @@ class PublicSourceSyncCoordinator(
                     lastModified = previous?.lastModifiedHeader,
                 )
             }
+            val sourceDiscoveries = mutableListOf<ContentItem>()
+            val sourceNotifications = mutableListOf<NotificationHistoryEntity>()
             if (outcome.items.isNotEmpty()) {
                 for (item in deduplication.unique(outcome.items)) {
                     val itemSource = item.source ?: continue
                     try {
-                        store.saveContent(
+                        val discoveredAt = now()
+                        val inserted = store.saveContent(
                             item = item.toEntity(),
                             source = itemSource.toEntity(),
                             category = item.category?.let { CategoryEntity(it.id, it.name, it.parentId) },
                         )
+                        val notificationType = item.notificationType()
+                        if (inserted && item.hasRecentSourceDate(discoveredAt) && notificationType != null) {
+                            sourceDiscoveries += item
+                            sourceNotifications += NotificationHistoryEntity(
+                                notificationKey = item.externalId?.let { "external:$it" }
+                                    ?: "source:${item.source.id}:${item.id}",
+                                itemId = item.id,
+                                notificationType = notificationType,
+                                discoveredAt = discoveredAt,
+                            )
+                        }
                     } catch (_: Exception) {
                         outcome = outcome.copy(error = "تعذر حفظ بيانات ${source.name}؛ احتُفظ بالعناصر السابقة.")
                         break
                     }
                 }
+            }
+            if (outcome.error == null) {
+                newlyDiscovered += sourceDiscoveries
+                store.enqueueNotifications(sourceNotifications)
             }
             if (outcome.transient) transientFailure = true
             val finishedAt = now()
@@ -94,7 +114,19 @@ class PublicSourceSyncCoordinator(
                 ),
             )
         }
-        return SyncRunResult(transientFailure)
+        return SyncRunResult(transientFailure, newlyDiscovered.distinctBy(deduplication::keyFor))
+    }
+
+    private fun ContentItem.hasRecentSourceDate(timestamp: Long): Boolean =
+        (publishedAt ?: pushedAt ?: sourceUpdatedAt)?.let { it in (timestamp - NOTIFICATION_FRESHNESS_WINDOW)..timestamp } == true
+
+    private fun ContentItem.notificationType(): String? = when (contentType) {
+        com.mersadai.app.domain.model.ContentType.AI_TOOL -> "ai-tools"
+        com.mersadai.app.domain.model.ContentType.ANDROID_PROJECT -> "android-projects"
+        com.mersadai.app.domain.model.ContentType.MODEL -> "models"
+        com.mersadai.app.domain.model.ContentType.PROMPT -> "prompts"
+        com.mersadai.app.domain.model.ContentType.NEWS -> "news"
+        com.mersadai.app.domain.model.ContentType.OTHER -> null
     }
 
     private suspend fun fetch(source: SourceDefinition, previous: SyncStateEntity?): FetchOutcome = when (source.id) {
@@ -271,6 +303,7 @@ class PublicSourceSyncCoordinator(
         const val DAY = 24 * HOUR
         const val RATE_LIMIT_COOLDOWN = HOUR
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
+        const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         val githubQueries = listOf("android language:Kotlin", "android \"Jetpack Compose\"", "android AI")
         val sources = listOf(
             SourceDefinition("github", "GitHub", "https://api.github.com/search/repositories", 6 * HOUR),

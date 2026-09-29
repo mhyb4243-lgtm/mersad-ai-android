@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TranslationEntity::class,
         SyncStateEntity::class,
         StarSnapshotEntity::class,
+        NotificationHistoryEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class MersadDatabase : RoomDatabase() {
@@ -54,10 +55,21 @@ abstract class MersadDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS notification_history (notificationKey TEXT NOT NULL, itemId TEXT NOT NULL, notificationType TEXT NOT NULL, discoveredAt INTEGER NOT NULL, notifiedAt INTEGER, PRIMARY KEY(notificationKey))",
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_notification_history_notifiedAt ON notification_history(notifiedAt)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_notification_history_discoveredAt ON notification_history(discoveredAt)")
+            }
+        }
+
         fun create(context: Context): MersadDatabase =
             Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_3_4)
                 .build()
     }
 }

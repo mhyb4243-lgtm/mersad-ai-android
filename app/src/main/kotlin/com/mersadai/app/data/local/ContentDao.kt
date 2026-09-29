@@ -50,6 +50,9 @@ interface ContentDao {
     )
     fun searchItems(query: String): Flow<List<ItemWithMetadata>>
 
+    @Query("SELECT COUNT(*) FROM items")
+    suspend fun countItems(): Int
+
     @Query("SELECT * FROM translations WHERE itemId = :itemId AND field = :field AND language = :language LIMIT 1")
     suspend fun getTranslation(itemId: String, field: String, language: String): TranslationEntity?
 

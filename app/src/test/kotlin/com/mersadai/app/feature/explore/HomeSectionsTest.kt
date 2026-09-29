@@ -53,6 +53,16 @@ class HomeSectionsTest {
         assertFalse(future.isNewAt(now))
     }
 
+    @Test
+    fun seedContentForImagePromptsAndAiDealsShowsInHomeSections() {
+        val offer = item("chatgpt-free", ContentType.AI_TOOL, "ai-offers", sourceUpdatedAt = now)
+        val prompt = item("image-1", ContentType.PROMPT, "image-prompts", sourceUpdatedAt = now)
+
+        assertTrue(offer.belongsToHomeSection(HomeSection.AI_TOOLS))
+        assertTrue(prompt.belongsToHomeSection(HomeSection.IMAGE_PROMPTS))
+        assertTrue(homeSections(listOf(offer, prompt)).map { it.section }.toSet().containsAll(setOf(HomeSection.AI_TOOLS, HomeSection.IMAGE_PROMPTS)))
+    }
+
     private fun item(
         id: String,
         type: ContentType,

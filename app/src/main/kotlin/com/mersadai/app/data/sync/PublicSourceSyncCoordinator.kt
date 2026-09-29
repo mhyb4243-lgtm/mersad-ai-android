@@ -320,6 +320,7 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("google-developers", "Google Developers", "https://developers.googleblog.com/feeds/posts/default?alt=rss", 6 * HOUR),
             SourceDefinition("openai-news", "OpenAI News", "https://openai.com/news/rss.xml", 6 * HOUR),
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
+            SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
         )
     }
 }

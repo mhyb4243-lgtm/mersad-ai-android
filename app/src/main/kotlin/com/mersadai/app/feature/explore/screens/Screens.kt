@@ -460,7 +460,9 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
             content.starsCount?.let { item { DetailValue(R.string.stars, it.toString(), forceLtr = true) } }
             content.forksCount?.let { item { DetailValue(R.string.forks, it.toString(), forceLtr = true) } }
             content.openIssuesCount?.let { item { DetailValue(R.string.open_issues, it.toString(), forceLtr = true) } }
-            content.pipelineTag?.let { item { DetailValue(R.string.pipeline, it, forceLtr = true) } }
+            content.pipelineTag?.let {
+                item { DetailValue(R.string.pipeline, content.pipelineCategory ?: stringResource(R.string.section_models)) }
+            }
             content.pipelineCategory?.let { item { DetailValue(R.string.pipeline_category, it) } }
             content.libraryName?.let { item { DetailValue(R.string.model_library, it, forceLtr = true) } }
             content.downloads?.let { item { DetailValue(R.string.downloads, it.toString(), forceLtr = true) } }
@@ -470,10 +472,20 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                 item { DetailValue(R.string.license, content.license ?: stringResource(R.string.license_unknown), forceLtr = true) }
             }
             content.sdk?.let { item { DetailValue(R.string.sdk, it, forceLtr = true) } }
-            content.tags.takeIf { it.isNotEmpty() }?.let { tags -> item { DetailValue(R.string.tags, tags.joinToString("، ")) } }
+            content.tags.takeIf { it.isNotEmpty() }?.let { tags ->
+                val labels = tags.mapNotNull(String::functionalTagAr).distinct()
+                    .ifEmpty { listOfNotNull(content.pipelineCategory) }
+                if (labels.isNotEmpty()) item { DetailValue(R.string.tags, labels.joinToString("، ")) }
+            }
             content.author?.let { item { DetailValue(R.string.author, it, forceLtr = true) } }
             content.contributor?.let { item { DetailValue(R.string.contributor, it) } }
-            item { DetailValue(R.string.free_status, stringResource(content.freeStatus.stringResource())) }
+            item {
+                val freeStatus = content.classifiedFreeStatus()
+                DetailValue(
+                    R.string.free_status,
+                    stringResource(if (freeStatus == FreeStatus.OPEN_SOURCE) R.string.free_open_source_free else freeStatus.stringResource()),
+                )
+            }
             item { DetailValue(R.string.verification, stringResource(content.verificationLevel.stringResource())) }
             item { DetailValue(R.string.source, content.source?.name ?: stringResource(R.string.source_not_available), forceLtr = content.source != null) }
             content.lastVerifiedAt?.let { verified ->
@@ -715,6 +727,7 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.ANDROID_PROJECTS -> R.string.section_android_projects
     HomeSection.MODELS -> R.string.section_models
     HomeSection.PROMPTS -> R.string.section_prompts
+    HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
 }
@@ -729,6 +742,21 @@ private fun Category.displayName(): String = when (id) {
     "android-news" -> stringResource(R.string.category_android_news)
     "developer-tools" -> stringResource(R.string.section_developer_tools)
     else -> name
+}
+
+private fun String.functionalTagAr(): String? {
+    val value = lowercase(Locale.ROOT)
+    return when {
+        value.startsWith("license:") || value in setOf("safetensors", "arxiv", "transformers", "diffusers") -> null
+        "ocr" in value || "document" in value -> "قراءة مستندات OCR"
+        "text-to-image" in value || "image-generation" in value -> "توليد صور"
+        "image-to-image" in value -> "تعديل صور"
+        "computer-vision" in value || "image-classification" in value || "object-detection" in value -> "رؤية حاسوبية"
+        "speech" in value || "audio" in value -> "معالجة الصوت والكلام"
+        "translation" in value -> "ترجمة النصوص"
+        "text-generation" in value -> "توليد النصوص"
+        else -> null
+    }
 }
 
 private fun FreeStatus.stringResource(): Int = when (this) {

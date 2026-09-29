@@ -21,6 +21,7 @@
     <string name="section_android_projects">مشاريع Android وOpen Source</string>
     <string name="section_models">نماذج الذكاء الاصطناعي</string>
     <string name="section_prompts">المطالبات النصية</string>
+    <string name="section_image_prompts">أوامر صور وتصميم</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>
     <string name="category_android_news">أخبار Android</string>
@@ -96,6 +97,7 @@
     <string name="free_credit">أرصدة مجانية</string>
     <string name="temporary_offer">عرض مؤقت</string>
     <string name="free_open_source">مفتوح المصدر</string>
+    <string name="free_open_source_free">مفتوح المصدر ومجاني</string>
     <string name="free_open_weight">وزن مفتوح / Open Weight</string>
     <string name="free_local_runnable">يمكن تشغيله محليًا</string>
     <string name="expired_offer">عرض منتهٍ</string>

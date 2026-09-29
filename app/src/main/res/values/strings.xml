@@ -26,6 +26,8 @@
     <string name="category_android_news">أخبار Android</string>
     <string name="show_all">عرض الكل</string>
     <string name="filter_all">الكل</string>
+    <string name="filter_source">المصدر</string>
+    <string name="filter_all_sources">كل المصادر</string>
     <string name="badge_new">جديد</string>
     <string name="translate_to_arabic">ترجمة للعربية</string>
     <string name="translation_in_progress">جارٍ إعداد الترجمة…</string>
@@ -47,6 +49,7 @@
     <string name="empty_favorites_title">قائمتك فارغة</string>
     <string name="empty_favorites_message">احفظ العناصر التي تهمك لتعود إليها لاحقًا.</string>
     <string name="details_title">تفاصيل العنصر</string>
+    <string name="similar_content">قد يهمك أيضًا</string>
     <string name="original_title">العنوان الأصلي</string>
     <string name="description">الوصف</string>
     <string name="original_description">الوصف الأصلي</string>
@@ -115,6 +118,15 @@
     <string name="privacy">الخصوصية</string>
     <string name="privacy_message">لا يتطلب التطبيق حسابًا ولا يجمع بيانات شخصية، ولا يحتوي على Backend خاص.</string>
     <string name="dismiss">حسنًا</string>
+    <string name="notification_title">اكتشافات جديدة</string>
+    <string name="notification_summary">وجدنا %1$d عنصر جديد: %2$s</string>
+    <string name="notification_channel_name">اكتشافات التطبيق</string>
+    <string name="notification_channel_description">إشعارات عن عناصر جديدة تم اكتشافها في مصادر مِرصد AI.</string>
+    <string name="notification_count_ai_tools">%1$d أداة ذكاء اصطناعي</string>
+    <string name="notification_count_android">%1$d مشروع Android</string>
+    <string name="notification_count_models">%1$d نموذج</string>
+    <string name="notification_count_prompts">%1$d مطالبة</string>
+    <string name="notification_count_news">%1$d خبر</string>
     <string name="share_chooser">مشاركة العنصر</string>
     <string name="no_description">لا يوجد وصف متاح.</string>
 </resources>

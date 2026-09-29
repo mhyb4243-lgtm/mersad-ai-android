@@ -75,4 +75,14 @@ data class SyncRecord(
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-data class AppSettings(val themeMode: ThemeMode = ThemeMode.SYSTEM, val autoUpdate: Boolean = false)
+data class AppSettings(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val autoUpdate: Boolean = false,
+    val notificationsEnabled: Boolean = false,
+    val notifyAiTools: Boolean = true,
+    val notifyAndroidProjects: Boolean = true,
+    val notifyModels: Boolean = true,
+    val notifyPrompts: Boolean = true,
+    val notifyNews: Boolean = true,
+    val notificationPermissionRequested: Boolean = false,
+)

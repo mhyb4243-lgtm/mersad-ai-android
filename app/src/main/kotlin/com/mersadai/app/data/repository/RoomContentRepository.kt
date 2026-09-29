@@ -6,6 +6,7 @@ import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.SyncRecord
 import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.repository.ContentRepository
+import com.mersadai.app.domain.search.LocalContentSearch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -13,7 +14,9 @@ class RoomContentRepository(private val dao: ContentDao) : ContentRepository {
     override fun observeItems(): Flow<List<ContentItem>> = dao.observeItems().map { rows -> rows.map { it.toDomain() } }
 
     override fun searchItems(query: String): Flow<List<ContentItem>> =
-        dao.searchItems(query.trim()).map { rows -> rows.map { it.toDomain() } }
+        dao.observeItems()
+            .map { rows -> rows.map { it.toDomain() } }
+            .map { items -> LocalContentSearch.search(items, query) }
 
     override fun observeFavorites(): Flow<List<ContentItem>> =
         dao.observeFavorites().map { rows -> rows.map { it.toDomain() } }

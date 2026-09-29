@@ -14,11 +14,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mersadai.app.core.AppContainer
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.feature.explore.ExploreViewModel
+import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.navigation.MersadNavHost
 import com.mersadai.app.ui.theme.MersadTheme
 
 class MainActivity : ComponentActivity() {
     private val container by lazy { AppContainer(applicationContext) }
+
+    companion object {
+        const val EXTRA_DISCOVERY_SECTION = "discovery_section"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +42,8 @@ class MainActivity : ComponentActivity() {
                         settings = settings,
                         settingsRepository = container.settingsRepository,
                         onManualSync = container.syncScheduler::enqueueManualSync,
+                        initialDiscoverySection = intent.getStringExtra(EXTRA_DISCOVERY_SECTION)
+                            ?.let { runCatching { HomeSection.valueOf(it) }.getOrNull() },
                     )
                 }
             }

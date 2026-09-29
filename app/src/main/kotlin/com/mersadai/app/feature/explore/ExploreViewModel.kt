@@ -26,11 +26,13 @@ class ExploreViewModel(
 ) : ViewModel() {
     private val query = MutableStateFlow("")
     private val selectedSection = MutableStateFlow<HomeSection?>(null)
+    private val selectedSource = MutableStateFlow<String?>(null)
     private val translationJobs = MutableStateFlow<Set<String>>(emptySet())
     private val translationFailures = MutableStateFlow<Set<String>>(emptySet())
 
     val searchQuery: StateFlow<String> = query
     val searchSection: StateFlow<HomeSection?> = selectedSection
+    val searchSource: StateFlow<String?> = selectedSource
     val translatingFields: StateFlow<Set<String>> = translationJobs
     val failedTranslations: StateFlow<Set<String>> = translationFailures
     val items: StateFlow<List<ContentItem>> = repository.observeItems()
@@ -38,10 +40,14 @@ class ExploreViewModel(
     val favorites: StateFlow<List<ContentItem>> = repository.observeFavorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val searchResults: StateFlow<List<ContentItem>> = query
-        .debounce(200)
+        .debounce(250)
         .flatMapLatest(repository::searchItems)
-        .combine(selectedSection) { results, section ->
-            if (section == null) results else results.filter { it.belongsToHomeSection(section) }
+        .combine(selectedSection.combine(selectedSource) { section, source -> section to source }) { results, filters ->
+            val (section, source) = filters
+            results.filter { item ->
+                (section == null || item.belongsToHomeSection(section)) &&
+                    (source == null || item.source?.id == source)
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val syncRecord: StateFlow<SyncRecord?> = repository.observeSyncRecord()
@@ -55,6 +61,10 @@ class ExploreViewModel(
 
     fun selectSearchSection(section: HomeSection?) {
         selectedSection.value = section
+    }
+
+    fun selectSearchSource(sourceId: String?) {
+        selectedSource.value = sourceId
     }
 
     fun translateToArabic(itemId: String, field: String, sourceText: String) {

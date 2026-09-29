@@ -49,6 +49,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -97,102 +99,110 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun HomeScreen(
     viewModel: ExploreViewModel,
     onOpenSearch: (HomeSection?) -> Unit,
     onOpenItem: (String) -> Unit,
-    onManualSync: () -> Unit,
+    onManualSync: suspend () -> Unit,
     contentPadding: PaddingValues,
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val syncRecord by viewModel.syncRecord.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     val sections = remember(items) { homeSections(items) }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(contentPadding),
-        contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+    PullToRefreshBox(
+        isRefreshing = syncRecord?.state == SyncState.SYNCING,
+        onRefresh = { scope.launch { onManualSync() } },
+        state = rememberPullToRefreshState(),
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(stringResource(R.string.home_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(contentPadding),
+            contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.home_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        }
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::updateQuery,
-                modifier = Modifier.fillMaxWidth().clickable { onOpenSearch(null) },
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { onOpenSearch(null) }),
-                readOnly = false,
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(R.string.quick_categories), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(sections.map(HomeSectionContent::section)) { section ->
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.clickable { onOpenSearch(section) },
-                        ) {
-                            Text(stringResource(section.stringResource()), modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), style = MaterialTheme.typography.labelLarge)
+            item {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::updateQuery,
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenSearch(null) },
+                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onOpenSearch(null) }),
+                    readOnly = false,
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.quick_categories), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(sections.map(HomeSectionContent::section)) { section ->
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.clickable { onOpenSearch(section) },
+                            ) {
+                                Text(stringResource(section.stringResource()), modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                 }
             }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.discover_now), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = onManualSync, enabled = syncRecord?.state != SyncState.SYNCING) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                }
-                TextButton(onClick = onManualSync, enabled = syncRecord?.state != SyncState.SYNCING) { Text(stringResource(R.string.refresh)) }
-            }
-        }
-        if (!isOnline) item { StatusBanner(stringResource(R.string.offline_message)) }
-        when (syncRecord?.state) {
-            SyncState.SYNCING -> item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text(stringResource(R.string.syncing), style = MaterialTheme.typography.bodyMedium)
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.discover_now), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { scope.launch { onManualSync() } }, enabled = syncRecord?.state != SyncState.SYNCING) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    }
+                    TextButton(onClick = { scope.launch { onManualSync() } }, enabled = syncRecord?.state != SyncState.SYNCING) { Text(stringResource(R.string.refresh)) }
                 }
             }
-            SyncState.FAILURE -> item { StatusBanner(syncRecord?.message ?: stringResource(R.string.sync_failed), isError = true) }
-            SyncState.NOT_CONFIGURED -> item { StatusBanner(stringResource(R.string.sync_not_configured)) }
-            SyncState.SUCCESS -> syncRecord?.message?.let { message -> item { StatusBanner(message) } }
-            else -> Unit
-        }
-        item {
-            Text(
-                syncRecord?.lastSuccessAt?.let { timestamp ->
-                    val formatted = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale("ar")).format(Date(timestamp))
-                    stringResource(R.string.last_updated, formatted)
-                } ?: stringResource(R.string.not_updated_yet),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item {
-            Text(stringResource(R.string.local_cache_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (sections.isEmpty()) {
-            item { EmptyState(R.string.empty_home_title, R.string.empty_home_message) }
-        } else {
-            sections.forEach { section ->
-                item(key = "section-${section.section.name}") {
-                    HomeSectionHeading(section, onShowAll = { onOpenSearch(section.section) })
+            if (!isOnline) item { StatusBanner(stringResource(R.string.offline_message)) }
+            when (syncRecord?.state) {
+                SyncState.SYNCING -> item {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.syncing), style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
-                items(section.items, key = { "${section.section.name}:${it.id}" }) { content ->
-                    ContentCard(item = content, viewModel = viewModel, onClick = { onOpenItem(content.id) })
+                SyncState.FAILURE -> item { StatusBanner(syncRecord?.message ?: stringResource(R.string.sync_failed), isError = true) }
+                SyncState.NOT_CONFIGURED -> item { StatusBanner(stringResource(R.string.sync_not_configured)) }
+                SyncState.SUCCESS -> syncRecord?.message?.let { message -> item { StatusBanner(message) } }
+                else -> Unit
+            }
+            item {
+                Text(
+                    syncRecord?.lastSuccessAt?.let { timestamp ->
+                        val formatted = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale("ar")).format(Date(timestamp))
+                        stringResource(R.string.last_updated, formatted)
+                    } ?: stringResource(R.string.not_updated_yet),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            item {
+                Text(stringResource(R.string.local_cache_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (sections.isEmpty()) {
+                item { EmptyState(R.string.empty_home_title, R.string.empty_home_message) }
+            } else {
+                sections.forEach { section ->
+                    item(key = "section-${section.section.name}") {
+                        HomeSectionHeading(section, onShowAll = { onOpenSearch(section.section) })
+                    }
+                    items(section.items, key = { "${section.section.name}:${it.id}" }) { content ->
+                        ContentCard(item = content, viewModel = viewModel, onClick = { onOpenItem(content.id) })
+                    }
                 }
             }
         }

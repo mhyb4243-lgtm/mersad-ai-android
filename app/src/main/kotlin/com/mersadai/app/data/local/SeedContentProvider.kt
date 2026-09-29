@@ -10,8 +10,75 @@ import com.mersadai.app.domain.model.VerificationLevel
 object SeedContentProvider {
     fun items(now: Long = System.currentTimeMillis()): List<ContentItem> = buildList {
         addAll(aiOffers(now))
+        addAll(androidReadyAiCatalog(now))
         addAll(imagePrompts(now))
     }
+
+    private fun androidReadyAiCatalog(now: Long): List<ContentItem> = listOf(
+        ContentItem(
+            id = "seed-android-ai-llama-cpp",
+            title = "Llama.cpp Android",
+            originalTitle = "Llama.cpp Android",
+            description = "مشروع Android مفتوح المصدر لتشغيل نماذج اللغة محليًا على الجهاز بدون خادم خارجي.",
+            originalDescription = "Open-source Android project for running local language models on-device without a remote server.",
+            url = "https://github.com/ggerganov/llama.cpp",
+            contentType = ContentType.ANDROID_PROJECT,
+            category = Category("android", "Android"),
+            freeStatus = FreeStatus.OPEN_SOURCE,
+            verificationLevel = VerificationLevel.OFFICIAL,
+            source = Source("github", "GitHub", "github", "https://github.com", "https://api.github.com"),
+            lastVerifiedAt = now - 32 * 24 * 60 * 60 * 1000,
+            createdAt = now - 90L * 24 * 60 * 60 * 1000,
+            updatedAt = now - 32 * 24 * 60 * 60 * 1000,
+            author = "ggerganov",
+            libraryName = "llama.cpp",
+            localRunnable = true,
+            tags = listOf("android-ai", "llama.cpp", "on-device", "open-source"),
+            license = "mit",
+        ),
+        ContentItem(
+            id = "seed-model-gemma-2b-android",
+            title = "Gemma 2B Android",
+            originalTitle = "Gemma 2B Android",
+            description = "نموذج مفتوح الوزن مناسب للتشغيل المحلي على الأجهزة ذات القدرات المتوسطة.",
+            originalDescription = "Open-weight model optimized for lighter local deployments on Android.",
+            url = "https://huggingface.co/google/gemma-2b",
+            contentType = ContentType.MODEL,
+            category = Category("models", "Models"),
+            freeStatus = FreeStatus.OPEN_WEIGHT,
+            verificationLevel = VerificationLevel.OFFICIAL,
+            source = Source("hf-models", "Hugging Face Models", "google/gemma-2b", "https://huggingface.co", "https://huggingface.co/api/models"),
+            lastVerifiedAt = now - 18 * 24 * 60 * 60 * 1000,
+            createdAt = now - 60L * 24 * 60 * 60 * 1000,
+            updatedAt = now - 18 * 24 * 60 * 60 * 1000,
+            author = "Google",
+            localRunnable = true,
+            pipelineCategory = "Text Generation",
+            tags = listOf("gemma", "android-ai", "open-weight", "onnx"),
+            license = "apache-2.0",
+        ),
+        ContentItem(
+            id = "seed-model-mistral-7b-mobile",
+            title = "Mistral 7B Mobile",
+            originalTitle = "Mistral 7B Mobile",
+            description = "نموذج خفيف يمكن تشغيله على أجهزة Android لأغراض الإنتاج السريع.",
+            originalDescription = "Compact model suitable for fast on-device generation and lightweight reasoning.",
+            url = "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2",
+            contentType = ContentType.MODEL,
+            category = Category("models", "Models"),
+            freeStatus = FreeStatus.OPEN_WEIGHT,
+            verificationLevel = VerificationLevel.OFFICIAL,
+            source = Source("hf-models", "Hugging Face Models", "mistralai/Mistral-7B-Instruct-v0.2", "https://huggingface.co", "https://huggingface.co/api/models"),
+            lastVerifiedAt = now - 27 * 24 * 60 * 60 * 1000,
+            createdAt = now - 70L * 24 * 60 * 60 * 1000,
+            updatedAt = now - 27 * 24 * 60 * 60 * 1000,
+            author = "Mistral",
+            localRunnable = true,
+            pipelineCategory = "Text Generation",
+            tags = listOf("mistral", "android-ai", "open-weight", "gguf"),
+            license = "apache-2.0",
+        ),
+    )
 
     private fun aiOffers(now: Long): List<ContentItem> = listOf(
         ContentItem(

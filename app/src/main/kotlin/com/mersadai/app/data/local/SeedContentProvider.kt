@@ -12,7 +12,10 @@ object SeedContentProvider {
         addAll(aiOffers(now))
         addAll(androidReadyAiCatalog(now))
         addAll(imagePrompts(now))
+        addAll(creatorPrompts(now))
     }
+
+    fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> = creatorPrompts(now)
 
     private fun androidReadyAiCatalog(now: Long): List<ContentItem> = listOf(
         ContentItem(
@@ -249,4 +252,94 @@ object SeedContentProvider {
             promptType = "image-editing",
         ),
     )
+
+    private fun creatorPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-reels-prompt-01", "جولة جوية سينمائية فوق ساحل عُمان",
+            "لقطة ريلز عمودية تبدأ من الأمواج ثم ترتفع لتكشف الساحل والجبال في مشهد جغرافي موثق بصرياً.",
+            "Vertical 9:16 cinematic documentary drone shot over Oman's rugged coastline at sunrise. Begin inches above turquoise waves, then perform a smooth rising crane reveal of limestone cliffs and fishing villages. Natural geography, physically accurate water, warm early light, steady gimbal motion, realistic documentary color grade, 4K, no titles, no subtitles, no logos.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - 2 * DAY,
+            listOf("reels", "9:16", "drone", "documentary", "Veo", "Sora", "Kling"),
+        ),
+        creatorPrompt(
+            "seed-reels-prompt-02", "قصة حرفيّ في سوق قديم",
+            "مشهد اجتماعي قصير يقترب من حركة اليدين وتفاصيل الحرفة، بإيقاع هادئ مناسب لريلز وثائقي.",
+            "Vertical 9:16 observational documentary in a traditional Middle Eastern market. Follow an artisan's hands shaping copper, then gently rack focus to the artisan's concentrated expression. Slow handheld push-in, authentic ambient market sound, available window light, candid human moments, respectful realism, natural skin texture, 24 fps, no staged posing, no text or watermark.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - 3 * DAY,
+            listOf("reels", "9:16", "social-documentary", "craft", "Veo", "Sora", "Kling"),
+        ),
+        creatorPrompt(
+            "seed-reels-prompt-03", "انتقال درامي بين الليل والفجر",
+            "تحول بصري متصل من زقاق ليلي إلى أول ضوء للفجر مع حركة كاميرا واحدة واضحة.",
+            "Vertical 9:16 one-take cinematic scene in a narrow old-city alley. Track backward as a lone cyclist approaches through practical tungsten pools of light; transition naturally into blue dawn as the camera cranes upward to reveal the waking rooftops. Motivated camera movement, believable exposure shift, subtle atmospheric haze, restrained dramatic contrast, photorealistic 35mm lens, 24 fps, no cuts, no text, no logos.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - 4 * DAY,
+            listOf("reels", "9:16", "dramatic-scene", "camera-movement", "Kling", "Veo"),
+        ),
+        creatorPrompt(
+            "seed-reels-prompt-04", "حكاية قطار يعبر وادياً جبلياً",
+            "افتتاحية وثائقية جغرافية تبرز حجم التضاريس ومسار القطار دون مبالغة في شكل المكان.",
+            "Vertical 9:16 geographic documentary sequence of a passenger train crossing a real highland valley. Start with a wide aerial establishing shot, then descend in a controlled lateral tracking move parallel to the train, revealing layered mountain terrain and a river below. Accurate scale and natural geology, overcast soft light, realistic motion blur, neutral documentary grade, 4K, no fictional structures, no captions, no watermark.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - 5 * DAY,
+            listOf("reels", "9:16", "geography", "documentary", "Sora", "Veo", "Kling"),
+        ),
+        creatorPrompt(
+            "seed-photo-prompt-01", "دمج صورة منتج في مشهد مقهى واقعي",
+            "أدرج المنتج في صورة مقهى مع مطابقة اتجاه الضوء والظلال والانعكاسات وعمق المجال.",
+            "Composite the provided coffee package into the supplied contemporary cafe photograph. Preserve the exact package shape, label, typography, and color. Match the existing window light direction, contact shadow, reflected highlights, perspective, white balance, grain, and depth of field. Full-frame camera, 50mm lens at f/2.8, natural morning light, photorealistic commercial retouching, seamless edge integration. Do not invent text or alter the product branding.",
+            "photorealistic-prompts", "🎨 دمج وتصميم فوتوغرافي واقعي", "photorealistic-compositing", now - 2 * DAY,
+            listOf("Flux", "Midjourney", "photorealistic", "compositing", "retouching", "50mm"),
+        ),
+        creatorPrompt(
+            "seed-photo-prompt-02", "بورتريه تحريري بعدسة بورتريه حقيقية",
+            "بورتريه واقعي بملمس بشرة طبيعي وإضاءة ناعمة قابلة للتطبيق في جلسة تصوير تحريرية.",
+            "Photorealistic editorial portrait of the same person in the reference image; preserve identity and natural facial proportions. Soft 90cm octabox key light at 45 degrees, subtle white reflector fill, gentle hair rim, accurate skin pores and fine hair, neutral color calibration. Full-frame camera, 85mm portrait lens, f/2.8, ISO 100, 1/160s, catchlights aligned with the key light, refined magazine retouching without plastic skin, no text, no watermark.",
+            "photorealistic-prompts", "🎨 دمج وتصميم فوتوغرافي واقعي", "photorealistic-portrait", now - 3 * DAY,
+            listOf("Flux", "Midjourney", "photorealistic", "portrait", "85mm", "lighting"),
+        ),
+        creatorPrompt(
+            "seed-photo-prompt-03", "ترميم صورة قديمة مع الحفاظ على ملامحها",
+            "تنظيف خدوش صورة أرشيفية واستعادة التباين مع الحفاظ على هوية الأشخاص وتفاصيل الصورة الأصلية.",
+            "Restore the supplied archival family photograph. Remove dust, scratches, and fold marks while preserving every person's identity, facial features, clothing, framing, and original era. Reconstruct only damaged areas using adjacent photographic evidence; retain authentic film grain and period-accurate tonal response. Balanced low-contrast retouching, natural detail recovery, no beauty edits, no added objects, no colorization unless explicitly requested, no text.",
+            "photorealistic-prompts", "🎨 دمج وتصميم فوتوغرافي واقعي", "photo-restoration", now - 4 * DAY,
+            listOf("Flux", "Midjourney", "photorealistic", "retouching", "restoration"),
+        ),
+        creatorPrompt(
+            "seed-photo-prompt-04", "مات بينتنغ لواجهة ساحلية قابلة للتصوير",
+            "وسّع خلفية صورة معمارية بإضافة امتداد ساحلي منطقي مع مطابقة المنظور والطقس والإضاءة.",
+            "Extend the supplied coastal architecture photograph into a seamless photorealistic matte painting. Continue the existing shoreline, distant headland, cloud direction, haze, and horizon height with geographically plausible terrain. Match the source camera perspective, 35mm full-frame lens character, late-afternoon sun angle, atmospheric perspective, shadow softness, and sensor grain. Keep the original building untouched and readable; integrate all new edges naturally, no fantasy structures, no text, no watermark.",
+            "photorealistic-prompts", "🎨 دمج وتصميم فوتوغرافي واقعي", "matte-painting", now - 5 * DAY,
+            listOf("Flux", "Midjourney", "photorealistic", "matte-painting", "35mm", "compositing"),
+        ),
+    )
+
+    private fun creatorPrompt(
+        id: String,
+        title: String,
+        description: String,
+        prompt: String,
+        categoryId: String,
+        categoryName: String,
+        promptType: String,
+        updatedAt: Long,
+        tags: List<String>,
+    ) = ContentItem(
+        id = id,
+        title = title,
+        originalTitle = title,
+        description = description,
+        originalDescription = prompt,
+        url = "https://github.com/mhyb4243-lgtm/mersad-ai-android",
+        contentType = ContentType.PROMPT,
+        category = Category(categoryId, categoryName),
+        freeStatus = FreeStatus.UNKNOWN,
+        verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+        source = Source("mersad-prompt-library", "مكتبة برومبتات مِرصد AI", "mersad-prompt-library", "https://github.com/mhyb4243-lgtm/mersad-ai-android", null),
+        lastVerifiedAt = updatedAt,
+        createdAt = updatedAt,
+        updatedAt = updatedAt,
+        tags = tags,
+        promptType = promptType,
+    )
+
+    private const val DAY = 24 * 60 * 60 * 1000L
 }

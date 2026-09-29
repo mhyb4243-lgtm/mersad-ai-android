@@ -53,6 +53,9 @@ interface ContentDao {
     @Query("SELECT COUNT(*) FROM items")
     suspend fun countItems(): Int
 
+    @Query("SELECT EXISTS(SELECT 1 FROM items WHERE id = :id)")
+    suspend fun hasItem(id: String): Boolean
+
     @Query("SELECT * FROM translations WHERE itemId = :itemId AND field = :field AND language = :language LIMIT 1")
     suspend fun getTranslation(itemId: String, field: String, language: String): TranslationEntity?
 

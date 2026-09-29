@@ -1,6 +1,7 @@
 package com.mersadai.app.feature.explore
 
 import com.mersadai.app.domain.model.ContentItem
+import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.Source
 import org.junit.Assert.assertEquals
@@ -61,6 +62,18 @@ class HomeSectionsTest {
         assertTrue(offer.belongsToHomeSection(HomeSection.AI_TOOLS))
         assertTrue(prompt.belongsToHomeSection(HomeSection.IMAGE_PROMPTS))
         assertTrue(homeSections(listOf(offer, prompt)).map { it.section }.toSet().containsAll(setOf(HomeSection.AI_TOOLS, HomeSection.IMAGE_PROMPTS)))
+    }
+
+    @Test
+    fun promptSubcategoriesAreIndependentAndExcludeAbstractContent() {
+        val reels = item("reel-1", ContentType.PROMPT, "curated-prompts").copy(category = Category("reels-prompts", "ريلز"))
+        val photorealistic = item("photo-1", ContentType.PROMPT, "curated-prompts").copy(category = Category("photorealistic-prompts", "صور واقعية"))
+        val excluded = reels.copy(id = "abstract-1", originalDescription = "Surreal abstract dreamlike art")
+
+        assertTrue(reels.belongsToHomeSection(HomeSection.REELS_PROMPTS))
+        assertFalse(reels.belongsToHomeSection(HomeSection.PHOTOREALISTIC_PROMPTS))
+        assertTrue(photorealistic.belongsToHomeSection(HomeSection.PHOTOREALISTIC_PROMPTS))
+        assertFalse(excluded.belongsToHomeSection(HomeSection.REELS_PROMPTS))
     }
 
     private fun item(

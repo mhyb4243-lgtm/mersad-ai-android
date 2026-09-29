@@ -65,7 +65,15 @@ class LocalContentSearchTest {
 
         assertTrue(items.any { it.contentType == ContentType.ANDROID_PROJECT && it.title.contains("Android") })
         assertTrue(items.any { it.contentType == ContentType.MODEL && it.title.contains("Gemma") })
+        assertTrue(items.any { it.id == "offer-chatgpt-free" })
+        assertTrue(items.any { it.id == "seed-image-prompt-01" })
+        assertEquals(4, items.count { it.category?.id == "reels-prompts" })
+        assertEquals(4, items.count { it.category?.id == "photorealistic-prompts" })
+        assertTrue(items.filter { it.category?.id in setOf("reels-prompts", "photorealistic-prompts") }
+            .all { it.description?.containsArabicText() == true && it.originalDescription?.contains(" ") == true })
     }
+
+    private fun String.containsArabicText(): Boolean = any { it in '\u0600'..'\u06FF' }
 
     private fun item(
         id: String,

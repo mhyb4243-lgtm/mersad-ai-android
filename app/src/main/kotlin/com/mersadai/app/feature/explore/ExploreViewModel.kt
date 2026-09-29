@@ -8,6 +8,7 @@ import kotlinx.coroutines.CancellationException
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.SyncRecord
 import com.mersadai.app.domain.repository.ContentRepository
+import com.mersadai.app.feature.explore.hasExcludedPromptStyle
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +46,8 @@ class ExploreViewModel(
         .combine(selectedSection.combine(selectedSource) { section, source -> section to source }) { results, filters ->
             val (section, source) = filters
             results.filter { item ->
-                (section == null || item.belongsToHomeSection(section)) &&
+                !item.hasExcludedPromptStyle() &&
+                    (section == null || item.belongsToHomeSection(section)) &&
                     (source == null || item.source?.id == source)
             }
         }

@@ -22,6 +22,8 @@
     <string name="section_models">نماذج الذكاء الاصطناعي</string>
     <string name="section_prompts">برومبت / أمر توليد</string>
     <string name="section_image_prompts">أوامر صور وتصميم</string>
+    <string name="section_reels_prompts">🎬 برومبتات ريلز وفيديو سينمائي</string>
+    <string name="section_photorealistic_prompts">🎨 دمج وتصميم فوتوغرافي واقعي</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>
     <string name="category_android_news">أخبار Android</string>
@@ -79,7 +81,7 @@
     <string name="author">الناشر</string>
     <string name="contributor">المساهم</string>
     <string name="copy_prompt">نسخ البرومبت / أمر التوليد</string>
-    <string name="prompt_copied">تم نسخ النص</string>
+    <string name="prompt_copied">تم نسخ البرومبت بنجاح</string>
     <string name="source_not_available">المصدر غير محدد</string>
     <string name="open_source">فتح المصدر</string>
     <string name="share">مشاركة</string>

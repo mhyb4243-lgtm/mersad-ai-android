@@ -540,11 +540,14 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     }
                 }
             }
-            if (content.contentType == ContentType.PROMPT && !content.originalDescription.isNullOrBlank()) {
-                item {
+            if (content.contentType == ContentType.PROMPT) {
+                val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
+                    ?: content.description?.takeIf { it.isNotBlank() }
+                    ?: content.displayDescriptionAr?.takeIf { it.isNotBlank() }
+                if (promptText != null) item {
                     val clipboard = LocalClipboardManager.current
-                    OutlinedButton(onClick = {
-                        clipboard.setText(AnnotatedString(content.originalDescription.orEmpty()))
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(promptText))
                         Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()
                     }) {
                         Text(stringResource(R.string.copy_prompt))
@@ -738,6 +741,8 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.MODELS -> R.string.section_models
     HomeSection.PROMPTS -> R.string.section_prompts
     HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
+    HomeSection.REELS_PROMPTS -> R.string.section_reels_prompts
+    HomeSection.PHOTOREALISTIC_PROMPTS -> R.string.section_photorealistic_prompts
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
 }
@@ -748,6 +753,8 @@ private fun Category.displayName(): String = when (id) {
     "android" -> stringResource(R.string.section_android_projects)
     "models" -> stringResource(R.string.section_models)
     "prompts" -> stringResource(R.string.section_prompts)
+    "reels-prompts" -> stringResource(R.string.section_reels_prompts)
+    "photorealistic-prompts" -> stringResource(R.string.section_photorealistic_prompts)
     "ai-news" -> stringResource(R.string.section_ai_news)
     "android-news" -> stringResource(R.string.category_android_news)
     "developer-tools" -> stringResource(R.string.section_developer_tools)

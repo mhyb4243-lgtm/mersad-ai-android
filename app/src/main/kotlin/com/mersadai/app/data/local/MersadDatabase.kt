@@ -84,6 +84,15 @@ abstract class MersadDatabase : RoomDatabase() {
                         database.contentDao().upsertRemoteContent(item.toEntity(), source.toEntity(), category?.toEntity())
                     }
                 }
+                SeedContentProvider.additiveItems().forEach { item ->
+                    if (database.contentDao().hasItem(item.id)) return@forEach
+                    val source = item.source ?: return@forEach
+                    database.contentDao().upsertRemoteContent(
+                        item.toEntity(),
+                        source.toEntity(),
+                        item.category?.toEntity(),
+                    )
+                }
             }
 
             return database

@@ -58,6 +58,10 @@ class PublicSourceSyncCoordinatorTest {
         val githubCalls = calls.filter { it.first.startsWith("https://api.github.com") }
         assertEquals(3, githubCalls.size)
         assertTrue(githubCalls.all { it.first.contains("sort=updated") && it.first.contains("per_page=20") })
+        assertTrue(githubCalls.any { it.first.contains("topic%3Aphotography") })
+        assertTrue(githubCalls.any { it.first.contains("topic%3Aphoto-editing") })
+        assertTrue(githubCalls.any { it.first.contains("topic%3Ainvitation") })
+        assertTrue(githubCalls.any { it.first.contains("topic%3Aposter-design") })
         assertTrue(githubCalls.all { it.second["User-Agent"]?.contains("MersadAI-Android") == true })
         assertEquals(3, store.items.count { it.externalId?.startsWith("github:") == true })
         assertTrue(store.items.all { it.freeStatus == "UNKNOWN" })

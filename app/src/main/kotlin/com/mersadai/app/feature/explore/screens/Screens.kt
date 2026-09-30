@@ -582,14 +582,22 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                 }
             }
             item {
-                Button(onClick = {
-                    val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
-                        ?: content.description?.takeIf { it.isNotBlank() }
-                        ?: content.displayDescriptionAr
-                    clipboard.setText(AnnotatedString(SocialPostFormatter.format(content, promptText)))
-                    Toast.makeText(context, context.getString(R.string.facebook_post_copied), Toast.LENGTH_SHORT).show()
-                }) {
-                    Text(stringResource(R.string.copy_facebook_post))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
+                            ?: content.description?.takeIf { it.isNotBlank() }
+                            ?: content.displayDescriptionAr
+                        clipboard.setText(AnnotatedString(SocialPostFormatter.format(content, promptText)))
+                        Toast.makeText(context, context.getString(R.string.post_body_copied), Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text(stringResource(R.string.copy_post_body))
+                    }
+                    OutlinedButton(onClick = {
+                        clipboard.setText(AnnotatedString(SocialPostFormatter.formatFirstComment(content)))
+                        Toast.makeText(context, context.getString(R.string.first_comment_copied), Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text(stringResource(R.string.copy_first_comment))
+                    }
                 }
             }
             if (content.contentType == ContentType.PROMPT) {

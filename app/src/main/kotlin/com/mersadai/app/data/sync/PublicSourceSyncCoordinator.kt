@@ -342,7 +342,7 @@ class PublicSourceSyncCoordinator(
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
         val githubQueries = listOf(
-            "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool)",
+            "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool OR topic:photography OR topic:photo-editing OR topic:invitation OR topic:poster-design)",
             "android language:Kotlin",
             "android \"Jetpack Compose\"",
         )

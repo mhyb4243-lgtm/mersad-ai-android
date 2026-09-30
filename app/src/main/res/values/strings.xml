@@ -89,6 +89,10 @@
     <string name="prompt_copied">تم نسخ البرومبت بنجاح</string>
     <string name="copy_facebook_post">نسخ منشور فيسبوك جاهز 📢</string>
     <string name="facebook_post_copied">تم نسخ المنشور الجاهز للنشر بنجاح 📋</string>
+    <string name="copy_post_body">نسخ نص المنشور 📝</string>
+    <string name="post_body_copied">تم نسخ متن المنشور بنجاح 📋</string>
+    <string name="copy_first_comment">نسخ التعليق الأول 💬</string>
+    <string name="first_comment_copied">تم نسخ التعليق الأول ورابط التيليجرام 💬</string>
     <string name="source_not_available">المصدر غير محدد</string>
     <string name="open_source">فتح المصدر</string>
     <string name="share">مشاركة</string>

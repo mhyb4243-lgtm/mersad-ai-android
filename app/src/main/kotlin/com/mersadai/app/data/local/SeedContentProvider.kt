@@ -15,13 +15,15 @@ object SeedContentProvider {
         addAll(freePerks(now))
         addAll(imagePrompts(now))
         addAll(creatorPrompts(now))
+        addAll(photographyPrompts(now))
+        addAll(eventDesignPrompts(now))
         addAll(visualTrickPrompts(now))
         addAll(socialPortraitPrompts(now))
         addAll(creativeTrendPrompts(now))
     }
 
     fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
-        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now)
+        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now)
 
     private fun androidCreativeApps(now: Long): List<ContentItem> = listOf(
         ContentItem(
@@ -610,6 +612,60 @@ object SeedContentProvider {
             "Vertical 9:16 cinematic visual-effects shot. A thin line of warm light opens across an ordinary apartment wall; the camera slowly pushes through the widening portal to reveal a vast floating city above the clouds at sunset. Surreal yet coherent architecture, atmospheric depth, wind moving fabric in the foreground, volumetric light rays, physically motivated exposure transition, elegant orchestral mood, detailed production design, 8 seconds, no titles or watermark.",
             "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "cinematic-vfx", now - 4 * DAY,
             listOf("cinematic", "visual-effects", "surreal", "fantasy", "portal", "9:16", "Sora", "Runway", "Luma"),
+        ),
+    )
+
+    private fun photographyPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-photography-portrait-85mm",
+            "بورتريه احترافي بعدسة 85mm وعزل بوكيه",
+            "بورتريه واقعي بعمق مجال ضحل وعزل خلفية ناعم يحافظ على تفاصيل البشرة وهوية الشخص.",
+            "Photograph [SUBJECT] with a professional Canon 5D full-frame camera and an 85mm f/1.4 portrait lens. Preserve identity and natural facial proportions, use shallow depth of field with creamy circular bokeh, sharply focused eyes, realistic skin texture and fine hair. Soft Studio Lighting from a large octabox, subtle reflector fill, elegant background separation, natural color, editorial portrait photography, no text, no watermark.",
+            "photography-studio", "📸 فنون التصوير وإضاءة الاستوديو", "photography", now - DAY,
+            listOf("photography", "portrait", "85mm", "bokeh", "Canon 5D", "studio-lighting"),
+        ),
+        creatorPrompt(
+            "seed-photography-volumetric-studio",
+            "إضاءة استوديو ناعمة وأشعة حجمية درامية",
+            "مشهد استوديو متوازن يجمع الإضاءة الناعمة مع أشعة حجمية واضحة من دون فقدان تفاصيل الظلال.",
+            "Create a premium studio photograph of [SUBJECT] using a Canon 5D and an 85mm lens. Shape the face with Soft Studio Lighting from a large diffused key, gentle fill, and a controlled rim light. Add subtle volumetric light rays through light atmospheric haze, visible but natural shadow gradients, clean catchlights, authentic skin texture, restrained cinematic contrast, crisp focus, no text, no watermark.",
+            "photography-studio", "📸 فنون التصوير وإضاءة الاستوديو", "studio-lighting", now - 2 * DAY,
+            listOf("photography", "Canon 5D", "soft-light", "volumetric-light", "studio"),
+        ),
+        creatorPrompt(
+            "seed-photography-mountain-fog",
+            "منظر جبلي بضباب الصباح وعدسة واسعة",
+            "لقطة طبيعية واسعة لطبقات جبلية غارقة في الضباب مع تدرج جوي واقعي وتكوين هادئ.",
+            "Photograph a dramatic mountain landscape at dawn with layered ridgelines disappearing into soft rolling fog. Full-frame professional camera, 24mm wide-angle lens, deep focus, natural atmospheric perspective, delicate volumetric sun rays breaking through clouds, realistic mist density, detailed foreground rocks and vegetation, balanced highlights, documentary landscape photography, no buildings added, no text, no watermark.",
+            "photography-studio", "📸 فنون التصوير وإضاءة الاستوديو", "landscape-photography", now - 3 * DAY,
+            listOf("photography", "landscape", "mountains", "fog", "volumetric-light"),
+        ),
+    )
+
+    private fun eventDesignPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-event-royal-wedding-invitation",
+            "دعوة زفاف ملكية فاخرة",
+            "بطاقة دعوة زفاف بطابع ملكي أنيق ومساحة منظمة للأسماء والتاريخ والمكان.",
+            "Design a luxurious royal wedding invitation card for [COUPLE NAMES]. Elegant ivory paper, refined gold foil borders, delicate floral engraving, balanced symmetrical composition, premium Arabic calligraphy with clear editable areas for names, date, venue, and RSVP. Sophisticated typography hierarchy, print-ready high resolution, generous negative space, no mockup, no extra or gibberish text.",
+            "event-invitations", "🎉 تصاميم وبوسترات المناسبات والدعوات", "wedding-invitation", now - DAY,
+            listOf("invitation", "wedding", "royal", "luxury", "Arabic-calligraphy", "print-design"),
+        ),
+        creatorPrompt(
+            "seed-event-engagement-greeting",
+            "تهنئة خطوبة بتايبوجرافي عربي فاخر",
+            "تصميم اجتماعي دافئ للاحتفال بالخطوبة بخط عربي بارز وتفاصيل زخرفية رقيقة.",
+            "Create an elegant Arabic engagement celebration poster for [NAMES]. Feature refined Arabic calligraphy and luxurious typographic hierarchy, tasteful botanical ornament, soft champagne and emerald accents, subtle paper texture, balanced central layout, warm celebratory mood, clear reserved space for a short congratulatory message, premium social-media-ready composition, no logos, no extra or malformed text.",
+            "event-invitations", "🎉 تصاميم وبوسترات المناسبات والدعوات", "engagement-greeting", now - 2 * DAY,
+            listOf("invitation", "engagement", "Arabic-typography", "greeting", "social-design"),
+        ),
+        creatorPrompt(
+            "seed-event-social-occasion-poster",
+            "بوستر مناسبة اجتماعية بخط عربي أنيق",
+            "قالب مرن للتهاني والمناسبات الاجتماعية يجمع الخط العربي الواضح والتكوين الفاخر.",
+            "Design a polished Arabic social occasion poster for [OCCASION]. Use expressive yet highly legible premium Arabic typography, graceful calligraphic headline, restrained geometric ornament, rich deep green with warm gold accents, editorial spacing, clear hierarchy for greeting, names, and date, square 1:1 layout with safe margins, print-quality detail, no watermark, no invented text.",
+            "event-invitations", "🎉 تصاميم وبوسترات المناسبات والدعوات", "occasion-poster", now - 3 * DAY,
+            listOf("poster-design", "invitation", "Arabic-typography", "social-occasion", "greeting"),
         ),
     )
 

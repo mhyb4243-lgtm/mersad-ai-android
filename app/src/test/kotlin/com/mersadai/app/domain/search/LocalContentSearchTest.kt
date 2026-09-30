@@ -70,6 +70,10 @@ class LocalContentSearchTest {
         assertEquals(8, items.count { it.category?.id == "reels-prompts" })
         assertEquals(2, items.count { it.category?.id == "character-prompts" })
         assertEquals(4, items.count { it.category?.id == "photorealistic-prompts" })
+        assertEquals(3, items.count { it.category?.id == "photography-studio" })
+        assertEquals(3, items.count { it.category?.id == "event-invitations" })
+        assertTrue(items.any { it.originalDescription?.contains("Canon 5D") == true && it.originalDescription.contains("bokeh") })
+        assertTrue(items.any { it.originalDescription?.contains("Arabic calligraphy") == true })
         assertTrue(items.filter { it.category?.id in setOf("reels-prompts", "character-prompts", "photorealistic-prompts") }
             .all { it.description?.containsArabicText() == true && it.originalDescription?.contains(" ") == true })
         assertTrue(items.single { it.id == "seed-character-prompt-01" }.originalDescription?.contains("Replace [CHARACTER AND ERA]") == true)

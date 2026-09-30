@@ -6,34 +6,48 @@ import com.mersadai.app.domain.model.FreeStatus
 
 object SocialPostFormatter {
     fun format(item: ContentItem, promptText: String? = null): String {
-        val title = item.displayTitleAr?.takeIf { it.isNotBlank() }
+        val title = (item.displayTitleAr?.takeIf { it.isNotBlank() }
             ?: item.originalTitle?.takeIf { it.isNotBlank() }
-            ?: item.title
-        val description = item.displayDescriptionAr?.takeIf { it.isNotBlank() }
+            ?: item.title).withoutLinks()
+        val description = (item.displayDescriptionAr?.takeIf { it.isNotBlank() }
             ?: item.description?.takeIf { it.isNotBlank() }
             ?: item.originalDescription?.takeIf { it.isNotBlank() }
-            ?: "لا يوجد وصف متاح."
-        val url = item.url ?: item.source?.homepageUrl ?: "غير متوفر"
+            ?: "لا يوجد وصف متاح.").withoutLinks()
 
         return when {
             item.contentType == ContentType.PROMPT -> promptPost(
                 title = title,
                 description = description,
-                promptText = promptText?.takeIf { it.isNotBlank() }
+                promptText = (promptText?.takeIf { it.isNotBlank() }
                     ?: item.originalDescription?.takeIf { it.isNotBlank() }
-                    ?: item.description.orEmpty(),
+                    ?: item.description.orEmpty()).withoutLinks(),
             )
             item.classifiedFreeStatus() in setOf(
                 FreeStatus.FULLY_FREE,
                 FreeStatus.FREE_TIER,
                 FreeStatus.FREE_CREDIT,
                 FreeStatus.TEMPORARY_OFFER,
-            ) -> freePerkPost(title, description, url)
-            else -> technicalProjectPost(title, description, url)
+            ) -> freePerkPost(title, description)
+            else -> technicalProjectPost(title, description)
         }
     }
 
-    private fun technicalProjectPost(title: String, summary: String, url: String): String = """
+    fun formatFirstComment(item: ContentItem): String {
+        val url = item.url?.takeIf { it.isNotBlank() }
+            ?: item.source?.homepageUrl?.takeIf { it.isNotBlank() }
+            ?: "غير متوفر"
+        return """
+            📌 روابط الأداة والمصدر المباشر:
+            🔗 $url
+
+            📢 لمتابعة أحدث الأدوات والملحقات والشروحات اليومية، انضم لقناتنا على تيليجرام:
+            👉 https://t.me/hootnewss
+
+            #محمد_ابوهادي #تصوير #فوتوشوب
+        """.trimIndent()
+    }
+
+    private fun technicalProjectPost(title: String, summary: String): String = """
         🚨 تخيل ${summary.firstSentence()} بضغطة واحدة وبدون تعقيد! 🤯
 
         مشروع مفتوح المصدر ومجاني تماماً:
@@ -55,13 +69,11 @@ object SocialPostFormatter {
         والأجمل؟ الأداة مجانية وبدون إعلانات ومفتوحة المصدر بالكامل.
 
         📌 احفظ المنشور عندك لأنك ستحتاجه بالتأكيد.
-        🔗 رابط المشروع والتحميل: $url
-
-        منسق ومكتشف عبر تطبيق مِرصد AI 🚀
-        #مرصد_AI #أندرويد #ذكاء_اصطناعي #FOSS
+        🔗 رابط الأداة والتفاصيل في أول تعليق 👇
+        #محمد_ابوهادي #صناعة_محتوى #ذكاء_اصطناعي #تصميم
     """.trimIndent()
 
-    private fun freePerkPost(title: String, description: String, url: String): String = """
+    private fun freePerkPost(title: String, description: String): String = """
         المجاني وصل 🔥
 
         لقيت لكم باقة / كنز مجاني رسمي تقدر تستغله فوراً:
@@ -74,9 +86,8 @@ object SocialPostFormatter {
 
         فادخلوا جربوا واستفيدوا من الباقة قبل ما تقفل أو تتغير الشروط!
 
-        🔗 رابط الوصول المباشر: $url
-        📌 تابع كل جديد يومياً عبر تطبيق مِرصد AI 🚀
-        #مرصد_AI #فرص_مجانية #ذكاء_اصطناعي
+    🔗 رابط الأداة والتفاصيل في أول تعليق 👇
+    #محمد_ابوهادي #صناعة_محتوى #ذكاء_اصطناعي #تصميم
     """.trimIndent()
 
     private fun promptPost(title: String, description: String, promptText: String): String = """
@@ -92,10 +103,13 @@ object SocialPostFormatter {
         استخدمه مع نماذج (Midjourney / Kling / Veo / Flux) واستبدل الأوصاف بين الأقواس بصورتك أو فكرتك.
 
         📌 احفظ البوست لتجربته، وشاركنا نتيجتك!
-        عبر مكتبة برومبتات مِرصد AI 🚀
-        #مرصد_AI #برومبت #ذكاء_اصطناعي #خدع_بصرية
+        🔗 رابط الأداة والتفاصيل في أول تعليق 👇
+        #محمد_ابوهادي #صناعة_محتوى #ذكاء_اصطناعي #تصميم
     """.trimIndent()
 
     private fun String.firstSentence(): String =
         takeWhile { it != '.' && it != '\n' }.trim().ifBlank { "تنجز مهمتك التقنية بسهولة" }
+
+    private fun String.withoutLinks(): String =
+        replace(Regex("https?://\\S+|www\\.\\S+", RegexOption.IGNORE_CASE), "").trim()
 }

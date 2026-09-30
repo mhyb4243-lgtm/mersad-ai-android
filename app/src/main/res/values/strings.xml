@@ -120,6 +120,9 @@
     <string name="theme_dark">داكن</string>
     <string name="auto_update">التحديث التلقائي</string>
     <string name="auto_update_summary">يُحفظ الاختيار فقط؛ الجدولة الدورية غير مفعلة في هذه المرحلة.</string>
+    <string name="notifications">الإشعارات</string>
+    <string name="notifications_summary">أرسل تنبيهًا عند اكتشاف أدوات وبرومبتات ومحتوى جديد.</string>
+    <string name="notification_permission_denied">لم يتم منح إذن الإشعارات. يمكنك تفعيله من إعدادات الجهاز.</string>
     <string name="clear_cache">مسح الكاش</string>
     <string name="clear_cache_summary">يحذف العناصر غير المفضلة فقط، ولا يحذف المفضلة.</string>
     <string name="clear_cache_confirm_title">مسح الكاش؟</string>
@@ -132,8 +135,8 @@
     <string name="privacy_message">لا يتطلب التطبيق حسابًا ولا يجمع بيانات شخصية، ولا يحتوي على Backend خاص.</string>
     <string name="dismiss">حسنًا</string>
     <string name="notification_title">اكتشافات جديدة</string>
-    <string name="notification_summary">وجدنا %1$d عنصر جديد: %2$s</string>
-    <string name="notification_channel_name">اكتشافات التطبيق</string>
+    <string name="notification_summary">تم اكتشاف %1$d عنصر جديد في مرصد AI: %2$s</string>
+    <string name="notification_channel_name">تحديثات مرصد AI</string>
     <string name="notification_channel_description">إشعارات عن عناصر جديدة تم اكتشافها في مصادر مِرصد AI.</string>
     <string name="notification_count_ai_tools">%1$d أداة ذكاء اصطناعي</string>
     <string name="notification_count_android">%1$d مشروع Android</string>

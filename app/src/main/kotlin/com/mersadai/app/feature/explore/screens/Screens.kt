@@ -1,8 +1,13 @@
 package com.mersadai.app.feature.explore.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -74,6 +79,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.content.ContextCompat
 import com.mersadai.app.R
 import com.mersadai.app.data.local.SettingsRepository
 import com.mersadai.app.domain.model.AppSettings
@@ -331,8 +337,17 @@ fun SettingsScreen(
     contentPadding: PaddingValues,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showClearConfirmation by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf<Int?>(null) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        scope.launch {
+            settingsRepository.setNotificationsEnabled(granted)
+        }
+        if (!granted) dialogMessage = R.string.notification_permission_denied
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 28.dp),
@@ -349,6 +364,30 @@ fun SettingsScreen(
                     RadioButton(selected = settings.themeMode == mode, onClick = { scope.launch { settingsRepository.setThemeMode(mode) } })
                     Text(stringResource(mode.stringResource()), style = MaterialTheme.typography.bodyLarge)
                 }
+            }
+        }
+        item { HorizontalDivider() }
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.notifications_summary), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = settings.notificationsEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            scope.launch { settingsRepository.setNotificationsEnabled(false) }
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            scope.launch { settingsRepository.setNotificationPermissionRequested() }
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            scope.launch { settingsRepository.setNotificationsEnabled(true) }
+                        }
+                    },
+                )
             }
         }
         item { HorizontalDivider() }

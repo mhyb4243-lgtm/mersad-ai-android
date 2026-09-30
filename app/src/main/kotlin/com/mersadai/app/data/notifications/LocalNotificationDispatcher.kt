@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -80,6 +82,12 @@ class LocalNotificationDispatcher(
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = context.getString(R.string.notification_channel_description)
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 250, 150, 250)
+            setSound(
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build(),
+            )
         }
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -93,7 +101,7 @@ class LocalNotificationDispatcher(
     }
 
     private companion object {
-        const val CHANNEL_ID = "mersad_discoveries"
+        const val CHANNEL_ID = "mersad_discoveries_v2"
         const val GROUP_KEY = "com.mersadai.app.DISCOVERIES"
         const val NOTIFICATION_ID = 7401
     }

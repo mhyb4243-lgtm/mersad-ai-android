@@ -16,7 +16,7 @@ enum class FreeStatus {
 
 enum class OpenSourceStatus { OPEN_SOURCE, OPEN_WEIGHT, CLOSED, UNKNOWN }
 
-enum class VerificationLevel { OFFICIAL, COMMUNITY_SOURCE, UNVERIFIED }
+enum class VerificationLevel { OFFICIAL, OFFICIAL_SOURCE, COMMUNITY_SOURCE, UNVERIFIED }
 
 enum class TriState { YES, NO, UNKNOWN }
 

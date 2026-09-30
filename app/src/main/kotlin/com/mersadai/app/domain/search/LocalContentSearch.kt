@@ -74,7 +74,7 @@ object LocalContentSearch {
         ContentType.AI_TOOL -> listOf("ai tools", "أدوات الذكاء الاصطناعي", "أداة")
         ContentType.ANDROID_PROJECT -> listOf("android project", "مشاريع android", "أندرويد")
         ContentType.MODEL -> listOf("ai model", "نماذج الذكاء الاصطناعي", "نموذج")
-        ContentType.PROMPT -> listOf("prompts", "prompt", "برومبت", "برومبتات", "أمر توليد", "أوامر توليد", "المطالبات النصية", "مطالبة")
+        ContentType.PROMPT -> listOf("prompts", "prompt", "برومبت", "برومبتات", "أمر توليد", "أوامر توليد", "أمر التوليد", "برومبت / أمر توليد")
         ContentType.NEWS -> listOf("news", "أخبار", "خبر")
         ContentType.OTHER -> emptyList()
     }

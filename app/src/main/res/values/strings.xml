@@ -19,12 +19,16 @@
     <string name="section_latest">أحدث ما وصل</string>
     <string name="section_ai_tools">أدوات الذكاء الاصطناعي</string>
     <string name="section_android_projects">مشاريع Android وOpen Source</string>
+    <string name="section_android_media_design">📱 أفضل تطبيقات أندرويد للميديا والتصميم</string>
     <string name="section_models">نماذج الذكاء الاصطناعي</string>
     <string name="section_prompts">برومبت / أمر توليد</string>
     <string name="section_image_prompts">أوامر صور وتصميم</string>
     <string name="section_reels_prompts">🎬 برومبتات ريلز وفيديو سينمائي</string>
     <string name="section_character_prompts">🧬 تحويل الشخصيات والعوالم</string>
     <string name="section_photorealistic_prompts">🎨 دمج وتصميم فوتوغرافي واقعي</string>
+    <string name="section_visual_tricks">🎭 خدع بصرية وتلاعب بالصور</string>
+    <string name="section_social_portraits">📸 بورتريهات وتريندات السوشيال</string>
+    <string name="section_free_perks">💎 فرص وأرصدة مجانية</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>
     <string name="category_android_news">أخبار Android</string>
@@ -106,6 +110,7 @@
     <string name="expired_offer">عرض منتهٍ</string>
     <string name="free_unknown">غير معروف</string>
     <string name="verification_official">مصدر رسمي</string>
+    <string name="verification_official_source">مصدر رسمي</string>
     <string name="verification_community">مصدر مجتمعي</string>
     <string name="verification_unverified">غير متحقق منه</string>
     <string name="settings_title">الإعدادات</string>

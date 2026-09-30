@@ -67,6 +67,20 @@ class HomeSectionsTest {
     }
 
     @Test
+    fun creativeAndroidAppsAndFreePerksAppearInDedicatedSections() {
+        val creativeApp = item("moneyprinterturbo", ContentType.ANDROID_PROJECT, "github", sourceUpdatedAt = now)
+            .copy(category = Category("android-media-design", "أفضل تطبيقات أندرويد للميديا والتصميم"))
+        val freePerk = item("google-ai-studio", ContentType.AI_TOOL, "official-free-perks", sourceUpdatedAt = now)
+            .copy(category = Category("free-perks", "فرص وأرصدة مجانية"))
+
+        assertTrue(creativeApp.belongsToHomeSection(HomeSection.ANDROID_MEDIA_DESIGN))
+        assertTrue(freePerk.belongsToHomeSection(HomeSection.FREE_PERKS))
+        val sections = homeSections(listOf(creativeApp, freePerk)).map { it.section }.toSet()
+        assertTrue(sections.contains(HomeSection.ANDROID_MEDIA_DESIGN))
+        assertTrue(sections.contains(HomeSection.FREE_PERKS))
+    }
+
+    @Test
     fun promptSubcategoriesKeepCreativeStylesAndExcludeOnlyEmptyAbstractBackgrounds() {
         val reels = item("reel-1", ContentType.PROMPT, "curated-prompts").copy(category = Category("reels-prompts", "ريلز"))
         val character = item("avatar-1", ContentType.PROMPT, "curated-prompts").copy(

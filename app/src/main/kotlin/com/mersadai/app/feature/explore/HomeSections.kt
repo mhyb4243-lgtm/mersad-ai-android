@@ -7,12 +7,16 @@ enum class HomeSection {
     LATEST,
     AI_TOOLS,
     ANDROID_PROJECTS,
+    ANDROID_MEDIA_DESIGN,
     MODELS,
     PROMPTS,
     IMAGE_PROMPTS,
     REELS_PROMPTS,
     CHARACTER_PROMPTS,
     PHOTOREALISTIC_PROMPTS,
+    VISUAL_TRICKS,
+    SOCIAL_PORTRAITS,
+    FREE_PERKS,
     AI_NEWS,
     DEVELOPER_TOOLS,
 }
@@ -34,16 +38,46 @@ fun homeSections(items: List<ContentItem>, limit: Int = 5): List<HomeSectionCont
         matching.takeIf { it.isNotEmpty() }?.let { HomeSectionContent(section, it) }
     }
 
+fun ContentItem.isCreativeAndroidApp(): Boolean {
+    if (contentType != ContentType.ANDROID_PROJECT) return false
+    val searchableText = listOfNotNull(
+        category?.id,
+        category?.name,
+        title,
+        description,
+        originalTitle,
+        originalDescription,
+    ).plus(tags).joinToString(" ").lowercase()
+    return listOf(
+        "photo-editor",
+        "video-editor",
+        "generative-ai",
+        "on-device-ai",
+        "design-tool",
+        "moneyprinterturbo",
+        "pocketpal",
+        "krita",
+        "seal",
+        "creative app",
+        "android media",
+        "design tool",
+    ).any(searchableText::contains)
+}
+
 fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (section) {
     HomeSection.LATEST -> sourceTimestamp() != null
-    HomeSection.AI_TOOLS -> contentType == ContentType.AI_TOOL && source?.id in setOf("hf-spaces", "ai-offers")
-    HomeSection.ANDROID_PROJECTS -> contentType == ContentType.ANDROID_PROJECT && source?.id == "github"
+    HomeSection.AI_TOOLS -> contentType == ContentType.AI_TOOL && source?.id in setOf("hf-spaces", "ai-offers", "official-free-perks") && category?.id != "free-perks"
+    HomeSection.ANDROID_PROJECTS -> contentType == ContentType.ANDROID_PROJECT && source?.id == "github" && !isCreativeAndroidApp()
+    HomeSection.ANDROID_MEDIA_DESIGN -> contentType == ContentType.ANDROID_PROJECT && (category?.id == "android-media-design" || isCreativeAndroidApp())
     HomeSection.MODELS -> contentType == ContentType.MODEL && source?.id == "hf-models"
     HomeSection.PROMPTS -> contentType == ContentType.PROMPT && source?.id == "prompts-chat" && !hasExcludedPromptStyle()
     HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts" && !hasExcludedPromptStyle()
     HomeSection.REELS_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "reels-prompts" && !hasExcludedPromptStyle()
     HomeSection.CHARACTER_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "character-prompts" && !hasExcludedPromptStyle()
     HomeSection.PHOTOREALISTIC_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "photorealistic-prompts" && !hasExcludedPromptStyle()
+    HomeSection.VISUAL_TRICKS -> contentType == ContentType.PROMPT && category?.id == "visual-tricks" && !hasExcludedPromptStyle()
+    HomeSection.SOCIAL_PORTRAITS -> contentType == ContentType.PROMPT && category?.id == "social-portraits" && !hasExcludedPromptStyle()
+    HomeSection.FREE_PERKS -> contentType == ContentType.AI_TOOL && (category?.id == "free-perks" || source?.id == "official-free-perks")
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&
         source?.id in setOf("android-developers", "google-developers")

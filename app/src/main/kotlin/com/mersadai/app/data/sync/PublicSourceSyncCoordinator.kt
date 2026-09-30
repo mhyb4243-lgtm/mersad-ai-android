@@ -341,7 +341,11 @@ class PublicSourceSyncCoordinator(
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
-        val githubQueries = listOf("android language:Kotlin", "android \"Jetpack Compose\"", "android AI")
+        val githubQueries = listOf(
+            "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool)",
+            "android language:Kotlin",
+            "android \"Jetpack Compose\"",
+        )
         val sources = listOf(
             SourceDefinition("github", "GitHub", "https://api.github.com/search/repositories", 6 * HOUR),
             SourceDefinition("hf-models", "Hugging Face Models", "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20&full=true", 3 * HOUR),

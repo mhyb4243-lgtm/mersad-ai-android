@@ -44,7 +44,7 @@ interface ContentDao {
             OR (contentType = 'AI_TOOL' AND (:query LIKE '%أداة%' OR :query LIKE '%أدوات الذكاء الاصطناعي%'))
             OR (contentType = 'ANDROID_PROJECT' AND (:query LIKE '%مشروع Android%' OR :query LIKE '%مشاريع Android%' OR :query LIKE '%أندرويد%'))
             OR (contentType = 'MODEL' AND (:query LIKE '%نموذج%' OR :query LIKE '%نماذج%'))
-            OR (contentType = 'PROMPT' AND (:query LIKE '%برومبت%' OR :query LIKE '%برومبتات%' OR :query LIKE '%أمر توليد%' OR :query LIKE '%أوامر توليد%' OR :query LIKE '%prompt%' OR :query LIKE '%prompts%' OR :query LIKE '%مطالبة%' OR :query LIKE '%المطالبات%'))
+            OR (contentType = 'PROMPT' AND (:query LIKE '%برومبت%' OR :query LIKE '%برومبتات%' OR :query LIKE '%أمر توليد%' OR :query LIKE '%أوامر توليد%' OR :query LIKE '%prompt%' OR :query LIKE '%prompts%' OR :query LIKE '%أمر التوليد%'))
             OR (contentType = 'NEWS' AND (:query LIKE '%خبر%' OR :query LIKE '%أخبار%'))
             ORDER BY COALESCE(publishedAt, sourceUpdatedAt, pushedAt, createdAt) DESC""",
     )

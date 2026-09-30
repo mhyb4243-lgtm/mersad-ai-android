@@ -738,12 +738,16 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.LATEST -> R.string.section_latest
     HomeSection.AI_TOOLS -> R.string.section_ai_tools
     HomeSection.ANDROID_PROJECTS -> R.string.section_android_projects
+    HomeSection.ANDROID_MEDIA_DESIGN -> R.string.section_android_media_design
     HomeSection.MODELS -> R.string.section_models
     HomeSection.PROMPTS -> R.string.section_prompts
     HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
     HomeSection.REELS_PROMPTS -> R.string.section_reels_prompts
     HomeSection.CHARACTER_PROMPTS -> R.string.section_character_prompts
     HomeSection.PHOTOREALISTIC_PROMPTS -> R.string.section_photorealistic_prompts
+    HomeSection.VISUAL_TRICKS -> R.string.section_visual_tricks
+    HomeSection.SOCIAL_PORTRAITS -> R.string.section_social_portraits
+    HomeSection.FREE_PERKS -> R.string.section_free_perks
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
 }
@@ -752,11 +756,15 @@ private fun HomeSection.stringResource(): Int = when (this) {
 private fun Category.displayName(): String = when (id) {
     "ai-tools" -> stringResource(R.string.section_ai_tools)
     "android" -> stringResource(R.string.section_android_projects)
+    "android-media-design" -> stringResource(R.string.section_android_media_design)
+    "free-perks" -> stringResource(R.string.section_free_perks)
     "models" -> stringResource(R.string.section_models)
     "prompts" -> stringResource(R.string.section_prompts)
     "reels-prompts" -> stringResource(R.string.section_reels_prompts)
     "character-prompts" -> stringResource(R.string.section_character_prompts)
     "photorealistic-prompts" -> stringResource(R.string.section_photorealistic_prompts)
+    "visual-tricks" -> stringResource(R.string.section_visual_tricks)
+    "social-portraits" -> stringResource(R.string.section_social_portraits)
     "ai-news" -> stringResource(R.string.section_ai_news)
     "android-news" -> stringResource(R.string.category_android_news)
     "developer-tools" -> stringResource(R.string.section_developer_tools)
@@ -791,7 +799,7 @@ private fun FreeStatus.stringResource(): Int = when (this) {
 }
 
 private fun VerificationLevel.stringResource(): Int = when (this) {
-    VerificationLevel.OFFICIAL -> R.string.verification_official
+    VerificationLevel.OFFICIAL, VerificationLevel.OFFICIAL_SOURCE -> R.string.verification_official_source
     VerificationLevel.COMMUNITY_SOURCE -> R.string.verification_community
     VerificationLevel.UNVERIFIED -> R.string.verification_unverified
 }

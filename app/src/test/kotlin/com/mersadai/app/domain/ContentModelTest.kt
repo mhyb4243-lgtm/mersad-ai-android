@@ -47,4 +47,9 @@ class ContentModelTest {
         assertNotEquals(FreeStatus.FREE_TIER, FreeStatus.UNKNOWN)
         assertEquals(FreeStatus.UNKNOWN, FreeStatus.valueOf("UNKNOWN"))
     }
+
+    @Test
+    fun officialSourceVerificationIsSupported() {
+        assertEquals(VerificationLevel.OFFICIAL_SOURCE, VerificationLevel.valueOf("OFFICIAL_SOURCE"))
+    }
 }

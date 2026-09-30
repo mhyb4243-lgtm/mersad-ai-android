@@ -91,6 +91,7 @@ import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
 import com.mersadai.app.domain.search.SimilarContent
+import com.mersadai.app.domain.social.SocialPostFormatter
 import com.mersadai.app.feature.explore.ExploreViewModel
 import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.HomeSectionContent
@@ -441,6 +442,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
     val translating by viewModel.translatingFields.collectAsStateWithLifecycle()
     val failedTranslations by viewModel.failedTranslations.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(20.dp),
@@ -579,12 +581,22 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     }
                 }
             }
+            item {
+                Button(onClick = {
+                    val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
+                        ?: content.description?.takeIf { it.isNotBlank() }
+                        ?: content.displayDescriptionAr
+                    clipboard.setText(AnnotatedString(SocialPostFormatter.format(content, promptText)))
+                    Toast.makeText(context, context.getString(R.string.facebook_post_copied), Toast.LENGTH_SHORT).show()
+                }) {
+                    Text(stringResource(R.string.copy_facebook_post))
+                }
+            }
             if (content.contentType == ContentType.PROMPT) {
                 val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
                     ?: content.description?.takeIf { it.isNotBlank() }
                     ?: content.displayDescriptionAr?.takeIf { it.isNotBlank() }
                 if (promptText != null) item {
-                    val clipboard = LocalClipboardManager.current
                     Button(onClick = {
                         clipboard.setText(AnnotatedString(promptText))
                         Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()

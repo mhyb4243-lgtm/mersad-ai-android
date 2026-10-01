@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -34,6 +35,9 @@ class MainActivity : ComponentActivity() {
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = com.mersadai.app.domain.model.AppSettings(),
             )
+            LaunchedEffect(settings.autoUpdate) {
+                container.syncScheduler.setPeriodicSyncEnabled(settings.autoUpdate)
+            }
             val exploreViewModel: ExploreViewModel = viewModel(
                 factory = ExploreViewModelFactory(container),
             )

@@ -6,6 +6,7 @@ import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.domain.prompts.VideoPromptPolicy
 
 object SeedContentProvider {
     fun items(now: Long = System.currentTimeMillis()): List<ContentItem> = buildList {
@@ -20,10 +21,48 @@ object SeedContentProvider {
         addAll(visualTrickPrompts(now))
         addAll(socialPortraitPrompts(now))
         addAll(creativeTrendPrompts(now))
+        addAll(btsPrompts(now))
     }
 
     fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
-        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now)
+        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now)
+    private fun btsPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-bts-director-monitor", "كواليس شاشة المخرج ومراجعة اللقطة",
+            "لقطة خلف الكواليس تُظهر المخرج وهو يراجع أداء الشخصية على شاشة المراقبة مع فريق التصوير.",
+            "Vertical 9:16 behind-the-scenes documentary video on a professional film set. Frame the director beside a calibrated reference monitor reviewing the same actor's close-up while the camera operator and focus puller prepare the next take. Natural crew movement, authentic set details, practical work lights, shallow depth of field, restrained documentary camera sway, no readable monitor text, no logos.",
+            "bts-filmmaking", "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)", "video-generation", now - DAY,
+            listOf("BTS", "filmmaking", "director-monitor", "film-set", "video-generation"),
+        ),
+        creatorPrompt(
+            "seed-bts-camera-movement", "حركة كاميرا احترافية على مسار دوللي",
+            "استعراض حركة دوللي ناعمة مع تثبيت التركيز والتكوين حول الشخصية حتى نهاية اللقطة.",
+            "Vertical 9:16 professional filmmaking BTS shot. Show a camera operator executing a smooth dolly-in on a marked track while a focus puller maintains sharp focus on the lead actor. Reveal the stabilized cinema camera, matte box, follow-focus, and crew marks without obscuring the take. Controlled movement, realistic lens breathing, motivated framing, natural production-set lighting, documentary realism, no text, no logos.",
+            "bts-filmmaking", "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)", "video-generation", now - 2 * DAY,
+            listOf("BTS", "camera-movement", "dolly", "focus-pulling", "filmmaking"),
+        ),
+        creatorPrompt(
+            "seed-bts-studio-lighting", "تجهيز إضاءة استوديو لمشهد إعلاني",
+            "كواليس ضبط الإضاءة الرئيسية والعاكسة والخلفية قبل تصوير إعلان منتج داخل الاستوديو.",
+            "Vertical 9:16 behind-the-scenes studio lighting setup for a premium product advertisement. A gaffer adjusts a large diffused key light, a white bounce reflector, and a subtle backlight while the cinematographer checks the monitor. Show lighting stands and flags naturally, preserve safe working distances, demonstrate controlled highlights and soft shadows on the product, accurate exposure, no readable text, no logos.",
+            "bts-filmmaking", "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)", "video-generation", now - 3 * DAY,
+            listOf("BTS", "studio-lighting", "gaffer", "cinematography", "commercial"),
+        ),
+        creatorPrompt(
+            "seed-bts-director-screen", "تكوين شاشة المخرج أثناء تصوير الإعلان",
+            "مشهد يوضح شاشة المخرج، مراقبة التعريض، وتنسيق اللقطة التالية مع فريق العمل.",
+            "Vertical 9:16 cinematic BTS video. Begin over the director's shoulder with the current take visible on a professional production monitor, then rack focus to the director coordinating the next camera setup with the cinematographer. Keep monitor imagery consistent with the active set, show realistic exposure tools and crew marks, smooth short push-in, practical studio lighting, no legible interface text, no logos.",
+            "bts-filmmaking", "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)", "video-generation", now - 4 * DAY,
+            listOf("BTS", "director-monitor", "filmmaking", "cinematography"),
+        ),
+        creatorPrompt(
+            "seed-reels-thirty-second-ad", "إعلان سينمائي من ثلاثة مشاهد متصلة",
+            "قالب إعلان مدته 30 ثانية مقسم إلى ثلاثة مشاهد من عشر ثوانٍ مع تثبيت هوية الشخصية.",
+            "Create a vertical 9:16, 30-second cinematic advertisement about [PRODUCT], starring [CHARACTER]. Keep the story, wardrobe, location, and lighting progression visually coherent.\nScene 1 (0-10s): Introduce [CHARACTER] and [PRODUCT] in a recognizable setting; use a slow, stable dolly-in.\nScene 2 (10-20s): Continue the same moment with a smooth lateral tracking move as [CHARACTER] demonstrates [PRODUCT].\nScene 3 (20-30s): Complete the action with a gentle crane reveal and finish on a clean product hero frame.\nConsistent Character Parameters: Preserve the exact same face, facial features, age, skin tone, hairstyle, body shape, wardrobe, and identity in all three scenes. Keep screen direction, lens perspective, and exposure continuous. No cuts within each scene, no extra text, no logos.",
+            "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - DAY,
+            listOf("reels", "30-seconds", "three-scenes", "consistent-character", "commercial", "filmmaking"),
+        ),
+    )
 
     private fun androidCreativeApps(now: Long): List<ContentItem> = listOf(
         ContentItem(
@@ -684,7 +723,14 @@ object SeedContentProvider {
         title = title,
         originalTitle = title,
         description = description,
-        originalDescription = prompt,
+        originalDescription = if (categoryId in setOf("reels-prompts", "bts-filmmaking") || promptType.contains("video", ignoreCase = true) || tags.any { it.contains("reel", ignoreCase = true) }) {
+            VideoPromptPolicy.apply(
+                prompt,
+                isThirtySeconds = prompt.contains("30-second", ignoreCase = true) || prompt.contains("30 seconds", ignoreCase = true),
+            )
+        } else {
+            prompt
+        },
         url = "https://github.com/mhyb4243-lgtm/mersad-ai-android",
         contentType = ContentType.PROMPT,
         category = Category(categoryId, categoryName),

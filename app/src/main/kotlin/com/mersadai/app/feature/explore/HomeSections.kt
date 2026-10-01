@@ -16,6 +16,7 @@ enum class HomeSection {
     PHOTOREALISTIC_PROMPTS,
     VISUAL_TRICKS,
     SOCIAL_PORTRAITS,
+    BTS_FILMMAKING,
     FREE_PERKS,
     AI_NEWS,
     DEVELOPER_TOOLS,
@@ -77,6 +78,7 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.PHOTOREALISTIC_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "photorealistic-prompts" && !hasExcludedPromptStyle()
     HomeSection.VISUAL_TRICKS -> contentType == ContentType.PROMPT && category?.id == "visual-tricks" && !hasExcludedPromptStyle()
     HomeSection.SOCIAL_PORTRAITS -> contentType == ContentType.PROMPT && category?.id == "social-portraits" && !hasExcludedPromptStyle()
+    HomeSection.BTS_FILMMAKING -> contentType == ContentType.PROMPT && category?.id == "bts-filmmaking"
     HomeSection.FREE_PERKS -> contentType == ContentType.AI_TOOL && (category?.id == "free-perks" || source?.id == "official-free-perks")
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&

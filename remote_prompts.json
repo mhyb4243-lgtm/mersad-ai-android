@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "prompts": [
+    {
+      "id": "bts-director-monitor-01",
+      "title": "Director's Monitor and Scene Review",
+      "description": "Behind-the-scenes coverage of a director reviewing a take with the camera team.",
+      "prompt_type": "video-generation",
+      "category_id": "bts-filmmaking",
+      "category_name": "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 documentary-style BTS video on a professional film set. Follow the director as they review the lead actor's take on a calibrated director's monitor, then confer with the cinematographer and focus puller before the next take. Show authentic camera rig details, motivated practical lighting, restrained handheld movement, realistic crew behavior, no legible screen text, no logos.",
+      "tags": ["BTS", "filmmaking", "director-monitor", "cinematography"]
+    },
+    {
+      "id": "bts-camera-move-01",
+      "title": "Professional Dolly Move on Set",
+      "description": "A filmmaking setup demonstrating a controlled dolly move and precise focus pull.",
+      "prompt_type": "video-generation",
+      "category_id": "bts-filmmaking",
+      "category_name": "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 BTS shot of a professional cinema camera moving along a short dolly track toward the same lead actor. The operator performs a smooth push-in while the focus puller keeps the actor's eyes sharp; reveal the matte box, follow-focus, track marks, and crew working naturally. Stable horizon, motivated camera movement, realistic lens behavior, no text, no logos.",
+      "tags": ["BTS", "camera-movement", "dolly", "focus-pulling"]
+    },
+    {
+      "id": "bts-studio-lighting-01",
+      "title": "Studio Lighting for a Product Take",
+      "description": "Studio crew balance a soft key, reflector fill, and rim light for a commercial shot.",
+      "prompt_type": "video-generation",
+      "category_id": "bts-filmmaking",
+      "category_name": "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 behind-the-scenes studio video for a premium product commercial. Show the gaffer adjusting a large diffused key light, white reflector fill, and subtle rim light while the cinematographer checks exposure on the director's monitor. Preserve safe equipment placement, realistic soft shadows, controlled product highlights, natural crew movement, no legible monitor text, no logos.",
+      "tags": ["BTS", "studio-lighting", "gaffer", "commercial"]
+    },
+    {
+      "id": "reels-30-second-product-ad-01",
+      "title": "Three-Scene 30-Second Product Film",
+      "description": "A connected three-scene commercial template with locked character identity.",
+      "prompt_type": "video-generation",
+      "category_id": "reels-prompts",
+      "category_name": "🎬 برومبتات ريلز وفيديو سينمائي",
+      "duration_seconds": 30,
+      "prompt": "Create a vertical 9:16, 30-second cinematic advertisement for [PRODUCT], starring [CHARACTER].\nScene 1 (0-10s): Introduce the same character and product in a clear location with a slow dolly-in.\nScene 2 (10-20s): Continue the action seamlessly with a lateral tracking move as the character demonstrates the product.\nScene 3 (20-30s): Resolve the action with a gentle crane reveal and a clean product hero frame.\nConsistent Character Parameters: Preserve the exact same face, facial features, age, skin tone, hairstyle, body shape, wardrobe, and identity throughout all scenes. Keep camera direction, lighting continuity, and screen position consistent. No extra text, no logos.",
+      "tags": ["reels", "30-seconds", "three-scenes", "consistent-character", "commercial"]
+    }
+  ]
+}

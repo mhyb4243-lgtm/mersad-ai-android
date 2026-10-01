@@ -11,8 +11,14 @@ import com.mersadai.app.data.mapper.toEntity
 import com.mersadai.app.data.remote.SourceHttpResponse
 import com.mersadai.app.data.remote.SourceHttpTransport
 import com.mersadai.app.data.remote.SourceParsers
+import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentItem
+import com.mersadai.app.domain.model.ContentType
+import com.mersadai.app.domain.model.FreeStatus
+import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.SyncState
+import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.domain.prompts.VideoPromptPolicy
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -152,7 +158,61 @@ class PublicSourceSyncCoordinator(
         ) { SourceParsers.promptsChat(it) }
         "image-prompts" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.imageGenerationPrompts(it) }
         "video-prompts" -> fetchLatestVideoPrompts(source, previous)
+        "remote-prompts" -> fetchSingle(source, previous, source.endpoint, parser = ::remotePromptFeed)
         else -> FetchOutcome(error = "مصدر غير معروف.")
+    }
+
+    private fun remotePromptFeed(body: String): List<ContentItem> {
+        val root = JsonParser.parseString(body)
+        val prompts = if (root.isJsonArray) root.asJsonArray else root.asJsonObject.getAsJsonArray("prompts")
+            ?: throw IllegalArgumentException("Remote prompt feed has no prompts array")
+        return prompts.mapNotNull { element ->
+            val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val rawPrompt = entry.get("prompt")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val categoryId = entry.get("category_id")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf(String::isNotBlank) ?: "reels-prompts"
+            val categoryName = entry.get("category_name")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf(String::isNotBlank) ?: "🎬 برومبتات ريلز وفيديو سينمائي"
+            val promptType = entry.get("prompt_type")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf(String::isNotBlank) ?: "text-to-video"
+            val isVideo = promptType.contains("video", ignoreCase = true) || promptType.contains("reel", ignoreCase = true)
+            val durationSeconds = runCatching { entry.get("duration_seconds")?.asInt }.getOrNull()
+            val prompt = if (isVideo) VideoPromptPolicy.apply(rawPrompt, durationSeconds == 30) else rawPrompt
+            val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
+                tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
+            }.orEmpty()
+            val timestamp = now()
+            ContentItem(
+                id = "remote-prompts:$externalId",
+                externalId = "remote-prompts:$externalId",
+                title = title,
+                originalTitle = entry.get("original_title")?.takeIf { it.isJsonPrimitive }?.asString,
+                description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
+                originalDescription = prompt,
+                url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString ?: REMOTE_PROMPTS_FEED_URL,
+                contentType = ContentType.PROMPT,
+                category = Category(categoryId, categoryName),
+                freeStatus = FreeStatus.UNKNOWN,
+                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+                source = Source(
+                    "remote-prompts",
+                    "موجز البرومبتات المتجدد",
+                    "mhyb4243-lgtm/mersad-ai-android/remote_prompts.json",
+                    "https://github.com/mhyb4243-lgtm/mersad-ai-android",
+                    REMOTE_PROMPTS_FEED_URL,
+                ),
+                createdAt = timestamp,
+                updatedAt = timestamp,
+                language = entry.get("language")?.takeIf { it.isJsonPrimitive }?.asString ?: "en",
+                tags = tags,
+                promptType = promptType,
+            )
+        }
     }
 
     private suspend fun fetchLatestVideoPrompts(
@@ -341,6 +401,7 @@ class PublicSourceSyncCoordinator(
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
+        const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/main/remote_prompts.json"
         val githubQueries = listOf(
             "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool OR topic:photography OR topic:photo-editing OR topic:invitation OR topic:poster-design)",
             "android language:Kotlin",
@@ -356,6 +417,7 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
             SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
             SourceDefinition("video-prompts", "AI Video Prompt Book 2026", "https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train", 6 * HOUR),
+            SourceDefinition("remote-prompts", "موجز البرومبتات المتجدد", REMOTE_PROMPTS_FEED_URL, 12 * HOUR),
         )
     }
 }

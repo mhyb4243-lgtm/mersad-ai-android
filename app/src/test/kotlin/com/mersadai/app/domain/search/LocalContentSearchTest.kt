@@ -67,7 +67,7 @@ class LocalContentSearchTest {
         assertTrue(items.any { it.contentType == ContentType.MODEL && it.title.contains("Gemma") })
         assertTrue(items.any { it.id == "offer-chatgpt-free" })
         assertTrue(items.any { it.id == "seed-image-prompt-01" })
-        assertEquals(8, items.count { it.category?.id == "reels-prompts" })
+        assertEquals(9, items.count { it.category?.id == "reels-prompts" })
         assertEquals(2, items.count { it.category?.id == "character-prompts" })
         assertEquals(4, items.count { it.category?.id == "photorealistic-prompts" })
         assertEquals(3, items.count { it.category?.id == "photography-studio" })

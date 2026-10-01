@@ -12,6 +12,7 @@ import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.FreeAiClassifier
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.domain.prompts.VideoPromptPolicy
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.net.URI
@@ -255,7 +256,7 @@ object SourceParsers {
                 title = title,
                 originalTitle = group,
                 description = "${if (isCharacterPrompt) "فكرة لتحويل الشخصيات والعوالم" else "فكرة فيديو قصيرة قابلة للتطوير"} من مجموعة ${group ?: "AI Video Prompt Book 2026"}.",
-                originalDescription = prompt,
+                originalDescription = VideoPromptPolicy.apply(prompt),
                 url = "https://huggingface.co/datasets/hrrcne/ai-video-prompt-book-2026",
                 contentType = ContentType.PROMPT,
                 category = Category(categoryId, categoryName),

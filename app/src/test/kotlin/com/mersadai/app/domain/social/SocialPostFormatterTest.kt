@@ -70,6 +70,8 @@ class SocialPostFormatterTest {
         assertEquals(
             "📌 روابط الأداة والمصدر المباشر:\n" +
                 "🔗 https://example.com/tool\n\n" +
+                "📱 واتساب مباشر:\n" +
+                "👉 https://wa.me/967776577658\n\n" +
                 "📢 لمتابعة أحدث الأدوات والملحقات والشروحات اليومية، انضم لقناتنا على تيليجرام:\n" +
                 "👉 https://t.me/hootnewss\n\n" +
                 "#محمد_ابوهادي #تصوير #فوتوشوب",

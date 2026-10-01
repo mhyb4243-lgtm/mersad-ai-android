@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -62,6 +64,18 @@ class SyncScheduler(context: Context) {
     fun enqueueInitialSync() = enqueue(force = false)
 
     fun enqueueManualSync() = enqueue(force = true)
+
+    fun setPeriodicSyncEnabled(enabled: Boolean) {
+        if (!enabled) {
+            workManager.cancelUniqueWork("periodic_source_sync")
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(12, TimeUnit.HOURS)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+            .build()
+        workManager.enqueueUniquePeriodicWork("periodic_source_sync", ExistingPeriodicWorkPolicy.KEEP, request)
+    }
 
     private fun enqueue(force: Boolean) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()

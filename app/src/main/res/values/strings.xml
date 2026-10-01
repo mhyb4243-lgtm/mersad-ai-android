@@ -28,6 +28,7 @@
     <string name="section_photorealistic_prompts">🎨 دمج وتصميم فوتوغرافي واقعي</string>
     <string name="section_visual_tricks">🎭 خدع بصرية وتلاعب بالصور</string>
     <string name="section_social_portraits">📸 بورتريهات وتريندات السوشيال</string>
+    <string name="section_bts_filmmaking">🎬 كواليس وإخراج سينمائي (BTS &amp; Filmmaking)</string>
     <string name="section_free_perks">💎 فرص وأرصدة مجانية</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>

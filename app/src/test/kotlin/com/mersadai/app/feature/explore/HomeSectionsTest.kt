@@ -4,6 +4,7 @@ import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.Source
+import com.mersadai.app.data.local.SeedContentProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -96,6 +97,22 @@ class HomeSectionsTest {
         assertFalse(character.hasExcludedPromptStyle())
         assertTrue(photorealistic.belongsToHomeSection(HomeSection.PHOTOREALISTIC_PROMPTS))
         assertFalse(excluded.belongsToHomeSection(HomeSection.REELS_PROMPTS))
+    }
+
+    @Test
+    fun btsAndReelsSeedsKeepVideoSignatureAndThirtySecondSceneStructure() {
+        val seeds = SeedContentProvider.additiveItems(now)
+        val btsItems = seeds.filter { it.category?.id == "bts-filmmaking" }
+        val videoPrompts = seeds.filter { it.category?.id in setOf("reels-prompts", "bts-filmmaking") }
+        val thirtySecondAd = seeds.single { it.id == "seed-reels-thirty-second-ad" }
+
+        assertEquals(4, btsItems.size)
+        assertTrue(btsItems.all { it.belongsToHomeSection(HomeSection.BTS_FILMMAKING) })
+        assertTrue(videoPrompts.all { it.originalDescription.orEmpty().endsWith("Lower-third overlay: Arabic text \"محمد ابوهادي\" with green WhatsApp icon and \"+967776577658\"") })
+        assertTrue(thirtySecondAd.originalDescription.orEmpty().contains("Scene 1 (0-10s)"))
+        assertTrue(thirtySecondAd.originalDescription.orEmpty().contains("Scene 2 (10-20s)"))
+        assertTrue(thirtySecondAd.originalDescription.orEmpty().contains("Scene 3 (20-30s)"))
+        assertTrue(thirtySecondAd.originalDescription.orEmpty().contains("Consistent Character Parameters"))
     }
 
     private fun item(

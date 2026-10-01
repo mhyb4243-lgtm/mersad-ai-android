@@ -32,7 +32,7 @@ class PublicSourceSyncCoordinatorTest {
         val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertFalse(result.hasTransientFailure)
-        assertEquals(9, store.states.size)
+        assertEquals(10, store.states.size)
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals(403, store.states.getValue("github").lastHttpStatus)
         assertEquals(now + 3_600_000, store.states.getValue("github").nextAllowedSyncAt)
@@ -40,6 +40,7 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals(now + 120_000, store.states.getValue("hf-models").nextAllowedSyncAt)
         assertEquals("SUCCESS", store.states.getValue("hf-spaces").state)
         assertEquals("SUCCESS", store.states.getValue("prompts-chat").state)
+        assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
         assertTrue(calls.any { it.second["Accept"] == "application/vnd.github+json" })
         assertTrue(calls.any { it.second["X-GitHub-Api-Version"] == "2022-11-28" })
     }
@@ -92,6 +93,27 @@ class PublicSourceSyncCoordinatorTest {
     }
 
     @Test
+    fun remotePromptFeedMergesWithoutDuplicatesAndAddsVideoRequirements() = runBlocking {
+        val store = FakeStore()
+        val entry = """{"id":"film-ad","title":"Film Ad","prompt_type":"video-generation","category_id":"bts-filmmaking","category_name":"BTS & Filmmaking","duration_seconds":30,"prompt":"A 30-second commercial starring [CHARACTER]."}"""
+        val feed = """{"schema_version":1,"prompts":[$entry,$entry]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
+        }
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        val saved = store.items.single { it.externalId == "remote-prompts:film-ad" }
+        assertEquals("bts-filmmaking", itemCategory(store, saved.id))
+        assertTrue(saved.originalDescription.orEmpty().contains("Scene 1 (0-10s)"))
+        assertTrue(saved.originalDescription.orEmpty().contains("Scene 2 (10-20s)"))
+        assertTrue(saved.originalDescription.orEmpty().contains("Scene 3 (20-30s)"))
+        assertTrue(saved.originalDescription.orEmpty().contains("Consistent Character Parameters"))
+        assertTrue(saved.originalDescription.orEmpty().contains("Lower-third overlay: Arabic text \"محمد ابوهادي\""))
+        assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
+    }
+
+    @Test
     fun notModifiedKeepsCachedItemsAndCountsAsSuccess() = runBlocking {
         val store = FakeStore()
         val existing = item("cached")
@@ -108,7 +130,7 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun freshCacheSkipsAllNetworkRequests() = runBlocking {
         val store = FakeStore()
-        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts", "video-prompts")
+        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts", "video-prompts", "remote-prompts")
             .forEach { id -> store.states[id] = SyncStateEntity(id, "SUCCESS", now, now, null, lastAttemptAt = now, lastSuccessAt = now) }
         var requests = 0
         val transport = SourceHttpTransport { _, _ -> requests++; response(200) }
@@ -180,6 +202,7 @@ class PublicSourceSyncCoordinatorTest {
         )
         url.contains("/api/models") || url.contains("/api/spaces") -> response(200, body = "[]")
         url.contains("datasets-server") -> response(200, body = """{"rows":[],"num_rows_total":0}""")
+        url.contains("remote_prompts.json") -> response(200, body = """{"schema_version":1,"prompts":[]}""")
         else -> response(200, body = "<rss version=\"2.0\"><channel></channel></rss>")
     }
 

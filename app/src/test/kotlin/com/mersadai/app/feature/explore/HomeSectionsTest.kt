@@ -115,6 +115,23 @@ class HomeSectionsTest {
         assertTrue(thirtySecondAd.originalDescription.orEmpty().contains("Consistent Character Parameters"))
     }
 
+    @Test
+    fun newCinematicCategoriesHaveOfflineSeedsAndDedicatedSections() {
+        val expected = mapOf(
+            "action-vfx" to HomeSection.ACTION_VFX,
+            "comedy-satire" to HomeSection.COMEDY_SATIRE,
+            "character-animation" to HomeSection.CHARACTER_ANIMATION,
+            "cinematic-bts" to HomeSection.CINEMATIC_BTS,
+        )
+        val seeds = SeedContentProvider.additiveItems(now)
+
+        expected.forEach { (categoryId, section) ->
+            val prompt = seeds.single { it.category?.id == categoryId }
+            assertTrue(prompt.belongsToHomeSection(section))
+            assertTrue(prompt.originalDescription.orEmpty().contains("Lower-third overlay:"))
+        }
+    }
+
     private fun item(
         id: String,
         type: ContentType,

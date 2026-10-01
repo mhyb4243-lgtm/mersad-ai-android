@@ -24,11 +24,15 @@
     <string name="section_prompts">برومبت / أمر توليد</string>
     <string name="section_image_prompts">أوامر صور وتصميم</string>
     <string name="section_reels_prompts">🎬 برومبتات ريلز وفيديو سينمائي</string>
+    <string name="section_action_vfx">💥 أكشن ومطاردات سينمائية (Action &amp; VFX)</string>
+    <string name="section_comedy_satire">😂 سكتشات كوميدية ومواقف (Comedy &amp; Satire)</string>
+    <string name="section_character_animation">🧩 تحريك الشخصيات والأنيميشن (Character Animation)</string>
     <string name="section_character_prompts">🧬 تحويل الشخصيات والعوالم</string>
     <string name="section_photorealistic_prompts">🎨 دمج وتصميم فوتوغرافي واقعي</string>
     <string name="section_visual_tricks">🎭 خدع بصرية وتلاعب بالصور</string>
     <string name="section_social_portraits">📸 بورتريهات وتريندات السوشيال</string>
     <string name="section_bts_filmmaking">🎬 كواليس وإخراج سينمائي (BTS &amp; Filmmaking)</string>
+    <string name="section_cinematic_bts">🎥 كواليس وإنتاج سينمائي (Cinematic BTS)</string>
     <string name="section_free_perks">💎 فرص وأرصدة مجانية</string>
     <string name="section_ai_news">أخبار الذكاء الاصطناعي</string>
     <string name="section_developer_tools">أدوات المطورين</string>
@@ -88,6 +92,9 @@
     <string name="contributor">المساهم</string>
     <string name="copy_prompt">نسخ البرومبت / أمر التوليد</string>
     <string name="prompt_copied">تم نسخ البرومبت بنجاح</string>
+    <string name="video_scene_heading">المشهد %1$d (%2$d-%3$ds)</string>
+    <string name="copy_scene_prompt">نسخ المشهد %1$d</string>
+    <string name="scene_prompt_copied">تم نسخ المشهد %1$d</string>
     <string name="copy_facebook_post">نسخ منشور فيسبوك جاهز 📢</string>
     <string name="facebook_post_copied">تم نسخ المنشور الجاهز للنشر بنجاح 📋</string>
     <string name="copy_post_body">نسخ نص المنشور 📝</string>

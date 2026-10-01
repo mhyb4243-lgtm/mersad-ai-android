@@ -12,11 +12,15 @@ enum class HomeSection {
     PROMPTS,
     IMAGE_PROMPTS,
     REELS_PROMPTS,
+    ACTION_VFX,
+    COMEDY_SATIRE,
+    CHARACTER_ANIMATION,
     CHARACTER_PROMPTS,
     PHOTOREALISTIC_PROMPTS,
     VISUAL_TRICKS,
     SOCIAL_PORTRAITS,
     BTS_FILMMAKING,
+    CINEMATIC_BTS,
     FREE_PERKS,
     AI_NEWS,
     DEVELOPER_TOOLS,
@@ -74,11 +78,15 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.PROMPTS -> contentType == ContentType.PROMPT && source?.id == "prompts-chat" && !hasExcludedPromptStyle()
     HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts" && !hasExcludedPromptStyle()
     HomeSection.REELS_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "reels-prompts" && !hasExcludedPromptStyle()
+    HomeSection.ACTION_VFX -> contentType == ContentType.PROMPT && category?.id == "action-vfx" && !hasExcludedPromptStyle()
+    HomeSection.COMEDY_SATIRE -> contentType == ContentType.PROMPT && category?.id == "comedy-satire" && !hasExcludedPromptStyle()
+    HomeSection.CHARACTER_ANIMATION -> contentType == ContentType.PROMPT && category?.id == "character-animation" && !hasExcludedPromptStyle()
     HomeSection.CHARACTER_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "character-prompts" && !hasExcludedPromptStyle()
     HomeSection.PHOTOREALISTIC_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "photorealistic-prompts" && !hasExcludedPromptStyle()
     HomeSection.VISUAL_TRICKS -> contentType == ContentType.PROMPT && category?.id == "visual-tricks" && !hasExcludedPromptStyle()
     HomeSection.SOCIAL_PORTRAITS -> contentType == ContentType.PROMPT && category?.id == "social-portraits" && !hasExcludedPromptStyle()
     HomeSection.BTS_FILMMAKING -> contentType == ContentType.PROMPT && category?.id == "bts-filmmaking"
+    HomeSection.CINEMATIC_BTS -> contentType == ContentType.PROMPT && category?.id == "cinematic-bts"
     HomeSection.FREE_PERKS -> contentType == ContentType.AI_TOOL && (category?.id == "free-perks" || source?.id == "official-free-perks")
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&

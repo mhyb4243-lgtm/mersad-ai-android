@@ -44,6 +44,50 @@
       "duration_seconds": 30,
       "prompt": "Create a vertical 9:16, 30-second cinematic advertisement for [PRODUCT], starring [CHARACTER].\nScene 1 (0-10s): Introduce the same character and product in a clear location with a slow dolly-in.\nScene 2 (10-20s): Continue the action seamlessly with a lateral tracking move as the character demonstrates the product.\nScene 3 (20-30s): Resolve the action with a gentle crane reveal and a clean product hero frame.\nConsistent Character Parameters: Preserve the exact same face, facial features, age, skin tone, hairstyle, body shape, wardrobe, and identity throughout all scenes. Keep camera direction, lighting continuity, and screen position consistent. No extra text, no logos.",
       "tags": ["reels", "30-seconds", "three-scenes", "consistent-character", "commercial"]
+    },
+    {
+      "id": "action-vfx-rain-alley-chase-01",
+      "title": "Rainy Alley Cinematic Chase",
+      "description": "A tightly framed chase with practical lighting, controlled camera movement, and safe action blocking.",
+      "prompt_type": "video-generation",
+      "category_id": "action-vfx",
+      "category_name": "💥 أكشن ومطاردات سينمائية (Action & VFX)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 cinematic action sequence through a rain-slick old-city alley. Track backward ahead of a determined runner as practical headlights sweep across the walls; use one controlled whip-pan to reveal the empty route behind. Grounded stunt movement, safe distances, believable rain reflections, motivated handheld camera, crisp subject focus, no collisions, no text, no logos.",
+      "tags": ["action", "chase", "VFX", "cinematic"]
+    },
+    {
+      "id": "comedy-satire-empty-cup-01",
+      "title": "The Sealed Cup Sketch",
+      "description": "A visual comedy beat built around a simple misunderstanding and a clear reaction.",
+      "prompt_type": "video-generation",
+      "category_id": "comedy-satire",
+      "category_name": "😂 سكتشات كوميدية ومواقف (Comedy & Satire)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 light workplace comedy. A person confidently presents an empty takeaway cup, pauses, then notices the lid is still sealed around the straw; let the camera hold for a clean reaction beat before a gentle push-in. Natural expressive acting, harmless physical comedy, warm office practicals, precise timing, readable facial reaction, no captions, no logos.",
+      "tags": ["comedy", "satire", "sketch", "reaction"]
+    },
+    {
+      "id": "character-animation-traveler-01",
+      "title": "Stylized Traveler Animation Test",
+      "description": "A short character animation test with consistent design, grounded foot contact, and expressive acting.",
+      "prompt_type": "video-generation",
+      "category_id": "character-animation",
+      "category_name": "🧩 تحريك الشخصيات والأنيميشن (Character Animation)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 polished 3D character-animation test. A small stylized traveler walks across a sunlit studio set, pauses to inspect a map, then looks toward the camera. Preserve the exact character silhouette, colors, proportions, costume, and facial design throughout. Clear foot contact, balanced anticipation and follow-through, expressive eye movement, soft shadows, smooth camera truck, no text, no logos.",
+      "tags": ["character-animation", "3D", "walk-cycle", "animation"]
+    },
+    {
+      "id": "cinematic-bts-director-review-01",
+      "title": "Slate, Camera Move, and Director Review",
+      "description": "Behind-the-scenes coverage from the slate through a moving take to the director's monitor.",
+      "prompt_type": "video-generation",
+      "category_id": "cinematic-bts",
+      "category_name": "🎥 كواليس وإنتاج سينمائي (Cinematic BTS)",
+      "duration_seconds": 10,
+      "prompt": "Vertical 9:16 cinematic behind-the-scenes footage on a working film set. Begin with the assistant director marking a slate, follow the camera operator through a smooth short dolly move, then rack focus to the director reviewing the take on a calibrated monitor. Authentic crew coordination, practical studio lighting, safe cable placement, restrained documentary movement, no legible monitor text, no logos.",
+      "tags": ["BTS", "cinematic-production", "director-monitor", "camera-crew"]
     }
   ]
 }

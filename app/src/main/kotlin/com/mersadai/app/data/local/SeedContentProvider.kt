@@ -22,10 +22,11 @@ object SeedContentProvider {
         addAll(socialPortraitPrompts(now))
         addAll(creativeTrendPrompts(now))
         addAll(btsPrompts(now))
+        addAll(cinematicCategoryPrompts(now))
     }
 
     fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
-        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now)
+        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now) + cinematicCategoryPrompts(now)
     private fun btsPrompts(now: Long): List<ContentItem> = listOf(
         creatorPrompt(
             "seed-bts-director-monitor", "كواليس شاشة المخرج ومراجعة اللقطة",
@@ -61,6 +62,37 @@ object SeedContentProvider {
             "Create a vertical 9:16, 30-second cinematic advertisement about [PRODUCT], starring [CHARACTER]. Keep the story, wardrobe, location, and lighting progression visually coherent.\nScene 1 (0-10s): Introduce [CHARACTER] and [PRODUCT] in a recognizable setting; use a slow, stable dolly-in.\nScene 2 (10-20s): Continue the same moment with a smooth lateral tracking move as [CHARACTER] demonstrates [PRODUCT].\nScene 3 (20-30s): Complete the action with a gentle crane reveal and finish on a clean product hero frame.\nConsistent Character Parameters: Preserve the exact same face, facial features, age, skin tone, hairstyle, body shape, wardrobe, and identity in all three scenes. Keep screen direction, lens perspective, and exposure continuous. No cuts within each scene, no extra text, no logos.",
             "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "video-generation", now - DAY,
             listOf("reels", "30-seconds", "three-scenes", "consistent-character", "commercial", "filmmaking"),
+        ),
+    )
+
+    private fun cinematicCategoryPrompts(now: Long): List<ContentItem> = listOf(
+        creatorPrompt(
+            "seed-action-vfx-chase", "مطاردة سينمائية بين الأزقة الممطرة",
+            "مطاردة قصيرة بإيقاع واضح ومؤثرات عملية آمنة وحركة كاميرا متزنة.",
+            "Vertical 9:16 cinematic action sequence through a rain-slick old-city alley. Track backward ahead of a determined runner as practical headlights sweep across the walls; use one controlled whip-pan to reveal the empty route behind. Grounded stunt movement, safe distances, believable rain reflections, motivated handheld camera, crisp subject focus, no collisions, no text, no logos.",
+            "action-vfx", "💥 أكشن ومطاردات سينمائية (Action & VFX)", "video-generation", now - DAY,
+            listOf("action", "chase", "VFX", "cinematic", "video-generation"),
+        ),
+        creatorPrompt(
+            "seed-comedy-satire-timing", "موقف كوميدي بإيقاع بصري سريع",
+            "لقطة كوميدية قصيرة تعتمد على سوء فهم بسيط ورد فعل واضح من دون حوار مكتوب على الصورة.",
+            "Vertical 9:16 light workplace comedy. A person confidently presents an empty takeaway cup, pauses, then notices the lid is still sealed around the straw; let the camera hold for a clean reaction beat before a gentle push-in. Natural expressive acting, harmless physical comedy, warm office practicals, precise timing, readable facial reaction, no captions, no logos.",
+            "comedy-satire", "😂 سكتشات كوميدية ومواقف (Comedy & Satire)", "video-generation", now - 2 * DAY,
+            listOf("comedy", "satire", "sketch", "reaction", "video-generation"),
+        ),
+        creatorPrompt(
+            "seed-character-animation-walk", "تحريك شخصية في مشهد ثلاثي الأبعاد",
+            "اختبار حركة مشي لشخصية كرتونية مع ثبات تصميمها وتوازن الحركة والإضاءة.",
+            "Vertical 9:16 polished 3D character-animation test. A small stylized traveler walks across a sunlit studio set, pauses to inspect a map, then looks toward the camera. Preserve the exact character silhouette, colors, proportions, costume, and facial design throughout. Clear foot contact, balanced anticipation and follow-through, expressive eye movement, soft shadows, smooth camera truck, no text, no logos.",
+            "character-animation", "🧩 تحريك الشخصيات والأنيميشن (Character Animation)", "video-generation", now - 3 * DAY,
+            listOf("character-animation", "3D", "walk-cycle", "animation", "video-generation"),
+        ),
+        creatorPrompt(
+            "seed-cinematic-bts-slate", "كواليس تصوير لقطة ومراجعة شاشة المخرج",
+            "فريق التصوير يبدأ اللقطة بلوحة المشهد ثم يراجع النتيجة على شاشة المخرج.",
+            "Vertical 9:16 cinematic behind-the-scenes footage on a working film set. Begin with the assistant director marking a slate, follow the camera operator through a smooth short dolly move, then rack focus to the director reviewing the take on a calibrated monitor. Authentic crew coordination, practical studio lighting, safe cable placement, restrained documentary movement, no legible monitor text, no logos.",
+            "cinematic-bts", "🎥 كواليس وإنتاج سينمائي (Cinematic BTS)", "video-generation", now - 4 * DAY,
+            listOf("BTS", "cinematic-production", "director-monitor", "camera-crew", "video-generation"),
         ),
     )
 

@@ -90,6 +90,7 @@ import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
+import com.mersadai.app.domain.prompts.VideoPromptPolicy
 import com.mersadai.app.domain.search.SimilarContent
 import com.mersadai.app.domain.social.SocialPostFormatter
 import com.mersadai.app.feature.explore.ExploreViewModel
@@ -457,7 +458,13 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
             val canTranslateTitle = content.contentType == ContentType.NEWS ||
                 content.contentType == ContentType.PROMPT ||
                 (content.contentType == ContentType.AI_TOOL && content.title != content.originalTitle)
-            val sourceDescription = content.description ?: content.originalDescription
+            val promptScenes = if (content.contentType == ContentType.PROMPT) {
+                VideoPromptPolicy.scenes(content.originalDescription.orEmpty())
+            } else {
+                emptyList()
+            }
+            val sourceDescription = content.description
+                ?: content.originalDescription.takeIf { promptScenes.isEmpty() }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(content.displayTitleAr ?: content.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -482,7 +489,34 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     content.displayDescriptionAr ?: sourceDescription ?: stringResource(R.string.no_description),
                 )
             }
-            if (content.contentType == ContentType.PROMPT) {
+            if (promptScenes.isNotEmpty()) {
+                promptScenes.forEach { scene ->
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                stringResource(R.string.video_scene_heading, scene.number, scene.startSeconds, scene.endSeconds),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                scene.prompt,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.ContentOrLtr),
+                            )
+                            OutlinedButton(onClick = {
+                                clipboard.setText(AnnotatedString(scene.standalonePrompt()))
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.scene_prompt_copied, scene.number),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }) {
+                                Text(stringResource(R.string.copy_scene_prompt, scene.number))
+                            }
+                        }
+                    }
+                }
+            } else if (content.contentType == ContentType.PROMPT) {
                 content.originalDescription?.let { original -> item { DetailValue(R.string.original_description, original) } }
             } else {
                 content.originalDescription?.takeIf { it != content.description && '<' !in it }?.let { original ->
@@ -802,11 +836,15 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.PROMPTS -> R.string.section_prompts
     HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
     HomeSection.REELS_PROMPTS -> R.string.section_reels_prompts
+    HomeSection.ACTION_VFX -> R.string.section_action_vfx
+    HomeSection.COMEDY_SATIRE -> R.string.section_comedy_satire
+    HomeSection.CHARACTER_ANIMATION -> R.string.section_character_animation
     HomeSection.CHARACTER_PROMPTS -> R.string.section_character_prompts
     HomeSection.PHOTOREALISTIC_PROMPTS -> R.string.section_photorealistic_prompts
     HomeSection.VISUAL_TRICKS -> R.string.section_visual_tricks
     HomeSection.SOCIAL_PORTRAITS -> R.string.section_social_portraits
     HomeSection.BTS_FILMMAKING -> R.string.section_bts_filmmaking
+    HomeSection.CINEMATIC_BTS -> R.string.section_cinematic_bts
     HomeSection.FREE_PERKS -> R.string.section_free_perks
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
@@ -821,11 +859,15 @@ private fun Category.displayName(): String = when (id) {
     "models" -> stringResource(R.string.section_models)
     "prompts" -> stringResource(R.string.section_prompts)
     "reels-prompts" -> stringResource(R.string.section_reels_prompts)
+    "action-vfx" -> stringResource(R.string.section_action_vfx)
+    "comedy-satire" -> stringResource(R.string.section_comedy_satire)
+    "character-animation" -> stringResource(R.string.section_character_animation)
     "character-prompts" -> stringResource(R.string.section_character_prompts)
     "photorealistic-prompts" -> stringResource(R.string.section_photorealistic_prompts)
     "visual-tricks" -> stringResource(R.string.section_visual_tricks)
     "social-portraits" -> stringResource(R.string.section_social_portraits)
     "bts-filmmaking" -> stringResource(R.string.section_bts_filmmaking)
+    "cinematic-bts" -> stringResource(R.string.section_cinematic_bts)
     "ai-news" -> stringResource(R.string.section_ai_news)
     "android-news" -> stringResource(R.string.category_android_news)
     "developer-tools" -> stringResource(R.string.section_developer_tools)

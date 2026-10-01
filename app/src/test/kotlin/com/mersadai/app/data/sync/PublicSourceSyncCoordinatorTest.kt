@@ -114,6 +114,32 @@ class PublicSourceSyncCoordinatorTest {
     }
 
     @Test
+    fun remoteFeedPersistsNewCinematicCategoriesLocally() = runBlocking {
+        val entries = listOf(
+            "action-vfx" to "Action",
+            "comedy-satire" to "Comedy",
+            "character-animation" to "Animation",
+            "cinematic-bts" to "Cinematic BTS",
+        ).mapIndexed { index, (categoryId, title) ->
+            """{"id":"category-$index","title":"$title","prompt_type":"video-generation","category_id":"$categoryId","category_name":"$title","duration_seconds":10,"prompt":"A short cinematic video prompt."}"""
+        }
+        val feed = """{"schema_version":1,"prompts":[${entries.joinToString(",")}] }"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
+        }
+        val store = FakeStore()
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertEquals(
+            setOf("action-vfx", "comedy-satire", "character-animation", "cinematic-bts"),
+            store.items.filter { it.externalId?.startsWith("remote-prompts:") == true }
+                .mapNotNull { itemCategory(store, it.id) }
+                .toSet(),
+        )
+    }
+
+    @Test
     fun notModifiedKeepsCachedItemsAndCountsAsSuccess() = runBlocking {
         val store = FakeStore()
         val existing = item("cached")

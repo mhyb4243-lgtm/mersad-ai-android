@@ -401,7 +401,7 @@ class PublicSourceSyncCoordinator(
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
-        const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/main/remote_prompts.json"
+        const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/feat/creative-prompts-live-feed/remote_prompts.json"
         val githubQueries = listOf(
             "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool OR topic:photography OR topic:photo-editing OR topic:invitation OR topic:poster-design)",
             "android language:Kotlin",

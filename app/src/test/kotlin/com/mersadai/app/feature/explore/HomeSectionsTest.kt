@@ -97,6 +97,14 @@ class HomeSectionsTest {
     }
 
     @Test
+    fun seededFreePerksAreCreatorToolsInsteadOfCloudApis() {
+        val deals = SeedContentProvider.items(now).filter { it.id.startsWith("creator-deal-") }
+
+        assertEquals(setOf("Runway", "Kling AI", "Pika", "ElevenLabs", "Leonardo AI", "Suno"), deals.mapNotNull { it.author }.toSet())
+        assertFalse(deals.any { it.title.contains("Groq") || it.title.contains("Cloudflare") })
+    }
+
+    @Test
     fun publishedContentIsOrderedNewestFirstAndRemotePromptsHaveASection() {
         val older = item("older", ContentType.PROMPT, "remote-prompts", publishedAt = now - 2_000L)
             .copy(category = Category("ai-prompts", "أوامر توليد من prompts.chat"))

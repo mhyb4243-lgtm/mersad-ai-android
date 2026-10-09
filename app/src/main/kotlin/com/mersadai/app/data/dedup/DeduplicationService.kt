@@ -1,12 +1,19 @@
 package com.mersadai.app.data.dedup
 
 import com.mersadai.app.domain.model.ContentItem
+import com.mersadai.app.domain.model.ContentType
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Locale
 
 class DeduplicationService {
     fun keyFor(item: ContentItem): String {
+        if (item.contentType == ContentType.PROMPT) {
+            promptFingerprint(item)?.let { return "prompt:$it" }
+        }
+        if (item.contentType == ContentType.AI_TOOL && item.category?.id == "free-perks") {
+            canonicalUrl(item.url)?.let { return "creator-deal:$it" }
+        }
         item.externalId.normalized()?.let { return "external:$it" }
         canonicalUrl(item.url)?.let { return "url:$it" }
         val sourceId = item.source?.id.normalized().orEmpty()
@@ -43,4 +50,13 @@ class DeduplicationService {
 
     private fun String?.normalized(): String? =
         this?.trim()?.lowercase(Locale.ROOT)?.takeIf(String::isNotEmpty)
+
+    private fun promptFingerprint(item: ContentItem): String? {
+        val text = (item.originalDescription ?: item.description ?: item.originalTitle ?: item.title)
+            .lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}]"), "")
+            .takeIf { it.length >= 32 }
+            ?: return null
+        return "${item.category?.id.orEmpty()}:$text"
+    }
 }

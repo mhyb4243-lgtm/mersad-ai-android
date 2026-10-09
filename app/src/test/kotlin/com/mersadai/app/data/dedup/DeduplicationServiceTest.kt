@@ -45,6 +45,30 @@ class DeduplicationServiceTest {
         assertEquals(2, service.unique(listOf(github, feed)).size)
     }
 
+    @Test
+    fun identicalPromptsWithDifferentExternalIdsAreMerged() {
+        val first = item(id = "local-one", externalId = "seed:one", title = "مشهد سينمائي").copy(
+            contentType = com.mersadai.app.domain.model.ContentType.PROMPT,
+            originalDescription = "A quiet cinematic scene follows a lone traveler through a rain-soaked city street.",
+        )
+        val second = item(id = "remote-two", externalId = "feed:two", title = "A Rainy City Walk").copy(
+            contentType = com.mersadai.app.domain.model.ContentType.PROMPT,
+            originalDescription = "A quiet cinematic scene follows a lone traveler through a rain soaked city street!",
+        )
+
+        assertEquals(1, service.unique(listOf(first, second)).size)
+    }
+
+    @Test
+    fun creatorDealsWithTheSameOfficialUrlAreMergedAcrossSources() {
+        val local = item(id = "local-runway", title = "Runway Free", url = "https://runwayml.com/pricing")
+            .copy(contentType = com.mersadai.app.domain.model.ContentType.AI_TOOL, category = com.mersadai.app.domain.model.Category("free-perks", "Deals"))
+        val remote = item(id = "remote-runway", externalId = "remote-prompts:runway-free", title = "Runway Free", url = "https://RUNWAYML.com/pricing/")
+            .copy(contentType = com.mersadai.app.domain.model.ContentType.AI_TOOL, category = com.mersadai.app.domain.model.Category("free-perks", "Deals"))
+
+        assertEquals(1, service.unique(listOf(local, remote)).size)
+    }
+
     private fun item(
         id: String,
         externalId: String? = null,

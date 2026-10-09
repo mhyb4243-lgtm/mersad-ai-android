@@ -32,7 +32,7 @@ DEAL_CATEGORY_NAME = "🎁 عروض واشتراكات مجانية (AI Deals & 
 FACTVERSE_SECTION_ID = "factverse-science"
 FACTVERSE_SECTION_TITLE = "🌌 FactVerse (Science, Future & AI)"
 FACTVERSE_CATEGORY_ID = "factverse"
-FACTVERSE_MAX_ITEMS = 100
+FACTVERSE_MAX_ITEMS = 70
 FACTVERSE_RETENTION_DAYS = 180
 REDDIT_FEEDS = {
     "reddit-freebies": ("r/Freebies", "https://www.reddit.com/r/Freebies/new/.rss?limit=100"),
@@ -51,88 +51,44 @@ DEAL_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 PROVIDER_NAMES = (
-    "Runway", "Kling", "ElevenLabs", "OpenAI", "Cursor", "Anthropic", "Claude",
+    "Runway", "Kling", "ElevenLabs", "Leonardo", "OpenAI", "Cursor", "Anthropic", "Claude",
     "Google", "Gemini", "Perplexity", "Mistral", "Groq", "Cohere", "Hugging Face",
     "Replicate", "Pika", "Luma", "Suno", "Udio", "Midjourney", "Canva", "DeepInfra",
     "Together AI", "Cerebras", "OpenRouter", "Cloudflare", "Fireworks", "SambaNova",
     "SiliconFlow", "NVIDIA", "GitHub Copilot",
 )
+CREATOR_TOOL_PATTERN = re.compile(r"\b(?:runway|kling(?:\s+ai)?|pika|elevenlabs|leonardo(?:\s+ai)?|suno)\b", re.IGNORECASE)
 PROMO_CODE_PATTERN = re.compile(r"\b(?:promo(?:tional)?\s+code|coupon\s+code|code)\s*[:=-]?\s*([A-Z0-9][A-Z0-9_-]{3,19})\b", re.IGNORECASE)
 FACTVERSE_SOURCE_IDS = frozenset(FACTVERSE_FEEDS)
 
+CREATOR_TOOL_OFFERS = (
+    ("runway-free-tier", "Runway", "Runway Free", "https://runwayml.com/pricing", "video-generation"),
+    ("kling-free-tier", "Kling AI", "Kling AI Free", "https://klingai.com/membership", "video-generation"),
+    ("pika-free-tier", "Pika", "Pika Free", "https://pika.art/pricing", "video-generation"),
+    ("elevenlabs-free-tier", "ElevenLabs", "ElevenLabs Free", "https://elevenlabs.io/pricing", "voice-generation"),
+    ("leonardo-free-tier", "Leonardo AI", "Leonardo AI Free", "https://leonardo.ai/pricing", "image-generation"),
+    ("suno-free-tier", "Suno", "Suno Free", "https://suno.com/pricing", "music-generation"),
+)
 OFFERS = [
     {
-        "id": "chatgpt-free",
-        "title": "ChatGPT Free",
-        "description": "خطة مجانية للاستخدام اليومي بميزات وحدود استخدام قد تتغير حسب البلد والسياسة الرسمية.",
-        "url": "https://openai.com/chatgpt/pricing/",
-        "deal_url": "https://openai.com/chatgpt/pricing/",
-        "provider": "OpenAI",
+        "id": offer_id,
+        "title": title,
+        "description": f"خطة مجانية لصناع المحتوى عبر {provider}؛ تختلف الأرصدة والحدود حسب المنطقة وشروط المزود الحالية.",
+        "url": url,
+        "deal_url": url,
+        "provider": provider,
         "deal_type": "free plan",
         "promo_code": None,
         "category_id": "free-perks",
         "source_type": "official",
         "free_status": "FREE_TIER",
-        "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
+        "free_limit": "راجع صفحة الأسعار الرسمية لمعرفة الرصيد والحدود الحالية.",
         "requires_account": True,
-        "requires_payment_card": False,
-        "tags": ["chatgpt", "free-tier", "official"],
+        "requires_payment_card": None,
+        "tags": [provider.lower().replace(" ", "-"), "creator-tools", media_type, "official"],
         "is_active": True,
-    },
-    {
-        "id": "gemini-api-free-tier",
-        "title": "Gemini API Free Tier",
-        "description": "طبقة مجانية لاستخدام Gemini API، وتختلف الحدود والتوفر باختلاف النموذج والمنطقة.",
-        "url": "https://ai.google.dev/gemini-api/docs/pricing",
-        "deal_url": "https://ai.google.dev/gemini-api/docs/pricing",
-        "provider": "Google",
-        "deal_type": "free credits",
-        "promo_code": None,
-        "category_id": "free-perks",
-        "source_type": "official",
-        "free_status": "FREE_TIER",
-        "free_limit": "حدود مجانية حسب النموذج؛ راجع صفحة الأسعار الرسمية.",
-        "requires_account": True,
-        "requires_payment_card": False,
-        "tags": ["gemini", "api", "free-tier", "official"],
-        "is_active": True,
-    },
-    {
-        "id": "claude-free",
-        "title": "Claude Free",
-        "description": "خطة Claude المجانية مع حدود استخدام متغيرة وفق صفحة Anthropic الرسمية.",
-        "url": "https://www.anthropic.com/claude",
-        "deal_url": "https://www.anthropic.com/claude",
-        "provider": "Anthropic",
-        "deal_type": "free plan",
-        "promo_code": None,
-        "category_id": "free-perks",
-        "source_type": "official",
-        "free_status": "FREE_TIER",
-        "free_limit": "خطة مجانية بحدود استخدام؛ راجع تفاصيل الخطة الرسمية.",
-        "requires_account": True,
-        "requires_payment_card": False,
-        "tags": ["claude", "free-tier", "official"],
-        "is_active": True,
-    },
-    {
-        "id": "perplexity-free",
-        "title": "Perplexity Free",
-        "description": "خطة مجانية للبحث والإجابات، مع حدود وميزات تتغير حسب صفحة الأسعار الرسمية.",
-        "url": "https://www.perplexity.ai/pricing",
-        "deal_url": "https://www.perplexity.ai/pricing",
-        "provider": "Perplexity",
-        "deal_type": "free plan",
-        "promo_code": None,
-        "category_id": "free-perks",
-        "source_type": "official",
-        "free_status": "FREE_TIER",
-        "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
-        "requires_account": True,
-        "requires_payment_card": False,
-        "tags": ["perplexity", "free-tier", "official"],
-        "is_active": True,
-    },
+    }
+    for offer_id, provider, title, url, media_type in CREATOR_TOOL_OFFERS
 ]
 
 
@@ -174,6 +130,11 @@ def _provider_name(text: str) -> str:
         if re.search(rf"\b{re.escape(provider)}\b", text, re.IGNORECASE):
             return provider
     return "Community deal"
+
+
+def _is_creator_tool_deal(item: dict) -> bool:
+    searchable = " ".join(str(item.get(key) or "") for key in ("title", "description", "provider", "deal_type", "free_limit"))
+    return bool(CREATOR_TOOL_PATTERN.search(searchable) and DEAL_KEYWORDS.search(searchable))
 
 
 def _deal_type(text: str) -> str:
@@ -245,7 +206,7 @@ def parse_rss_deals(xml_body: str, source_id: str, source_name: str, now_ms: int
         title = _plain_text(fields.get("title", ""))
         description = _plain_text(" ".join(fields.get(key, "") for key in ("summary", "description", "content")))
         searchable = f"{title} {description}"
-        if not title or not DEAL_KEYWORDS.search(searchable):
+        if not title or not DEAL_KEYWORDS.search(searchable) or not CREATOR_TOOL_PATTERN.search(searchable):
             continue
         post_url = next((url for url in entry_links if url.startswith("http")), "")
         entry_markup = html.unescape(ET.tostring(entry, encoding="unicode"))
@@ -367,6 +328,8 @@ def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
     for line in markdown.splitlines():
         clean_line = _plain_text(line)
         if not DEAL_KEYWORDS.search(clean_line) and not re.search(r"free.{0,30}api|api.{0,30}free", clean_line, re.IGNORECASE):
+            continue
+        if not CREATOR_TOOL_PATTERN.search(clean_line):
             continue
         links = re.findall(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", line)
         for label, url in links:
@@ -494,6 +457,8 @@ def build_deals(
 
     discovered_by_id = {deal["id"]: deal for deal in discovered}
     for deal_id, deal in discovered_by_id.items():
+        if not _is_creator_tool_deal(deal):
+            continue
         previous = old_items.get(deal_id, {})
         deal = {
             **deal,
@@ -504,6 +469,8 @@ def build_deals(
 
     for deal_id, previous in old_items.items():
         if deal_id in discovered_by_id or previous.get("source_type") != "community":
+            continue
+        if not _is_creator_tool_deal(previous):
             continue
         published_at = int(previous.get("published_at", 0))
         is_active = 0 <= now_ms - published_at <= ACTIVE_DEAL_DAYS * 24 * 60 * 60 * 1000

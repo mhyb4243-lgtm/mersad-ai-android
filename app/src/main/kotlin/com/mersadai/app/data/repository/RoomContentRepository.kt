@@ -1,6 +1,7 @@
 package com.mersadai.app.data.repository
 
 import com.mersadai.app.data.local.ContentDao
+import com.mersadai.app.data.dedup.DeduplicationService
 import com.mersadai.app.data.mapper.toDomain
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.SyncRecord
@@ -11,15 +12,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class RoomContentRepository(private val dao: ContentDao) : ContentRepository {
-    override fun observeItems(): Flow<List<ContentItem>> = dao.observeItems().map { rows -> rows.map { it.toDomain() } }
+    private val deduplication = DeduplicationService()
+
+    override fun observeItems(): Flow<List<ContentItem>> = dao.observeItems().map { rows ->
+        deduplication.unique(rows.map { it.toDomain() })
+    }
 
     override fun searchItems(query: String): Flow<List<ContentItem>> =
         dao.observeItems()
-            .map { rows -> rows.map { it.toDomain() } }
+            .map { rows -> deduplication.unique(rows.map { it.toDomain() }) }
             .map { items -> LocalContentSearch.search(items, query) }
 
     override fun observeFavorites(): Flow<List<ContentItem>> =
-        dao.observeFavorites().map { rows -> rows.map { it.toDomain() } }
+        dao.observeFavorites().map { rows -> deduplication.unique(rows.map { it.toDomain() }) }
 
     override fun observeItem(id: String): Flow<ContentItem?> = dao.observeItem(id).map { it?.toDomain() }
 

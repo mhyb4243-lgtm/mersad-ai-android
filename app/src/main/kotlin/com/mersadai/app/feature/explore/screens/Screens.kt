@@ -695,6 +695,8 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
 @Composable
 private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick: () -> Unit) {
     val isFavorite by viewModel.observeFavorite(item.id).collectAsStateWithLifecycle(initialValue = false)
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     LaunchedEffect(item.id, item.title, item.description, item.displayTitleAr, item.displayDescriptionAr) {
         if (item.displayTitleAr == null) {
             item.translatableTitle()?.let { title ->
@@ -729,7 +731,7 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                     color = MaterialTheme.colorScheme.tertiaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(item.emoji ?: item.title.firstOrNull()?.toString().orEmpty(), style = MaterialTheme.typography.titleMedium)
+                        Text(item.emoji ?: item.visualBadgeIcon(), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }
@@ -760,6 +762,32 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp)) {
+                        Text(
+                            item.contentBadgeLabel(),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    item.targetPlatforms().forEach { platform ->
+                        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
+                            Text(platform, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                if (item.contentType == ContentType.PROMPT) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = {
+                            clipboard.setText(AnnotatedString(item.originalDescription ?: item.description.orEmpty()))
+                            Toast.makeText(context, "تم نسخ البرومبت", Toast.LENGTH_SHORT).show()
+                        }) { Text("نسخ البرومبت") }
+                        TextButton(onClick = onClick) { Text("تجربة") }
+                    }
+                }
                 item.sourceTimestamp()?.let { timestamp ->
                     Text(formatDate(timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -769,6 +797,36 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
             }
         }
     }
+}
+
+private fun ContentItem.visualBadgeIcon(): String = when {
+    category?.id == "factverse" -> "🌌"
+    contentType == ContentType.PROMPT && tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) } -> "📸"
+    contentType == ContentType.PROMPT -> "🎬"
+    contentType == ContentType.AI_TOOL && category?.id == "free-perks" -> "🎁"
+    contentType == ContentType.AI_TOOL -> "🧰"
+    contentType == ContentType.ANDROID_PROJECT -> "📱"
+    contentType == ContentType.MODEL -> "🧠"
+    contentType == ContentType.NEWS -> "📰"
+    else -> "✨"
+}
+
+private fun ContentItem.contentBadgeLabel(): String = when {
+    category?.id == "factverse" -> "🌌 FactVerse"
+    contentType == ContentType.AI_TOOL && category?.id == "free-perks" -> "🎁 صفقة تجريبية"
+    contentType == ContentType.PROMPT && tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) } -> "📸 صورة وفوتوغرافي"
+    contentType == ContentType.PROMPT -> "🎬 ريلز وسينما"
+    contentType == ContentType.AI_TOOL -> "أداة ذكاء اصطناعي"
+    contentType == ContentType.ANDROID_PROJECT -> "تطبيق أندرويد"
+    contentType == ContentType.MODEL -> "نموذج ذكاء اصطناعي"
+    contentType == ContentType.NEWS -> "خبر"
+    else -> "محتوى"
+}
+
+private fun ContentItem.targetPlatforms(): List<String> {
+    val supportedPlatforms = listOf("Runway", "Midjourney", "Kling", "Veo", "Sora", "ElevenLabs")
+    val searchable = (tags + listOfNotNull(promptType, originalDescription, description)).joinToString(" ")
+    return supportedPlatforms.filter { searchable.contains(it, ignoreCase = true) }.take(2)
 }
 
 @Composable

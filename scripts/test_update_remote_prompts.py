@@ -10,6 +10,8 @@ class FactVerseFeedTests(unittest.TestCase):
         feed = json.loads(updater.FEED_PATH.read_text(encoding="utf-8"))
         updater.validate_feed(feed)
         prompts = {prompt["id"]: prompt for prompt in feed["prompts"]}
+        factverse = next(section for section in feed["sections"] if section["id"] == updater.FACTVERSE_SECTION_ID)
+        self.assertEqual(70, len(factverse["items"]))
 
         split_screen = prompts["factverse-split-screen-science-01"]
         video_reel = prompts["factverse-physics-reel-30s-01"]
@@ -20,6 +22,21 @@ class FactVerseFeedTests(unittest.TestCase):
         self.assertEqual(3, video_reel["prompt"].count("Lower-third overlay:"))
         self.assertIn('Lower-third overlay: "FactVerse • Explore The Future"', video_reel["prompt"])
         self.assertEqual(3, video_reel["prompt"].count("Voiceover (English):"))
+
+    def test_live_deals_only_include_creator_tools(self):
+        rss = """<rss><channel>
+            <item><title>Runway free trial for creators</title><description>Try video tools free.</description><link>https://runwayml.com/pricing</link></item>
+            <item><title>Free movie tickets</title><description>Free tickets with code STUDIO.</description><link>https://example.com/tickets</link></item>
+        </channel></rss>"""
+
+        deals = updater.parse_rss_deals(rss, "reddit-ai", "r/ArtificialIntelligence", 1000)
+
+        self.assertEqual(["Runway"], [deal["provider"] for deal in deals])
+        self.assertFalse(updater._is_creator_tool_deal({"title": "Free grocery coupon"}))
+        self.assertEqual(
+            {"Runway", "Kling AI", "Pika", "ElevenLabs", "Leonardo AI", "Suno"},
+            {provider for _, provider, _, _, _ in updater.CREATOR_TOOL_OFFERS},
+        )
 
     def test_parses_sciencedaily_rss_as_english_https_article(self):
         rss = """<?xml version="1.0"?><rss><channel><item>

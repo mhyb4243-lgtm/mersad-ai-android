@@ -26,6 +26,7 @@ enum class HomeSection {
     FREE_PERKS,
     AI_NEWS,
     DEVELOPER_TOOLS,
+    FACTVERSE,
 }
 
 data class HomeSectionContent(val section: HomeSection, val items: List<ContentItem>)
@@ -100,6 +101,8 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.AI_NEWS -> contentType == ContentType.NEWS && source?.id == "openai-news"
     HomeSection.DEVELOPER_TOOLS -> contentType == ContentType.NEWS &&
         source?.id in setOf("android-developers", "google-developers")
+    HomeSection.FACTVERSE -> category?.id == "factverse" &&
+        contentType in setOf(ContentType.NEWS, ContentType.PROMPT)
 }
 
 fun ContentItem.hasExcludedPromptStyle(): Boolean {

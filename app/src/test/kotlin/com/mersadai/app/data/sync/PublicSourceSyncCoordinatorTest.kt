@@ -142,6 +142,35 @@ class PublicSourceSyncCoordinatorTest {
     }
 
     @Test
+    fun remoteFeedParsesFactVersePromptsAndScienceArticles() = runBlocking {
+        val publishedAt = now - 60_000L
+        val videoPrompt = """{"id":"factverse-physics-reel","title":"Quantum Tides","description":"A three-scene physics reel.","prompt_type":"video-generation","category_id":"factverse","category_name":"🌌 FactVerse (Science, Future & AI)","duration_seconds":30,"language":"en","prompt":"Scene 1 (0-10s): Show a quantum wave.\nVoiceover (English): \"Matter follows probability.\"\nOn-screen text: \"Quantum fields\"\nLower-third overlay: \"FactVerse • Explore The Future\"\nScene 2 (10-20s): Show a detector.\nVoiceover (English): \"Measurement reveals an outcome.\"\nOn-screen text: \"Observe the shift\"\nLower-third overlay: \"FactVerse • Explore The Future\"\nScene 3 (20-30s): Show a clear visual summary.\nVoiceover (English): \"The universe keeps surprising us.\"\nOn-screen text: \"Explore the future\"\nLower-third overlay: \"FactVerse • Explore The Future\""}"""
+        val feed = """{"schema_version":3,"prompts":[$videoPrompt],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[]},{"id":"factverse-science","title":"🌌 FactVerse (Science, Future & AI)","items":[{"id":"factverse-sciencedaily-123","title":"New discovery in quantum materials","description":"Researchers report a new result.","url":"https://www.sciencedaily.com/releases/2026/10/261009100000.htm","source_id":"factverse-sciencedaily","source_name":"ScienceDaily","published_at":$publishedAt}]}]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
+        }
+        val store = FakeStore()
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
+        val prompt = store.items.firstOrNull { it.externalId == "remote-prompts:factverse-physics-reel" }
+            ?: error("Missing FactVerse prompt; saved ids: ${store.items.map(ItemEntity::externalId)}")
+        assertEquals("PROMPT", prompt.contentType)
+        assertEquals("factverse", itemCategory(store, prompt.id))
+        assertTrue(prompt.originalDescription.orEmpty().contains("Voiceover (English):"))
+        assertFalse(prompt.originalDescription.orEmpty().contains("Audio/Voiceover (Arabic):"))
+        assertTrue(prompt.originalDescription.orEmpty().contains("Lower-third overlay: \"FactVerse • Explore The Future\""))
+        val article = store.items.firstOrNull { it.externalId == "remote-prompts:factverse-sciencedaily-123" }
+            ?: error("Missing FactVerse article; saved ids: ${store.items.map(ItemEntity::externalId)}")
+        assertEquals("NEWS", article.contentType)
+        assertEquals("factverse", itemCategory(store, article.id))
+        assertEquals("factverse-sciencedaily", store.sources[article.id])
+        assertEquals("en", article.language)
+        assertEquals(publishedAt, article.publishedAt)
+    }
+
+    @Test
     fun remoteFeedPersistsNewCinematicCategoriesLocally() = runBlocking {
         val entries = listOf(
             "action-vfx" to "Action",
@@ -287,6 +316,7 @@ class PublicSourceSyncCoordinatorTest {
         val states = mutableMapOf<String, SyncStateEntity>()
         val items = mutableListOf<ItemEntity>()
         val categories = mutableMapOf<String, String?>()
+        val sources = mutableMapOf<String, String>()
         val notifications = mutableListOf<com.mersadai.app.data.local.NotificationHistoryEntity>()
 
         override suspend fun getState(sourceId: String): SyncStateEntity? = states[sourceId]
@@ -296,6 +326,7 @@ class PublicSourceSyncCoordinatorTest {
             items.removeAll { it.id == item.id }
             items += item
             categories[item.id] = category?.id
+            sources[item.id] = source.id
             return inserted
         }
 

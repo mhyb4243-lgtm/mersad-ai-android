@@ -1,0 +1,99 @@
+import unittest
+import json
+from unittest.mock import patch
+
+import update_remote_prompts as updater
+
+
+class FactVerseFeedTests(unittest.TestCase):
+    def test_committed_feed_contains_valid_english_factverse_templates(self):
+        feed = json.loads(updater.FEED_PATH.read_text(encoding="utf-8"))
+        updater.validate_feed(feed)
+        prompts = {prompt["id"]: prompt for prompt in feed["prompts"]}
+
+        split_screen = prompts["factverse-split-screen-science-01"]
+        video_reel = prompts["factverse-physics-reel-30s-01"]
+        self.assertEqual("factverse", split_screen["category_id"])
+        self.assertIn("Nature, MIT, ScienceDaily", split_screen["prompt"])
+        self.assertEqual("factverse", video_reel["category_id"])
+        self.assertEqual(30, video_reel["duration_seconds"])
+        self.assertEqual(3, video_reel["prompt"].count("Lower-third overlay:"))
+        self.assertIn('Lower-third overlay: "FactVerse • Explore The Future"', video_reel["prompt"])
+        self.assertEqual(3, video_reel["prompt"].count("Voiceover (English):"))
+
+    def test_parses_sciencedaily_rss_as_english_https_article(self):
+        rss = """<?xml version="1.0"?><rss><channel><item>
+            <title>New result in quantum materials</title>
+            <link>https://www.sciencedaily.com/releases/2026/10/example.htm</link>
+            <description><![CDATA[<p>Researchers report a new result.</p>]]></description>
+            <pubDate>Fri, 09 Oct 2026 10:00:00 +0000</pubDate>
+            <guid>science-example-1</guid>
+        </item></channel></rss>"""
+
+        article = updater.parse_science_rss(
+            rss,
+            "factverse-sciencedaily",
+            "ScienceDaily",
+            1_797_000_000_000,
+        )[0]
+
+        self.assertEqual("New result in quantum materials", article["title"])
+        self.assertEqual("Researchers report a new result.", article["description"])
+        self.assertEqual("https://www.sciencedaily.com/releases/2026/10/example.htm", article["url"])
+        self.assertEqual("factverse", article["category_id"])
+        self.assertEqual("en", article["language"])
+        self.assertEqual("factverse-sciencedaily", article["source_id"])
+
+    def test_rejects_unknown_sources_and_non_https_articles(self):
+        with self.assertRaises(ValueError):
+            updater.parse_science_rss("<rss/>", "other-source", "Other", 1)
+
+        rss = """<rss><channel><item><title>Example</title><link>http://example.com/story</link></item></channel></rss>"""
+        self.assertEqual(
+            [],
+            updater.parse_science_rss(rss, "factverse-sciencedaily", "ScienceDaily", 1),
+        )
+
+    def test_merges_fresh_articles_and_retains_recent_cached_articles(self):
+        now_ms = 1_797_000_000_000
+        old_article = {
+            "id": "factverse-futurology-old",
+            "title": "Recent cached story",
+            "url": "https://www.reddit.com/r/Futurology/comments/example/",
+            "source_id": "factverse-futurology",
+            "source_name": "r/Futurology",
+            "source_url": "https://www.reddit.com/r/Futurology/",
+            "category_id": "factverse",
+            "language": "en",
+            "published_at": now_ms - 24 * 60 * 60 * 1000,
+        }
+        expired_article = {**old_article, "id": "expired", "published_at": 1}
+        existing = [{"id": updater.FACTVERSE_SECTION_ID, "items": [old_article, expired_article]}]
+        new_article = {**old_article, "id": "new-story", "published_at": now_ms}
+
+        result = updater.build_factverse_section(existing, [new_article], now_ms)
+
+        self.assertEqual(updater.FACTVERSE_SECTION_TITLE, result["title"])
+        self.assertEqual(["new-story", old_article["id"]], [item["id"] for item in result["items"]])
+
+    @patch("update_remote_prompts.fetch_json")
+    def test_refresh_keeps_curated_factverse_prompts(self, fetch_json):
+        fetch_json.side_effect = [
+            {"num_rows_total": 1},
+            {"rows": [{"row_idx": 7, "row": {"act": "Writing helper", "prompt": "Write a note."}}]},
+        ]
+        curated = {
+            "id": "factverse-split-screen-science-01",
+            "title": "FactVerse Split-Screen: Biology Meets the Future",
+            "prompt": "English template",
+            "category_id": "factverse",
+        }
+
+        result = updater.fetch_prompts([curated], 1_797_000_000_000)
+
+        self.assertIn(curated, result)
+        self.assertIn("prompts-chat-7", [item["id"] for item in result])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -12,6 +12,10 @@
 | OpenAI News RSS | `https://openai.com/news/rss.xml`، حقول RSS المذكورة أعلاه. | 6 ساعات | HTTP 200، `text/xml; charset=utf-8`، 750,532 bytes؛ RSS 2.0 مع namespaces وCDATA. |
 | prompts.chat | `GET https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100`. تُستخدم `row_idx` وحقول `act`, `prompt`, `for_devs`, `type`, `contributor` و`num_rows_total`. يحتفظ العنصر بترخيص بيانات المجموعة CC0-1.0 ورابط prompts.chat العام؛ لا يُخترع رابط فردي لكل صف ولا يثبت الترخيص أن خدمة ما مجانية. | 24 ساعة | HTTP 200، `application/json`، 3,687 bytes لعينة 5؛ الجذر `features`, `num_rows_per_page`, `num_rows_total`, `partial`, `rows`. ظهر داخل `row` الحقول الخمسة المذكورة. |
 | AI Video Prompt Book 2026 | `GET https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train`. يستعلم التطبيق عن `num_rows_total` أولاً، ثم يجلب أحدث صفحة (`offset=max(total-100,0)`, `length=100`). تُستخدم `row_idx`, `id`, `category`, `group`, `prompt`, و`num_rows_total`. تُصنف الصفوف آلياً إلى أفكار ريلز أو تحولات شخصيات بحسب وصف المجموعة والنص. رابط المصدر ظاهر لكل عنصر؛ رخصة المجموعة CC BY 4.0. | 6 ساعات | HTTP 200 عند الفحص؛ مجموعة عامة، 698 صفاً، split `default/train`، وآخر تعديل ظاهر 2026-09-26. أكدت عينة الصفوف الحقول المذكورة ووسوم Veo وSora وKling. |
+| FactVerse — r/Futurology | `https://www.reddit.com/r/Futurology/new/.rss?limit=100`. يقرأ Workflow التغذية ويحتفظ بعنوان المنشور ورابطه وتاريخه؛ المحتوى يظل مصنفًا كمصدر مجتمعي. | تحديث يومي عبر GitHub Actions | يُتحقق من صيغة RSS عند كل تشغيل؛ المقالات المقبولة تتطلب رابط HTTPS. |
+| FactVerse — ScienceDaily | `https://www.sciencedaily.com/rss/top/science.xml`. يجلب Workflow عناوين ووصف وروابط وتواريخ أخبار العلوم. | تحديث يومي عبر GitHub Actions | يُتحقق من صيغة RSS عند كل تشغيل؛ المقالات المقبولة تتطلب رابط HTTPS. |
+| FactVerse — Singularity Hub | `https://singularityhub.com/feed/`. يجلب Workflow عناوين ووصف وروابط وتواريخ العلوم والتقنية والمستقبل. | تحديث يومي عبر GitHub Actions | يُتحقق من صيغة RSS عند كل تشغيل؛ المقالات المقبولة تتطلب رابط HTTPS. |
+| FactVerse cloud feed | تحفظ العناصر في قسم `factverse-science` داخل `remote_prompts.json`، ويزامنها التطبيق من raw GitHub على `main`. تحتفظ التغذية بالمقالات الحديثة عند تعذر مصدر، وتزيل عناصر أقدم من 180 يومًا. | Workflow يومي؛ التطبيق كل 12 ساعة | بيانات المصدر والخبر تُعرض كرابط للمقال الأصلي ولا يجري scraping لنص المقال الكامل. |
 
 ## المزامنة والتعامل مع الأخطاء
 
@@ -27,6 +31,7 @@
 - `403` و`429` لا يؤديان إلى Retry تلقائي؛ يحترم التطبيق `Retry-After` أو وقت reset المتاح، وإلا ينتظر ساعة. الأخطاء المؤقتة مثل انقطاع الشبكة و5xx لها Retry واحد محدود.
 - تُرسل `If-None-Match` و`If-Modified-Since` عندما يعيد المصدر هذه الرؤوس. `304` نجاح بلا حذف أو إعادة كتابة للمحتوى.
 - مصدر واحد متعطل لا يوقف بقية المصادر. لا يحدث scraping ولا تنزيل لنماذج أو README أو نص المقال الكامل.
+- يجلب Workflow تغذيات FactVerse الثلاث إلى القسم `factverse-science` ويُبقي العناصر الإنجليزية مع روابطها الأصلية. يضم تصنيف FactVerse الأخبار العلمية والبرومبتات الإنجليزية، وقوالب الفيديو فيه تحتفظ بالتعليق الصوتي الإنجليزي وتوقيع FactVerse دون إعادة تنسيق التوقيع العربي العام.
 - `freeStatus` يبقى `UNKNOWN`؛ وجود عنصر على GitHub أو Hub لا يثبت أنه مجاني.
 
 ## الإشعارات المحلية والأداء

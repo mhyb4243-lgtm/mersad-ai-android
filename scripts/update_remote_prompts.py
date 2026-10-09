@@ -29,10 +29,20 @@ PAGE_SIZE = 100
 ACTIVE_DEAL_DAYS = 30
 DEAL_CATEGORY_ID = "ai-deals"
 DEAL_CATEGORY_NAME = "🎁 عروض واشتراكات مجانية (AI Deals & Trials)"
+FACTVERSE_SECTION_ID = "factverse-science"
+FACTVERSE_SECTION_TITLE = "🌌 FactVerse (Science, Future & AI)"
+FACTVERSE_CATEGORY_ID = "factverse"
+FACTVERSE_MAX_ITEMS = 100
+FACTVERSE_RETENTION_DAYS = 180
 REDDIT_FEEDS = {
     "reddit-freebies": ("r/Freebies", "https://www.reddit.com/r/Freebies/new/.rss?limit=100"),
     "reddit-ai": ("r/ArtificialInteligence", "https://www.reddit.com/r/ArtificialInteligence/new/.rss?limit=100"),
     "reddit-openai": ("r/OpenAI", "https://www.reddit.com/r/OpenAI/new/.rss?limit=100"),
+}
+FACTVERSE_FEEDS = {
+    "factverse-futurology": ("r/Futurology", "https://www.reddit.com/r/Futurology/new/.rss?limit=100"),
+    "factverse-sciencedaily": ("ScienceDaily", "https://www.sciencedaily.com/rss/top/science.xml"),
+    "factverse-singularity-hub": ("Singularity Hub", "https://singularityhub.com/feed/"),
 }
 GITHUB_DEALS_URL = "https://raw.githubusercontent.com/cheahjs/free-llm-api-resources/main/README.md"
 DEAL_KEYWORDS = re.compile(
@@ -48,6 +58,7 @@ PROVIDER_NAMES = (
     "SiliconFlow", "NVIDIA", "GitHub Copilot",
 )
 PROMO_CODE_PATTERN = re.compile(r"\b(?:promo(?:tional)?\s+code|coupon\s+code|code)\s*[:=-]?\s*([A-Z0-9][A-Z0-9_-]{3,19})\b", re.IGNORECASE)
+FACTVERSE_SOURCE_IDS = frozenset(FACTVERSE_FEEDS)
 
 OFFERS = [
     {
@@ -266,6 +277,91 @@ def parse_rss_deals(xml_body: str, source_id: str, source_name: str, now_ms: int
     return deals
 
 
+def parse_science_rss(xml_body: str, source_id: str, source_name: str, now_ms: int) -> list[dict]:
+    if source_id not in FACTVERSE_SOURCE_IDS:
+        raise ValueError(f"Unknown FactVerse source: {source_id}")
+    root = ET.fromstring(xml_body)
+    articles = []
+    for entry in root.iter():
+        if entry.tag.rsplit("}", 1)[-1].lower() not in {"entry", "item"}:
+            continue
+        fields = {}
+        entry_links = []
+        for child in entry.iter():
+            key = child.tag.rsplit("}", 1)[-1].lower()
+            if key == "link":
+                rel = child.attrib.get("rel", "alternate").lower()
+                link = child.attrib.get("href") or (child.text or "").strip()
+                if link and rel == "alternate":
+                    entry_links.append(link)
+            elif key in {"title", "summary", "description", "content", "published", "updated", "pubdate", "id", "guid"}:
+                fields[key] = " ".join(filter(None, (fields.get(key), " ".join(child.itertext())))).strip()
+        title = _plain_text(fields.get("title", ""))
+        if not title:
+            continue
+        url = next((link for link in entry_links if link.startswith("https://")), "")
+        if not url:
+            continue
+        description = _plain_text(" ".join(fields.get(key, "") for key in ("summary", "description", "content")))
+        published = next((fields[key] for key in ("published", "updated", "pubdate") if fields.get(key)), "")
+        published_at = _published_timestamp(published, now_ms)
+        guid = fields.get("guid") or fields.get("id") or url
+        external_id = f"{source_id}-{hashlib.sha256(f'{source_id}|{guid}|{url}'.encode('utf-8')).hexdigest()[:20]}"
+        articles.append(
+            {
+                "id": external_id,
+                "title": title[:240],
+                "description": description[:1200],
+                "url": url,
+                "source_id": source_id,
+                "source_name": source_name,
+                "source_url": url,
+                "category_id": FACTVERSE_CATEGORY_ID,
+                "language": "en",
+                "published_at": published_at,
+                "tags": ["FactVerse", "science", "future", "AI"],
+            },
+        )
+    return articles
+
+
+def discover_factverse_articles(now_ms: int) -> tuple[list[dict], int]:
+    discovered = []
+    successful_sources = 0
+    for source_id, (source_name, url) in FACTVERSE_FEEDS.items():
+        try:
+            discovered.extend(
+                parse_science_rss(
+                    fetch_text(url, "application/atom+xml, application/rss+xml, application/xml"),
+                    source_id,
+                    source_name,
+                    now_ms,
+                ),
+            )
+            successful_sources += 1
+        except (HTTPError, URLError, TimeoutError, ET.ParseError, RuntimeError) as error:
+            print(f"Warning: could not read FactVerse source {source_name}: {error}", file=sys.stderr)
+    unique = {article["id"]: article for article in discovered}
+    return list(unique.values()), successful_sources
+
+
+def build_factverse_section(
+    previous_sections: list[dict],
+    discovered: list[dict],
+    now_ms: int,
+) -> dict:
+    existing = next((section for section in previous_sections if section.get("id") == FACTVERSE_SECTION_ID), {})
+    cutoff = now_ms - FACTVERSE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    articles = {
+        article["id"]: article
+        for article in existing.get("items", [])
+        if article.get("id") and int(article.get("published_at", 0)) >= cutoff
+    }
+    articles.update({article["id"]: article for article in discovered})
+    ordered = sorted(articles.values(), key=lambda article: int(article.get("published_at", 0)), reverse=True)
+    return {"id": FACTVERSE_SECTION_ID, "title": FACTVERSE_SECTION_TITLE, "items": ordered[:FACTVERSE_MAX_ITEMS]}
+
+
 def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
     deals = []
     for line in markdown.splitlines():
@@ -432,6 +528,19 @@ def validate_feed(feed: dict) -> None:
     for section in sections:
         if not isinstance(section.get("items"), list):
             raise ValueError(f"section {section.get('id')} must contain an items array")
+    factverse_section = next((section for section in sections if section.get("id") == FACTVERSE_SECTION_ID), None)
+    if factverse_section:
+        if factverse_section.get("title") != FACTVERSE_SECTION_TITLE:
+            raise ValueError("FactVerse section has an unexpected title")
+        for article in factverse_section["items"]:
+            if not all(article.get(key) for key in ("id", "title", "url", "source_id", "source_name", "published_at")):
+                raise ValueError("each FactVerse article must include its title, URL, source, and publication date")
+            if article["source_id"] not in FACTVERSE_SOURCE_IDS:
+                raise ValueError(f"unknown FactVerse source {article['source_id']}")
+            if article.get("category_id") != FACTVERSE_CATEGORY_ID or article.get("language") != "en":
+                raise ValueError(f"FactVerse article {article['id']} must use the English FactVerse category")
+            if not article["url"].startswith("https://"):
+                raise ValueError(f"FactVerse article {article['id']} must use HTTPS")
     for prompt in feed["prompts"]:
         if not prompt.get("id") or not prompt.get("title") or not prompt.get("prompt"):
             raise ValueError("each prompt must contain id, title, and prompt")
@@ -439,16 +548,17 @@ def validate_feed(feed: dict) -> None:
     if timestamps != sorted(timestamps, reverse=True):
         raise ValueError("prompts must be ordered newest to oldest")
     for deal in deal_section["items"]:
-        required_fields = ("id", "title") if schema_version == 2 else (
-            "id", "title", "provider", "deal_type", "deal_url", "verified_date",
+        required_fields = (
+            ("id", "title", "provider", "deal_type", "deal_url", "verified_date")
+            if deal.get("source_type") == "community"
+            else ("id", "title", "url")
         )
         if not all(deal.get(key) for key in required_fields):
-            raise ValueError(f"each schema {schema_version} deal must contain {', '.join(required_fields)}")
-        if schema_version == 2:
-            continue
-        if not isinstance(deal.get("is_active"), bool):
+            raise ValueError(f"each deal must contain {', '.join(required_fields)}")
+        if "is_active" in deal and not isinstance(deal["is_active"], bool):
             raise ValueError(f"deal {deal['id']} must have a boolean is_active field")
-        if not str(deal["deal_url"]).startswith("https://"):
+        deal_url = deal.get("deal_url", deal["url"])
+        if not str(deal_url).startswith("https://"):
             raise ValueError(f"deal {deal['id']} must use an HTTPS deal_url")
 
 
@@ -466,17 +576,23 @@ def main() -> None:
     now_ms = int(time.time() * 1000)
     prompts = fetch_prompts(feed["prompts"], now_ms)
     community_deals, successful_sources = discover_community_deals(now_ms)
+    factverse_articles, successful_factverse_sources = discover_factverse_articles(now_ms)
     if successful_sources == 0:
         raise RuntimeError("No community deal source could be fetched; feed was not updated")
     deal_section, verified_count = build_deals(feed.get("sections", []), community_deals, now_ms)
-    sections = [section for section in feed["sections"] if section.get("id") != SECTION_ID]
-    sections.append(deal_section)
+    factverse_section = build_factverse_section(feed.get("sections", []), factverse_articles, now_ms)
+    sections = [
+        section for section in feed["sections"]
+        if section.get("id") not in {SECTION_ID, FACTVERSE_SECTION_ID}
+    ]
+    sections.extend((deal_section, factverse_section))
     updated = {**feed, "schema_version": 3, "prompts": prompts, "sections": sections}
     validate_feed(updated)
     FEED_PATH.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(
-        f"Updated {len(prompts)} prompts, {len(deal_section['items'])} deals from "
-        f"{successful_sources} community sources; verified {verified_count} official pages.",
+        f"Updated {len(prompts)} prompts, {len(deal_section['items'])} deals and "
+        f"{len(factverse_section['items'])} FactVerse articles from {successful_factverse_sources} science sources; "
+        f"verified {verified_count} official pages.",
     )
 
 

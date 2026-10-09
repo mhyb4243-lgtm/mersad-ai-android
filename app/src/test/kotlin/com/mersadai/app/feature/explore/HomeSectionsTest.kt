@@ -159,6 +159,22 @@ class HomeSectionsTest {
         }
     }
 
+    @Test
+    fun factVerseCombinesScienceArticlesAndEnglishCreativePrompts() {
+        val article = item("science-article", ContentType.NEWS, "factverse-sciencedaily", publishedAt = now)
+            .copy(category = Category("factverse", "🌌 FactVerse (Science, Future & AI)"))
+        val prompt = item("science-prompt", ContentType.PROMPT, "remote-prompts", publishedAt = now - 1)
+            .copy(category = Category("factverse", "🌌 FactVerse (Science, Future & AI)"))
+
+        assertTrue(article.belongsToHomeSection(HomeSection.FACTVERSE))
+        assertTrue(prompt.belongsToHomeSection(HomeSection.FACTVERSE))
+        assertEquals(
+            listOf("science-article", "science-prompt"),
+            homeSections(listOf(prompt, article)).single { it.section == HomeSection.FACTVERSE }
+                .items.map(ContentItem::id),
+        )
+    }
+
     private fun item(
         id: String,
         type: ContentType,

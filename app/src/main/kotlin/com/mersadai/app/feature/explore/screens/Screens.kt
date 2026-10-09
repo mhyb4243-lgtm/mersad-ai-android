@@ -881,6 +881,7 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.FREE_PERKS -> R.string.section_free_perks
     HomeSection.AI_NEWS -> R.string.section_ai_news
     HomeSection.DEVELOPER_TOOLS -> R.string.section_developer_tools
+    HomeSection.FACTVERSE -> R.string.section_factverse
 }
 
 @Composable
@@ -904,6 +905,7 @@ private fun Category.displayName(): String = when (id) {
     "ai-news" -> stringResource(R.string.section_ai_news)
     "android-news" -> stringResource(R.string.category_android_news)
     "developer-tools" -> stringResource(R.string.section_developer_tools)
+    "factverse" -> stringResource(R.string.section_factverse)
     else -> name
 }
 

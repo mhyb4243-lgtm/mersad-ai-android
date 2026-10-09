@@ -174,7 +174,12 @@ class PublicSourceSyncCoordinator(
             if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "ai-deals-and-trials") return@flatMap emptyList()
             section.getAsJsonArray("items")?.mapNotNull(::remoteDealItem).orEmpty()
         }.orEmpty()
-        return promptItems + dealItems
+        val factVerseItems = feed.getAsJsonArray("sections")?.flatMap { sectionElement ->
+            val section = sectionElement.takeIf { it.isJsonObject }?.asJsonObject ?: return@flatMap emptyList()
+            if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "factverse-science") return@flatMap emptyList()
+            section.getAsJsonArray("items")?.mapNotNull(::remoteFactVerseNewsItem).orEmpty()
+        }.orEmpty()
+        return promptItems + dealItems + factVerseItems
     }
 
     private fun remotePromptItem(element: com.google.gson.JsonElement): ContentItem? {
@@ -193,7 +198,11 @@ class PublicSourceSyncCoordinator(
             ?.takeIf(String::isNotBlank) ?: "text-to-video"
         val isVideo = promptType.contains("video", ignoreCase = true) || promptType.contains("reel", ignoreCase = true)
         val durationSeconds = runCatching { entry.get("duration_seconds")?.asInt }.getOrNull()
-        val prompt = if (isVideo) VideoPromptPolicy.apply(rawPrompt, durationSeconds == 30) else rawPrompt
+        val prompt = if (isVideo && categoryId != "factverse") {
+            VideoPromptPolicy.apply(rawPrompt, durationSeconds == 30)
+        } else {
+            rawPrompt
+        }
         val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
             tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
         }.orEmpty()
@@ -223,6 +232,46 @@ class PublicSourceSyncCoordinator(
             tags = tags,
             promptType = promptType,
             publishedAt = entry.long("published_at"),
+        )
+    }
+
+    private fun remoteFactVerseNewsItem(element: com.google.gson.JsonElement): ContentItem? {
+        val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf { it.startsWith("https://") } ?: return null
+        val sourceId = entry.get("source_id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf { it in FACTVERSE_SOURCE_IDS } ?: return null
+        val sourceName = entry.get("source_name")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val timestamp = entry.long("published_at") ?: now()
+        val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
+        return ContentItem(
+            id = "remote-prompts:$externalId",
+            externalId = "remote-prompts:$externalId",
+            title = title,
+            originalTitle = title,
+            description = description,
+            originalDescription = description,
+            url = url,
+            contentType = ContentType.NEWS,
+            category = Category(FACTVERSE_CATEGORY_ID, FACTVERSE_CATEGORY_NAME),
+            freeStatus = FreeStatus.UNKNOWN,
+            verificationLevel = if (sourceId == "factverse-futurology") {
+                VerificationLevel.COMMUNITY_SOURCE
+            } else {
+                VerificationLevel.OFFICIAL
+            },
+            source = Source(sourceId, sourceName, sourceId, url, url),
+            createdAt = timestamp,
+            updatedAt = timestamp,
+            sourceUpdatedAt = timestamp,
+            publishedAt = timestamp,
+            language = "en",
+            tags = listOf("FactVerse", "science", "future", "AI"),
         )
     }
 
@@ -467,6 +516,13 @@ class PublicSourceSyncCoordinator(
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
+        const val FACTVERSE_CATEGORY_ID = "factverse"
+        const val FACTVERSE_CATEGORY_NAME = "🌌 FactVerse (Science, Future & AI)"
+        val FACTVERSE_SOURCE_IDS = setOf(
+            "factverse-futurology",
+            "factverse-sciencedaily",
+            "factverse-singularity-hub",
+        )
         const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/main/remote_prompts.json"
         val githubQueries = listOf(
             "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool OR topic:photography OR topic:photo-editing OR topic:invitation OR topic:poster-design)",

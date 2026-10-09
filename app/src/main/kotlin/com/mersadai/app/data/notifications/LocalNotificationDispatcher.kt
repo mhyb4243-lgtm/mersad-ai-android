@@ -46,7 +46,7 @@ class LocalNotificationDispatcher(
             return
         }
 
-        ensureChannel()
+        ensureChannel(context)
         val batch = plan.batch
         val typeSummary = batch.counts.entries.joinToString(" • ") { (type, count) ->
             context.getString(type.labelResource(), count)
@@ -65,31 +65,12 @@ class LocalNotificationDispatcher(
             .setNumber(batch.total)
             .setGroup(GROUP_KEY)
             .setGroupSummary(true)
-            .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .build()
 
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         dao.markNotificationsHandled(plan.handledKeys.toList(), now)
-    }
-
-    private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.notification_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = context.getString(R.string.notification_channel_description)
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 250, 150, 250)
-            setSound(
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build(),
-            )
-        }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     private fun DiscoveryNotificationType.labelResource(): Int = when (this) {
@@ -100,9 +81,54 @@ class LocalNotificationDispatcher(
         DiscoveryNotificationType.NEWS -> R.string.notification_count_news
     }
 
-    private companion object {
-        const val CHANNEL_ID = "mersad_discoveries_v2"
-        const val GROUP_KEY = "com.mersadai.app.DISCOVERIES"
-        const val NOTIFICATION_ID = 7401
+    companion object {
+        private const val CHANNEL_ID = "mersad_updates_v3"
+        private const val GROUP_KEY = "com.mersadai.app.DISCOVERIES"
+        private const val NOTIFICATION_ID = 7401
+        private const val TEST_NOTIFICATION_ID = 7402
+
+        fun sendTestNotification(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) return false
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+
+            return runCatching {
+                ensureChannel(context)
+                val contentIntent = PendingIntent.getActivity(
+                    context,
+                    TEST_NOTIFICATION_ID,
+                    Intent(context, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(context.getString(R.string.notification_test_title))
+                    .setContentText(context.getString(R.string.notification_test_message))
+                    .setAutoCancel(true)
+                    .setContentIntent(contentIntent)
+                    .build()
+                NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
+                true
+            }.getOrDefault(false)
+        }
+
+        private fun ensureChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notification_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = context.getString(R.string.notification_channel_description)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 150, 250)
+                setSound(
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build(),
+                )
+            }
+            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
     }
 }

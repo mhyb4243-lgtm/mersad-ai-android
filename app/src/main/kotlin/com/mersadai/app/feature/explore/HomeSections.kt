@@ -2,6 +2,8 @@ package com.mersadai.app.feature.explore
 
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.ContentType
+import java.time.Instant
+import java.time.ZoneId
 
 enum class HomeSection {
     LATEST,
@@ -32,6 +34,12 @@ fun ContentItem.sourceTimestamp(): Long? = publishedAt ?: pushedAt ?: sourceUpda
 
 fun ContentItem.isNewAt(now: Long, maxAgeMillis: Long = 7 * 24 * 60 * 60 * 1000L): Boolean =
     sourceTimestamp()?.let { it in (now - maxAgeMillis)..now } == true
+
+fun ContentItem.isNewToday(now: Long): Boolean = sourceTimestamp()?.let { timestamp ->
+    val zone = ZoneId.systemDefault()
+    timestamp <= now && Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate() ==
+        Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+} == true
 
 fun homeSections(items: List<ContentItem>, limit: Int = 5): List<HomeSectionContent> =
     HomeSection.entries.mapNotNull { section ->
@@ -75,7 +83,8 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.ANDROID_PROJECTS -> contentType == ContentType.ANDROID_PROJECT && source?.id == "github" && !isCreativeAndroidApp()
     HomeSection.ANDROID_MEDIA_DESIGN -> contentType == ContentType.ANDROID_PROJECT && (category?.id == "android-media-design" || isCreativeAndroidApp())
     HomeSection.MODELS -> contentType == ContentType.MODEL && source?.id == "hf-models"
-    HomeSection.PROMPTS -> contentType == ContentType.PROMPT && source?.id == "prompts-chat" && !hasExcludedPromptStyle()
+    HomeSection.PROMPTS -> contentType == ContentType.PROMPT &&
+        (source?.id == "prompts-chat" || category?.id == "ai-prompts") && !hasExcludedPromptStyle()
     HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts" && !hasExcludedPromptStyle()
     HomeSection.REELS_PROMPTS -> contentType == ContentType.PROMPT && category?.id == "reels-prompts" && !hasExcludedPromptStyle()
     HomeSection.ACTION_VFX -> contentType == ContentType.PROMPT && category?.id == "action-vfx" && !hasExcludedPromptStyle()

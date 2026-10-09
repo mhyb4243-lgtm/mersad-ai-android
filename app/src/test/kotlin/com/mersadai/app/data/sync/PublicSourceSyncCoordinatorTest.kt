@@ -6,6 +6,8 @@ import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
 import com.mersadai.app.data.remote.SourceHttpResponse
 import com.mersadai.app.data.remote.SourceHttpTransport
+import com.mersadai.app.domain.model.ContentType
+import com.mersadai.app.domain.model.FreeStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -111,6 +113,28 @@ class PublicSourceSyncCoordinatorTest {
         assertTrue(saved.originalDescription.orEmpty().contains("Consistent Character Parameters"))
         assertTrue(saved.originalDescription.orEmpty().contains("Lower-third overlay: Arabic text \"محمد ابوهادي\""))
         assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
+    }
+
+    @Test
+    fun remoteFeedParsesPublicationDatesAndOfficialDeals() = runBlocking {
+        val publishedAt = now - 60_000L
+        val feed = """{"schema_version":1,"prompts":[{"id":"fresh-prompt","title":"Fresh prompt","category_id":"ai-prompts","prompt":"A useful prompt.","published_at":$publishedAt}],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[{"id":"free-plan","title":"Official free plan","description":"A free plan.","url":"https://example.com/pricing","provider":"Example","free_status":"FREE_TIER","published_at":$publishedAt,"verified_at":$now,"requires_account":true,"requires_payment_card":false,"free_limit":"Daily usage"}]}]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
+        }
+        val store = FakeStore()
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        val prompt = store.items.single { it.externalId == "remote-prompts:fresh-prompt" }
+        assertEquals(publishedAt, prompt.publishedAt)
+        assertEquals("ai-prompts", itemCategory(store, prompt.id))
+        val deal = store.items.single { it.externalId == "remote-prompts:free-plan" }
+        assertEquals(ContentType.AI_TOOL.name, deal.contentType)
+        assertEquals(FreeStatus.FREE_TIER.name, deal.freeStatus)
+        assertEquals(publishedAt, deal.publishedAt)
+        assertEquals(now, deal.lastVerifiedAt)
+        assertEquals("free-perks", itemCategory(store, deal.id))
     }
 
     @Test

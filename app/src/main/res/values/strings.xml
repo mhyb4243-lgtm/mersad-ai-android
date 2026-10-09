@@ -41,7 +41,7 @@
     <string name="filter_all">الكل</string>
     <string name="filter_source">المصدر</string>
     <string name="filter_all_sources">كل المصادر</string>
-    <string name="badge_new">جديد</string>
+    <string name="badge_new">جديد اليوم</string>
     <string name="translate_to_arabic">ترجمة للعربية</string>
     <string name="translation_in_progress">جارٍ إعداد الترجمة…</string>
     <string name="translation_failed">تعذرت الترجمة الآن. بقي النص الأصلي كما هو.</string>
@@ -137,6 +137,11 @@
     <string name="notifications">الإشعارات</string>
     <string name="notifications_summary">أرسل تنبيهًا عند اكتشاف أدوات وبرومبتات ومحتوى جديد.</string>
     <string name="notification_permission_denied">لم يتم منح إذن الإشعارات. يمكنك تفعيله من إعدادات الجهاز.</string>
+    <string name="notification_test_button">🔔 فحص وصول الإشعارات الآن</string>
+    <string name="notification_test_title">اختبار إشعارات مِرصد AI</string>
+    <string name="notification_test_message">إذا ظهر هذا الإشعار، فالإعدادات تعمل بشكل صحيح.</string>
+    <string name="notification_test_sent">تم إرسال إشعار تجريبي. تحقق من لوحة الإشعارات.</string>
+    <string name="notification_test_blocked">تعذر إرسال الإشعار. تحقق من إعدادات إشعارات التطبيق والقناة في النظام.</string>
     <string name="clear_cache">مسح الكاش</string>
     <string name="clear_cache_summary">يحذف العناصر غير المفضلة فقط، ولا يحذف المفضلة.</string>
     <string name="clear_cache_confirm_title">مسح الكاش؟</string>
@@ -150,7 +155,7 @@
     <string name="dismiss">حسنًا</string>
     <string name="notification_title">اكتشافات جديدة</string>
     <string name="notification_summary">تم اكتشاف %1$d عنصر جديد في مرصد AI: %2$s</string>
-    <string name="notification_channel_name">تحديثات مرصد AI</string>
+    <string name="notification_channel_name">تحديثات وعروض مِرصد AI</string>
     <string name="notification_channel_description">إشعارات عن عناصر جديدة تم اكتشافها في مصادر مِرصد AI.</string>
     <string name="notification_count_ai_tools">%1$d أداة ذكاء اصطناعي</string>
     <string name="notification_count_android">%1$d مشروع Android</string>

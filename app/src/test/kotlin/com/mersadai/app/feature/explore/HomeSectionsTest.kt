@@ -5,6 +5,8 @@ import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.data.local.SeedContentProvider
+import java.time.Instant
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -58,6 +60,19 @@ class HomeSectionsTest {
     }
 
     @Test
+    fun newTodayBadgeUsesTheLocalCalendarDate() {
+        val zone = ZoneId.systemDefault()
+        val todayStart = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        val yesterday = Instant.ofEpochMilli(todayStart).atZone(zone).minusDays(1)
+            .toInstant().toEpochMilli()
+
+        assertTrue(item("today", ContentType.PROMPT, "remote-prompts", publishedAt = todayStart).isNewToday(now))
+        assertFalse(item("yesterday", ContentType.PROMPT, "remote-prompts", publishedAt = yesterday).isNewToday(now))
+        assertFalse(item("future", ContentType.PROMPT, "remote-prompts", publishedAt = now + 1).isNewToday(now))
+    }
+
+    @Test
     fun seedContentForImagePromptsAndAiDealsShowsInHomeSections() {
         val offer = item("chatgpt-free", ContentType.AI_TOOL, "ai-offers", sourceUpdatedAt = now)
         val prompt = item("image-1", ContentType.PROMPT, "image-prompts", sourceUpdatedAt = now)
@@ -79,6 +94,18 @@ class HomeSectionsTest {
         val sections = homeSections(listOf(creativeApp, freePerk)).map { it.section }.toSet()
         assertTrue(sections.contains(HomeSection.ANDROID_MEDIA_DESIGN))
         assertTrue(sections.contains(HomeSection.FREE_PERKS))
+    }
+
+    @Test
+    fun publishedContentIsOrderedNewestFirstAndRemotePromptsHaveASection() {
+        val older = item("older", ContentType.PROMPT, "remote-prompts", publishedAt = now - 2_000L)
+            .copy(category = Category("ai-prompts", "أوامر توليد من prompts.chat"))
+        val newer = item("newer", ContentType.PROMPT, "remote-prompts", publishedAt = now - 1_000L)
+            .copy(category = Category("ai-prompts", "أوامر توليد من prompts.chat"))
+
+        val promptSection = homeSections(listOf(older, newer)).single { it.section == HomeSection.PROMPTS }
+
+        assertEquals(listOf("newer", "older"), promptSection.items.map(ContentItem::id))
     }
 
     @Test

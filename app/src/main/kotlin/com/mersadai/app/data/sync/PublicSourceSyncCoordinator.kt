@@ -164,56 +164,111 @@ class PublicSourceSyncCoordinator(
 
     private fun remotePromptFeed(body: String): List<ContentItem> {
         val root = JsonParser.parseString(body)
-        val prompts = if (root.isJsonArray) root.asJsonArray else root.asJsonObject.getAsJsonArray("prompts")
+        if (root.isJsonArray) return root.asJsonArray.mapNotNull(::remotePromptItem)
+        val feed = root.asJsonObject
+        val prompts = feed.getAsJsonArray("prompts")
             ?: throw IllegalArgumentException("Remote prompt feed has no prompts array")
-        return prompts.mapNotNull { element ->
-            val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
-            val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
-                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
-                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val rawPrompt = entry.get("prompt")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
-                ?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val categoryId = entry.get("category_id")?.takeIf { it.isJsonPrimitive }?.asString
-                ?.takeIf(String::isNotBlank) ?: "reels-prompts"
-            val categoryName = entry.get("category_name")?.takeIf { it.isJsonPrimitive }?.asString
-                ?.takeIf(String::isNotBlank) ?: "🎬 برومبتات ريلز وفيديو سينمائي"
-            val promptType = entry.get("prompt_type")?.takeIf { it.isJsonPrimitive }?.asString
-                ?.takeIf(String::isNotBlank) ?: "text-to-video"
-            val isVideo = promptType.contains("video", ignoreCase = true) || promptType.contains("reel", ignoreCase = true)
-            val durationSeconds = runCatching { entry.get("duration_seconds")?.asInt }.getOrNull()
-            val prompt = if (isVideo) VideoPromptPolicy.apply(rawPrompt, durationSeconds == 30) else rawPrompt
-            val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
-                tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
-            }.orEmpty()
-            val timestamp = now()
-            ContentItem(
-                id = "remote-prompts:$externalId",
-                externalId = "remote-prompts:$externalId",
-                title = title,
-                originalTitle = entry.get("original_title")?.takeIf { it.isJsonPrimitive }?.asString,
-                description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
-                originalDescription = prompt,
-                url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString ?: REMOTE_PROMPTS_FEED_URL,
-                contentType = ContentType.PROMPT,
-                category = Category(categoryId, categoryName),
-                freeStatus = FreeStatus.UNKNOWN,
-                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
-                source = Source(
-                    "remote-prompts",
-                    "موجز البرومبتات المتجدد",
-                    "mhyb4243-lgtm/mersad-ai-android/remote_prompts.json",
-                    "https://github.com/mhyb4243-lgtm/mersad-ai-android",
-                    REMOTE_PROMPTS_FEED_URL,
-                ),
-                createdAt = timestamp,
-                updatedAt = timestamp,
-                language = entry.get("language")?.takeIf { it.isJsonPrimitive }?.asString ?: "en",
-                tags = tags,
-                promptType = promptType,
-            )
-        }
+        val promptItems = prompts.mapNotNull(::remotePromptItem)
+        val dealItems = feed.getAsJsonArray("sections")?.flatMap { sectionElement ->
+            val section = sectionElement.takeIf { it.isJsonObject }?.asJsonObject ?: return@flatMap emptyList()
+            if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "ai-deals-and-trials") return@flatMap emptyList()
+            section.getAsJsonArray("items")?.mapNotNull(::remoteDealItem).orEmpty()
+        }.orEmpty()
+        return promptItems + dealItems
     }
+
+    private fun remotePromptItem(element: com.google.gson.JsonElement): ContentItem? {
+        val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val rawPrompt = entry.get("prompt")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val categoryId = entry.get("category_id")?.takeIf { it.isJsonPrimitive }?.asString
+            ?.takeIf(String::isNotBlank) ?: "reels-prompts"
+        val categoryName = entry.get("category_name")?.takeIf { it.isJsonPrimitive }?.asString
+            ?.takeIf(String::isNotBlank) ?: "🎬 برومبتات ريلز وفيديو سينمائي"
+        val promptType = entry.get("prompt_type")?.takeIf { it.isJsonPrimitive }?.asString
+            ?.takeIf(String::isNotBlank) ?: "text-to-video"
+        val isVideo = promptType.contains("video", ignoreCase = true) || promptType.contains("reel", ignoreCase = true)
+        val durationSeconds = runCatching { entry.get("duration_seconds")?.asInt }.getOrNull()
+        val prompt = if (isVideo) VideoPromptPolicy.apply(rawPrompt, durationSeconds == 30) else rawPrompt
+        val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
+            tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
+        }.orEmpty()
+        val timestamp = entry.long("published_at") ?: now()
+        return ContentItem(
+            id = "remote-prompts:$externalId",
+            externalId = "remote-prompts:$externalId",
+            title = title,
+            originalTitle = entry.get("original_title")?.takeIf { it.isJsonPrimitive }?.asString,
+            description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
+            originalDescription = prompt,
+            url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString ?: REMOTE_PROMPTS_FEED_URL,
+            contentType = ContentType.PROMPT,
+            category = Category(categoryId, categoryName),
+            freeStatus = FreeStatus.UNKNOWN,
+            verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+            source = Source(
+                "remote-prompts",
+                "موجز البرومبتات المتجدد",
+                "mhyb4243-lgtm/mersad-ai-android/remote_prompts.json",
+                "https://github.com/mhyb4243-lgtm/mersad-ai-android",
+                REMOTE_PROMPTS_FEED_URL,
+            ),
+            createdAt = timestamp,
+            updatedAt = timestamp,
+            language = entry.get("language")?.takeIf { it.isJsonPrimitive }?.asString ?: "en",
+            tags = tags,
+            promptType = promptType,
+            publishedAt = entry.long("published_at"),
+        )
+    }
+
+    private fun remoteDealItem(element: com.google.gson.JsonElement): ContentItem? {
+        val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf { it.startsWith("https://") } ?: return null
+        val timestamp = entry.long("published_at") ?: now()
+        val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
+        return ContentItem(
+            id = "remote-prompts:$externalId",
+            externalId = "remote-prompts:$externalId",
+            title = title,
+            originalTitle = title,
+            description = description,
+            originalDescription = description,
+            url = url,
+            contentType = ContentType.AI_TOOL,
+            category = Category("free-perks", "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)"),
+            freeStatus = entry.get("free_status")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.let { runCatching { FreeStatus.valueOf(it) }.getOrNull() } ?: FreeStatus.FREE_TIER,
+            verificationLevel = VerificationLevel.OFFICIAL_SOURCE,
+            source = Source("official-free-perks", "مصادر العروض الرسمية", "remote-prompts", url, url),
+            lastVerifiedAt = entry.long("verified_at"),
+            createdAt = timestamp,
+            updatedAt = entry.long("verified_at") ?: timestamp,
+            publishedAt = entry.long("published_at"),
+            author = entry.get("provider")?.takeIf { it.isJsonPrimitive }?.asString,
+            requiresAccount = entry.boolean("requires_account"),
+            requiresPaymentCard = entry.boolean("requires_payment_card"),
+            freeLimit = entry.get("free_limit")?.takeIf { it.isJsonPrimitive }?.asString,
+            tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
+                tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
+            }.orEmpty(),
+        )
+    }
+
+    private fun com.google.gson.JsonObject.long(name: String): Long? =
+        runCatching { get(name)?.takeIf { it.isJsonPrimitive }?.asLong }.getOrNull()
+
+    private fun com.google.gson.JsonObject.boolean(name: String): Boolean? =
+        runCatching { get(name)?.takeIf { it.isJsonPrimitive }?.asBoolean }.getOrNull()
 
     private suspend fun fetchLatestVideoPrompts(
         source: SourceDefinition,
@@ -401,7 +456,7 @@ class PublicSourceSyncCoordinator(
         const val FAILURE_COOLDOWN = 15 * 60 * 1000L
         const val NOTIFICATION_FRESHNESS_WINDOW = 7 * DAY
         const val VIDEO_PROMPT_PAGE_SIZE = 100L
-        const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/feat/creative-prompts-live-feed/remote_prompts.json"
+        const val REMOTE_PROMPTS_FEED_URL = "https://raw.githubusercontent.com/mhyb4243-lgtm/mersad-ai-android/main/remote_prompts.json"
         val githubQueries = listOf(
             "topic:android AND (topic:photo-editor OR topic:video-editor OR topic:generative-ai OR topic:on-device-ai OR topic:design-tool OR topic:photography OR topic:photo-editing OR topic:invitation OR topic:poster-design)",
             "android language:Kotlin",

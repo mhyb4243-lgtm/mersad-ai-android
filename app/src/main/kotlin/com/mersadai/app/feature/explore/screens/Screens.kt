@@ -82,6 +82,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
 import com.mersadai.app.R
 import com.mersadai.app.data.local.SettingsRepository
+import com.mersadai.app.data.notifications.LocalNotificationDispatcher
 import com.mersadai.app.domain.model.AppSettings
 import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentItem
@@ -97,7 +98,7 @@ import com.mersadai.app.feature.explore.ExploreViewModel
 import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.HomeSectionContent
 import com.mersadai.app.feature.explore.homeSections
-import com.mersadai.app.feature.explore.isNewAt
+import com.mersadai.app.feature.explore.isNewToday
 import com.mersadai.app.feature.explore.sourceTimestamp
 import com.mersadai.app.data.translation.TranslationFields
 import coil.compose.AsyncImage
@@ -342,13 +343,24 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showClearConfirmation by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf<Int?>(null) }
+    var testNotificationAfterPermission by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
+        val shouldSendTestNotification = testNotificationAfterPermission
+        testNotificationAfterPermission = false
         scope.launch {
             settingsRepository.setNotificationsEnabled(granted)
         }
-        if (!granted) dialogMessage = R.string.notification_permission_denied
+        if (!granted) {
+            dialogMessage = R.string.notification_permission_denied
+        } else if (shouldSendTestNotification) {
+            dialogMessage = if (LocalNotificationDispatcher.sendTestNotification(context)) {
+                R.string.notification_test_sent
+            } else {
+                R.string.notification_test_blocked
+            }
+        }
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
@@ -390,6 +402,27 @@ fun SettingsScreen(
                         }
                     },
                 )
+            }
+        }
+        item {
+            Button(
+                onClick = {
+                    val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                    if (permissionGranted) {
+                        dialogMessage = if (LocalNotificationDispatcher.sendTestNotification(context)) {
+                            R.string.notification_test_sent
+                        } else {
+                            R.string.notification_test_blocked
+                        }
+                    } else {
+                        testNotificationAfterPermission = true
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.notification_test_button))
             }
         }
         item { HorizontalDivider() }
@@ -711,7 +744,7 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (item.isNewAt(System.currentTimeMillis())) {
+                    if (item.isNewToday(System.currentTimeMillis())) {
                         Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
                             Text(stringResource(R.string.badge_new), modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
                         }

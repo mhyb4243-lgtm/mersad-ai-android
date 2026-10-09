@@ -1,5 +1,69 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "sections": [
+    {
+      "id": "ai-deals-and-trials",
+      "title": "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)",
+      "items": [
+        {
+          "id": "chatgpt-free",
+          "title": "ChatGPT Free",
+          "description": "خطة مجانية للاستخدام اليومي بميزات وحدود استخدام قد تتغير حسب البلد والسياسة الرسمية.",
+          "url": "https://openai.com/chatgpt/pricing/",
+          "provider": "OpenAI",
+          "free_status": "FREE_TIER",
+          "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
+          "requires_account": true,
+          "requires_payment_card": false,
+          "tags": ["chatgpt", "free-tier", "official"],
+          "published_at": 1791504000000,
+          "verified_at": 1791504000000
+        },
+        {
+          "id": "gemini-api-free-tier",
+          "title": "Gemini API Free Tier",
+          "description": "طبقة مجانية لاستخدام Gemini API، وتختلف الحدود والتوفر باختلاف النموذج والمنطقة.",
+          "url": "https://ai.google.dev/gemini-api/docs/pricing",
+          "provider": "Google",
+          "free_status": "FREE_TIER",
+          "free_limit": "حدود مجانية حسب النموذج؛ راجع صفحة الأسعار الرسمية.",
+          "requires_account": true,
+          "requires_payment_card": false,
+          "tags": ["gemini", "api", "free-tier", "official"],
+          "published_at": 1791504000000,
+          "verified_at": 1791504000000
+        },
+        {
+          "id": "claude-free",
+          "title": "Claude Free",
+          "description": "خطة Claude المجانية مع حدود استخدام متغيرة وفق صفحة Anthropic الرسمية.",
+          "url": "https://www.anthropic.com/claude",
+          "provider": "Anthropic",
+          "free_status": "FREE_TIER",
+          "free_limit": "خطة مجانية بحدود استخدام؛ راجع تفاصيل الخطة الرسمية.",
+          "requires_account": true,
+          "requires_payment_card": false,
+          "tags": ["claude", "free-tier", "official"],
+          "published_at": 1791504000000,
+          "verified_at": 1791504000000
+        },
+        {
+          "id": "perplexity-free",
+          "title": "Perplexity Free",
+          "description": "خطة مجانية للبحث والإجابات، مع حدود وميزات تتغير حسب صفحة الأسعار الرسمية.",
+          "url": "https://www.perplexity.ai/pricing",
+          "provider": "Perplexity",
+          "free_status": "FREE_TIER",
+          "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
+          "requires_account": true,
+          "requires_payment_card": false,
+          "tags": ["perplexity", "free-tier", "official"],
+          "published_at": 1791504000000,
+          "verified_at": 1791504000000
+        }
+      ]
+    }
+  ],
   "prompts": [
     {
       "id": "bts-director-monitor-01",

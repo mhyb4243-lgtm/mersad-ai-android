@@ -24,13 +24,23 @@ enum class SyncState { IDLE, SYNCING, SUCCESS, FAILURE, NOT_CONFIGURED }
 
 object FreeAiClassifier {
     private val openSourceLicenses = setOf(
-        "apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "gpl-2.0", "gpl-3.0",
-        "lgpl-2.1", "lgpl-3.0", "mpl-2.0", "epl-1.0", "epl-2.0", "agpl-3.0", "isc",
+        "apache-2.0", "apache-2", "apache-license-2.0", "mit", "mit-license",
+        "bsd-2-clause", "bsd-3-clause", "gpl-2.0", "gpl-3.0", "lgpl-2.1",
+        "lgpl-3.0", "mpl-2.0", "epl-1.0", "epl-2.0", "agpl-3.0", "isc",
     )
 
     fun hasOpenSourceLicense(license: String?): Boolean = license.orEmpty()
-        .split(Regex("[,/|]"))
-        .map { it.trim().lowercase() }
+        .split(Regex("[,/|;]|\\s+(?:and|or)\\s+", RegexOption.IGNORE_CASE))
+        .asSequence()
+        .map { token ->
+            token.trim()
+                .lowercase()
+                .replace(Regex("[\\s_]+"), "-")
+                .replace(Regex("[^a-z0-9.-]+"), "-")
+                .trim('-')
+                .removeSuffix("-license")
+                .removeSuffix("-licence")
+        }
         .any { it in openSourceLicenses }
 
     fun classify(status: FreeStatus, license: String?): FreeStatus {
@@ -95,6 +105,9 @@ data class ContentItem(
     val requiresAccount: Boolean? = null,
     val requiresPaymentCard: Boolean? = null,
     val freeLimit: String? = null,
+    val dealType: String? = null,
+    val promoCode: String? = null,
+    val isActive: Boolean? = null,
     val localRunnable: Boolean? = null,
     val lastVerificationError: String? = null,
     val startAt: Long? = null,
@@ -104,13 +117,16 @@ data class ContentItem(
 ) {
     fun classifiedFreeStatus(): FreeStatus = FreeAiClassifier.classify(freeStatus, license)
 
-    fun isFreeNow(): Boolean = classifiedFreeStatus() in setOf(
-        FreeStatus.FULLY_FREE,
-        FreeStatus.FREE_TIER,
-        FreeStatus.FREE_CREDIT,
-        FreeStatus.TEMPORARY_OFFER,
-        FreeStatus.OPEN_SOURCE,
-    ) && (endAt == null || endAt > System.currentTimeMillis())
+    fun isFreeNow(): Boolean = isActive != false &&
+        (startAt == null || startAt <= System.currentTimeMillis()) &&
+        (endAt == null || endAt > System.currentTimeMillis()) &&
+        classifiedFreeStatus() in setOf(
+            FreeStatus.FULLY_FREE,
+            FreeStatus.FREE_TIER,
+            FreeStatus.FREE_CREDIT,
+            FreeStatus.TEMPORARY_OFFER,
+            FreeStatus.OPEN_SOURCE,
+        )
 
     fun isOpenSource(): Boolean = openSourceStatus == OpenSourceStatus.OPEN_SOURCE ||
         openSourceStatus == OpenSourceStatus.OPEN_WEIGHT ||

@@ -58,6 +58,47 @@ class FreeAiClassifierTest {
     }
 
     @Test
+    fun openSourceLicensesAreNormalizedAcrossCommonFormats() {
+        val item = ContentItem(
+            id = "license-1",
+            title = "Apache 2.0 project",
+            contentType = ContentType.ANDROID_PROJECT,
+            license = "MIT License / Apache 2.0",
+            createdAt = 1L,
+            updatedAt = 1L,
+        )
+
+        assertEquals(FreeStatus.OPEN_SOURCE, item.classifiedFreeStatus())
+        assertTrue(item.isFreeNow())
+        assertFalse(FreeAiClassifier.hasOpenSourceLicense("MITRE proprietary"))
+    }
+
+    @Test
+    fun startTimesAndInactiveDealsStayUnavailable() {
+        val upcoming = ContentItem(
+            id = "future-deal",
+            title = "Future deal",
+            contentType = ContentType.AI_TOOL,
+            freeStatus = FreeStatus.FREE_TIER,
+            startAt = System.currentTimeMillis() + 60_000L,
+            createdAt = 1L,
+            updatedAt = 1L,
+        )
+        val inactive = ContentItem(
+            id = "inactive-deal",
+            title = "Inactive deal",
+            contentType = ContentType.AI_TOOL,
+            freeStatus = FreeStatus.FREE_TIER,
+            isActive = false,
+            createdAt = 1L,
+            updatedAt = 1L,
+        )
+
+        assertFalse(upcoming.isFreeNow())
+        assertFalse(inactive.isFreeNow())
+    }
+
+    @Test
     fun unknownFreeStateIsNotPromotedToFree() {
         val unknown = ContentItem(
             id = "unknown-1",

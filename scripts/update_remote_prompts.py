@@ -4,12 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import email.utils
+import hashlib
+import html
 import json
+import re
 import sys
 import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +26,28 @@ SECTION_ID = "ai-deals-and-trials"
 SECTION_TITLE = "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)"
 MAX_PROMPTS = 300
 PAGE_SIZE = 100
+ACTIVE_DEAL_DAYS = 30
+DEAL_CATEGORY_ID = "ai-deals"
+DEAL_CATEGORY_NAME = "🎁 عروض واشتراكات مجانية (AI Deals & Trials)"
+REDDIT_FEEDS = {
+    "reddit-freebies": ("r/Freebies", "https://www.reddit.com/r/Freebies/new/.rss?limit=100"),
+    "reddit-ai": ("r/ArtificialInteligence", "https://www.reddit.com/r/ArtificialInteligence/new/.rss?limit=100"),
+    "reddit-openai": ("r/OpenAI", "https://www.reddit.com/r/OpenAI/new/.rss?limit=100"),
+}
+GITHUB_DEALS_URL = "https://raw.githubusercontent.com/cheahjs/free-llm-api-resources/main/README.md"
+DEAL_KEYWORDS = re.compile(
+    r"free[\s-]+(?:trial|credits?|tokens?|month|plan|tier|api)|(?:trial|credits?|tokens?)[\s-]+free|"
+    r"\$\s?\d+\s?(?:usd\s?)?(?:free\s?)?(?:credits?|credit)|promo(?:tional)?\s+code|coupon|discount",
+    re.IGNORECASE,
+)
+PROVIDER_NAMES = (
+    "Runway", "Kling", "ElevenLabs", "OpenAI", "Cursor", "Anthropic", "Claude",
+    "Google", "Gemini", "Perplexity", "Mistral", "Groq", "Cohere", "Hugging Face",
+    "Replicate", "Pika", "Luma", "Suno", "Udio", "Midjourney", "Canva", "DeepInfra",
+    "Together AI", "Cerebras", "OpenRouter", "Cloudflare", "Fireworks", "SambaNova",
+    "SiliconFlow", "NVIDIA", "GitHub Copilot",
+)
+PROMO_CODE_PATTERN = re.compile(r"\b(?:promo(?:tional)?\s+code|coupon\s+code|code)\s*[:=-]?\s*([A-Z0-9][A-Z0-9_-]{3,19})\b", re.IGNORECASE)
 
 OFFERS = [
     {
@@ -27,48 +55,72 @@ OFFERS = [
         "title": "ChatGPT Free",
         "description": "خطة مجانية للاستخدام اليومي بميزات وحدود استخدام قد تتغير حسب البلد والسياسة الرسمية.",
         "url": "https://openai.com/chatgpt/pricing/",
+        "deal_url": "https://openai.com/chatgpt/pricing/",
         "provider": "OpenAI",
+        "deal_type": "free plan",
+        "promo_code": None,
+        "category_id": "free-perks",
+        "source_type": "official",
         "free_status": "FREE_TIER",
         "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
         "requires_account": True,
         "requires_payment_card": False,
         "tags": ["chatgpt", "free-tier", "official"],
+        "is_active": True,
     },
     {
         "id": "gemini-api-free-tier",
         "title": "Gemini API Free Tier",
         "description": "طبقة مجانية لاستخدام Gemini API، وتختلف الحدود والتوفر باختلاف النموذج والمنطقة.",
         "url": "https://ai.google.dev/gemini-api/docs/pricing",
+        "deal_url": "https://ai.google.dev/gemini-api/docs/pricing",
         "provider": "Google",
+        "deal_type": "free credits",
+        "promo_code": None,
+        "category_id": "free-perks",
+        "source_type": "official",
         "free_status": "FREE_TIER",
         "free_limit": "حدود مجانية حسب النموذج؛ راجع صفحة الأسعار الرسمية.",
         "requires_account": True,
         "requires_payment_card": False,
         "tags": ["gemini", "api", "free-tier", "official"],
+        "is_active": True,
     },
     {
         "id": "claude-free",
         "title": "Claude Free",
         "description": "خطة Claude المجانية مع حدود استخدام متغيرة وفق صفحة Anthropic الرسمية.",
         "url": "https://www.anthropic.com/claude",
+        "deal_url": "https://www.anthropic.com/claude",
         "provider": "Anthropic",
+        "deal_type": "free plan",
+        "promo_code": None,
+        "category_id": "free-perks",
+        "source_type": "official",
         "free_status": "FREE_TIER",
         "free_limit": "خطة مجانية بحدود استخدام؛ راجع تفاصيل الخطة الرسمية.",
         "requires_account": True,
         "requires_payment_card": False,
         "tags": ["claude", "free-tier", "official"],
+        "is_active": True,
     },
     {
         "id": "perplexity-free",
         "title": "Perplexity Free",
         "description": "خطة مجانية للبحث والإجابات، مع حدود وميزات تتغير حسب صفحة الأسعار الرسمية.",
         "url": "https://www.perplexity.ai/pricing",
+        "deal_url": "https://www.perplexity.ai/pricing",
         "provider": "Perplexity",
+        "deal_type": "free plan",
+        "promo_code": None,
+        "category_id": "free-perks",
+        "source_type": "official",
         "free_status": "FREE_TIER",
         "free_limit": "خطة مجانية؛ راجع صفحة الأسعار للحدود الحالية.",
         "requires_account": True,
         "requires_payment_card": False,
         "tags": ["perplexity", "free-tier", "official"],
+        "is_active": True,
     },
 ]
 
@@ -79,6 +131,184 @@ def fetch_json(url: str) -> dict:
         if response.status != 200:
             raise RuntimeError(f"Unexpected HTTP status {response.status} from {url}")
         return json.load(response)
+
+
+def fetch_text(url: str, accept: str = "text/plain, application/atom+xml, application/rss+xml") -> str:
+    request = Request(url, headers={"User-Agent": "MersadAI-DealsBot/1.0 (public feed)", "Accept": accept})
+    with urlopen(request, timeout=30) as response:
+        if response.status != 200:
+            raise RuntimeError(f"Unexpected HTTP status {response.status} from {url}")
+        return response.read().decode("utf-8", errors="replace")
+
+
+def _plain_text(value: str) -> str:
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
+
+
+def _published_timestamp(value: str, fallback: int) -> int:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            parsed = email.utils.parsedate_to_datetime(value)
+        except (TypeError, ValueError):
+            return fallback
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp() * 1000)
+
+
+def _provider_name(text: str) -> str:
+    for provider in PROVIDER_NAMES:
+        if re.search(rf"\b{re.escape(provider)}\b", text, re.IGNORECASE):
+            return provider
+    return "Community deal"
+
+
+def _deal_type(text: str) -> str:
+    if re.search(r"promo|coupon|discount", text, re.IGNORECASE):
+        return "discount code"
+    if re.search(r"trial|month free", text, re.IGNORECASE):
+        return "free trial"
+    if re.search(r"credit|token", text, re.IGNORECASE):
+        return "free credits"
+    return "free plan"
+
+
+def _deal_record(
+    *,
+    title: str,
+    description: str,
+    deal_url: str,
+    source_id: str,
+    source_name: str,
+    source_url: str,
+    published_at: int,
+    now_ms: int,
+) -> dict:
+    combined_text = f"{title} {description}"
+    provider = _provider_name(combined_text)
+    canonical = urlparse(deal_url)
+    identity = f"{provider.lower()}|{canonical.netloc.lower()}{canonical.path.rstrip('/')}"
+    deal_id = "community-" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
+    age_ms = now_ms - published_at
+    return {
+        "id": deal_id,
+        "title": title[:240],
+        "description": description[:700] or f"عرض رُصد في {source_name}.",
+        "provider": provider,
+        "deal_type": _deal_type(combined_text),
+        "promo_code": (PROMO_CODE_PATTERN.search(combined_text).group(1) if PROMO_CODE_PATTERN.search(combined_text) else None),
+        "deal_url": deal_url,
+        "url": deal_url,
+        "source_url": source_url,
+        "source_id": source_id,
+        "source_name": source_name,
+        "source_type": "community",
+        "category_id": DEAL_CATEGORY_ID,
+        "category_name": DEAL_CATEGORY_NAME,
+        "published_at": published_at,
+        "verified_date": datetime.fromtimestamp(now_ms / 1000, timezone.utc).date().isoformat(),
+        "is_active": 0 <= age_ms <= ACTIVE_DEAL_DAYS * 24 * 60 * 60 * 1000,
+        "free_status": "FREE_CREDIT" if re.search(r"credit|token", combined_text, re.IGNORECASE) else "TEMPORARY_OFFER",
+        "tags": ["ai-deal", "community", source_id],
+    }
+
+
+def parse_rss_deals(xml_body: str, source_id: str, source_name: str, now_ms: int) -> list[dict]:
+    root = ET.fromstring(xml_body)
+    deals = []
+    for entry in root.iter():
+        if entry.tag.rsplit("}", 1)[-1].lower() not in {"entry", "item"}:
+            continue
+        fields = {}
+        entry_links = []
+        for child in entry.iter():
+            key = child.tag.rsplit("}", 1)[-1].lower()
+            if key == "link":
+                link = child.attrib.get("href") or (child.text or "").strip()
+                if link:
+                    entry_links.append(link)
+            elif key in {"title", "summary", "description", "content", "published", "updated", "pubdate", "id", "guid"}:
+                fields[key] = " ".join(filter(None, (fields.get(key), " ".join(child.itertext())))).strip()
+        title = _plain_text(fields.get("title", ""))
+        description = _plain_text(" ".join(fields.get(key, "") for key in ("summary", "description", "content")))
+        searchable = f"{title} {description}"
+        if not title or not DEAL_KEYWORDS.search(searchable):
+            continue
+        post_url = next((url for url in entry_links if url.startswith("http")), "")
+        entry_markup = html.unescape(ET.tostring(entry, encoding="unicode"))
+        external_links = re.findall(r'''href=["'](https?://[^"']+)["']''', entry_markup)
+        deal_url = next(
+            (
+                html.unescape(url)
+                for url in external_links
+                if not any(domain in urlparse(url).netloc.lower() for domain in ("reddit.com", "redd.it"))
+            ),
+            post_url,
+        )
+        if not deal_url:
+            continue
+        published = next((fields[key] for key in ("published", "updated", "pubdate") if fields.get(key)), "")
+        published_at = _published_timestamp(published, now_ms)
+        deals.append(
+            _deal_record(
+                title=title,
+                description=description,
+                deal_url=deal_url,
+                source_id=source_id,
+                source_name=source_name,
+                source_url=post_url or deal_url,
+                published_at=published_at,
+                now_ms=now_ms,
+            ),
+        )
+    return deals
+
+
+def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
+    deals = []
+    for line in markdown.splitlines():
+        clean_line = _plain_text(line)
+        if not DEAL_KEYWORDS.search(clean_line) and not re.search(r"free.{0,30}api|api.{0,30}free", clean_line, re.IGNORECASE):
+            continue
+        links = re.findall(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", line)
+        for label, url in links:
+            if urlparse(url).netloc.lower().endswith("github.com"):
+                continue
+            title = f"{label.strip()} free API access"
+            deals.append(
+                _deal_record(
+                    title=title,
+                    description=clean_line,
+                    deal_url=url,
+                    source_id="github-free-llm-api-resources",
+                    source_name="GitHub: free-llm-api-resources",
+                    source_url=GITHUB_DEALS_URL,
+                    published_at=now_ms,
+                    now_ms=now_ms,
+                ),
+            )
+            break
+    return deals[:100]
+
+
+def discover_community_deals(now_ms: int) -> tuple[list[dict], int]:
+    discovered = []
+    successful_sources = 0
+    for source_id, (source_name, url) in REDDIT_FEEDS.items():
+        try:
+            discovered.extend(parse_rss_deals(fetch_text(url, "application/atom+xml, application/rss+xml"), source_id, source_name, now_ms))
+            successful_sources += 1
+        except (HTTPError, URLError, TimeoutError, ET.ParseError, RuntimeError) as error:
+            print(f"Warning: could not read {source_name} RSS: {error}", file=sys.stderr)
+    try:
+        discovered.extend(parse_github_deals(fetch_text(GITHUB_DEALS_URL), now_ms))
+        successful_sources += 1
+    except (HTTPError, URLError, TimeoutError, RuntimeError) as error:
+        print(f"Warning: could not read GitHub community offers: {error}", file=sys.stderr)
+    unique = {deal["id"]: deal for deal in discovered}
+    return list(unique.values()), successful_sources
 
 
 def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
@@ -133,15 +363,20 @@ def verify_offer(url: str) -> bool:
         return 200 <= response.status < 400
 
 
-def build_deals(previous_sections: list[dict], now_ms: int) -> tuple[list[dict], int]:
+def build_deals(
+    previous_sections: list[dict],
+    discovered: list[dict],
+    now_ms: int,
+) -> tuple[dict, int]:
     existing = next((section for section in previous_sections if section.get("id") == SECTION_ID), {})
     old_items = {item.get("id"): item for item in existing.get("items", []) if item.get("id")}
     items = []
     verified_count = 0
+    verified_date = datetime.fromtimestamp(now_ms / 1000, timezone.utc).date().isoformat()
     for offer in OFFERS:
         previous = old_items.get(offer["id"], {})
         try:
-            if not verify_offer(offer["url"]):
+            if not verify_offer(offer["deal_url"]):
                 raise RuntimeError("official page returned a non-success status")
             verified_at = now_ms
             verified_count += 1
@@ -150,14 +385,42 @@ def build_deals(previous_sections: list[dict], now_ms: int) -> tuple[list[dict],
             if not previous:
                 continue
             verified_at = previous.get("verified_at")
-        item = {**offer, "published_at": previous.get("published_at", now_ms)}
+        item = {
+            **offer,
+            "published_at": previous.get("published_at", now_ms),
+            "verified_date": verified_date if verified_at is not None else previous.get("verified_date"),
+            "source_url": offer["deal_url"],
+            "source_name": "Official provider",
+        }
         if verified_at is not None:
             item["verified_at"] = verified_at
         items.append(item)
-    return [{"id": SECTION_ID, "title": SECTION_TITLE, "items": items}], verified_count
+
+    discovered_by_id = {deal["id"]: deal for deal in discovered}
+    for deal_id, deal in discovered_by_id.items():
+        previous = old_items.get(deal_id, {})
+        deal = {
+            **deal,
+            "published_at": previous.get("published_at", deal["published_at"]),
+            "verified_date": verified_date,
+        }
+        items.append(deal)
+
+    for deal_id, previous in old_items.items():
+        if deal_id in discovered_by_id or previous.get("source_type") != "community":
+            continue
+        published_at = int(previous.get("published_at", 0))
+        is_active = 0 <= now_ms - published_at <= ACTIVE_DEAL_DAYS * 24 * 60 * 60 * 1000
+        items.append({**previous, "is_active": is_active})
+
+    unique_items = {item["id"]: item for item in items}
+    return {"id": SECTION_ID, "title": SECTION_TITLE, "items": list(unique_items.values())}, verified_count
 
 
 def validate_feed(feed: dict) -> None:
+    schema_version = feed.get("schema_version")
+    if schema_version not in {2, 3}:
+        raise ValueError(f"unsupported feed schema version: {schema_version}")
     if not isinstance(feed.get("prompts"), list):
         raise ValueError("feed must contain a prompts array")
     sections = feed.get("sections")
@@ -175,6 +438,18 @@ def validate_feed(feed: dict) -> None:
     timestamps = [int(item.get("published_at", 0)) for item in feed["prompts"]]
     if timestamps != sorted(timestamps, reverse=True):
         raise ValueError("prompts must be ordered newest to oldest")
+    for deal in deal_section["items"]:
+        required_fields = ("id", "title") if schema_version == 2 else (
+            "id", "title", "provider", "deal_type", "deal_url", "verified_date",
+        )
+        if not all(deal.get(key) for key in required_fields):
+            raise ValueError(f"each schema {schema_version} deal must contain {', '.join(required_fields)}")
+        if schema_version == 2:
+            continue
+        if not isinstance(deal.get("is_active"), bool):
+            raise ValueError(f"deal {deal['id']} must have a boolean is_active field")
+        if not str(deal["deal_url"]).startswith("https://"):
+            raise ValueError(f"deal {deal['id']} must use an HTTPS deal_url")
 
 
 def main() -> None:
@@ -190,13 +465,19 @@ def main() -> None:
 
     now_ms = int(time.time() * 1000)
     prompts = fetch_prompts(feed["prompts"], now_ms)
-    sections, verified_count = build_deals(feed.get("sections", []), now_ms)
-    if verified_count == 0:
-        raise RuntimeError("No official offer pages could be verified; feed was not updated")
-    updated = {**feed, "schema_version": 2, "prompts": prompts, "sections": sections}
+    community_deals, successful_sources = discover_community_deals(now_ms)
+    if successful_sources == 0:
+        raise RuntimeError("No community deal source could be fetched; feed was not updated")
+    deal_section, verified_count = build_deals(feed.get("sections", []), community_deals, now_ms)
+    sections = [section for section in feed["sections"] if section.get("id") != SECTION_ID]
+    sections.append(deal_section)
+    updated = {**feed, "schema_version": 3, "prompts": prompts, "sections": sections}
     validate_feed(updated)
     FEED_PATH.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Updated {len(prompts)} prompts and verified {verified_count} official offer pages.")
+    print(
+        f"Updated {len(prompts)} prompts, {len(deal_section['items'])} deals from "
+        f"{successful_sources} community sources; verified {verified_count} official pages.",
+    )
 
 
 if __name__ == "__main__":

@@ -248,7 +248,13 @@ class PublicSourceSyncCoordinator(
             category = Category("free-perks", "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)"),
             freeStatus = entry.get("free_status")?.takeIf { it.isJsonPrimitive }?.asString
                 ?.let { runCatching { FreeStatus.valueOf(it) }.getOrNull() } ?: FreeStatus.FREE_TIER,
-            verificationLevel = VerificationLevel.OFFICIAL_SOURCE,
+            verificationLevel = if (
+                entry.get("source_type")?.takeIf { it.isJsonPrimitive }?.asString == "community"
+            ) {
+                VerificationLevel.COMMUNITY_SOURCE
+            } else {
+                VerificationLevel.OFFICIAL_SOURCE
+            },
             source = Source("official-free-perks", "مصادر العروض الرسمية", "remote-prompts", url, url),
             lastVerifiedAt = entry.long("verified_at"),
             createdAt = timestamp,
@@ -258,6 +264,11 @@ class PublicSourceSyncCoordinator(
             requiresAccount = entry.boolean("requires_account"),
             requiresPaymentCard = entry.boolean("requires_payment_card"),
             freeLimit = entry.get("free_limit")?.takeIf { it.isJsonPrimitive }?.asString,
+            dealType = entry.get("deal_type")?.takeIf { it.isJsonPrimitive }?.asString,
+            promoCode = entry.get("promo_code")?.takeIf { it.isJsonPrimitive }?.asString,
+            isActive = entry.boolean("is_active"),
+            startAt = entry.long("start_at"),
+            endAt = entry.long("end_at"),
             tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
                 tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
             }.orEmpty(),

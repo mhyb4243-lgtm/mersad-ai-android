@@ -118,7 +118,7 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun remoteFeedParsesPublicationDatesAndOfficialDeals() = runBlocking {
         val publishedAt = now - 60_000L
-        val feed = """{"schema_version":1,"prompts":[{"id":"fresh-prompt","title":"Fresh prompt","category_id":"ai-prompts","prompt":"A useful prompt.","published_at":$publishedAt}],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[{"id":"free-plan","title":"Official free plan","description":"A free plan.","url":"https://example.com/pricing","provider":"Example","free_status":"FREE_TIER","published_at":$publishedAt,"verified_at":$now,"requires_account":true,"requires_payment_card":false,"free_limit":"Daily usage"}]}]}"""
+        val feed = """{"schema_version":3,"prompts":[{"id":"fresh-prompt","title":"Fresh prompt","category_id":"ai-prompts","prompt":"A useful prompt.","published_at":$publishedAt}],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[{"id":"free-plan","title":"Official free plan","description":"A free plan.","url":"https://example.com/pricing","provider":"Example","free_status":"FREE_TIER","deal_type":"free plan","promo_code":"TRYFREE","is_active":true,"published_at":$publishedAt,"verified_at":$now,"requires_account":true,"requires_payment_card":false,"free_limit":"Daily usage"}]}]}"""
         val transport = SourceHttpTransport { url, _ ->
             if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
         }
@@ -135,6 +135,10 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals(publishedAt, deal.publishedAt)
         assertEquals(now, deal.lastVerifiedAt)
         assertEquals("free-perks", itemCategory(store, deal.id))
+        assertEquals("free plan", deal.dealType)
+        assertEquals("TRYFREE", deal.promoCode)
+        assertEquals(true, deal.isActive)
+        assertEquals("OFFICIAL_SOURCE", deal.verificationLevel)
     }
 
     @Test

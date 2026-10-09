@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         StarSnapshotEntity::class,
         NotificationHistoryEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class MersadDatabase : RoomDatabase() {
@@ -69,11 +69,20 @@ abstract class MersadDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE items ADD COLUMN dealType TEXT")
+                database.execSQL("ALTER TABLE items ADD COLUMN promoCode TEXT")
+                database.execSQL("ALTER TABLE items ADD COLUMN isActive INTEGER")
+            }
+        }
+
         fun create(context: Context): MersadDatabase {
             val database = Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_4_5)
                 .build()
 
             CoroutineScope(Dispatchers.IO).launch {

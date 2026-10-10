@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import quote, quote_plus, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,26 +39,32 @@ PHOTO_MANIPULATION_CATEGORY_ID = "visual-tricks"
 PHOTO_MANIPULATION_CATEGORY_NAME = "📸 صورة وفوتوغرافي"
 PHOTO_MANIPULATION_MAX_ITEMS = 60
 PHOTO_MANIPULATION_RETENTION_DAYS = 45
+HUGGINGFACE_SPACES_SECTION_ID = "huggingface-live-spaces"
+HUGGINGFACE_SPACES_SECTION_TITLE = "مساحات Hugging Face الحية للذكاء الاصطناعي"
+HUGGINGFACE_SPACES_URL = "https://huggingface.co/api/spaces?sort=likes&limit=15"
+HUGGINGFACE_PROMPT_DATASET_ID = "Goku-OpenLab/gpt-image-2-prompts-datasets"
+HUGGINGFACE_PROMPT_DATASET_URL = f"https://huggingface.co/datasets/{HUGGINGFACE_PROMPT_DATASET_ID}"
+HUGGINGFACE_PROMPT_METADATA_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/main/metadata.jsonl"
+HUGGINGFACE_PROMPT_IMAGE_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/main/"
+HUGGINGFACE_PROMPT_TAIL_BYTES = 4 * 1024 * 1024
+PHOTO_MANIPULATION_API_URL = (
+    "https://civitai.com/api/v1/images?limit=20&sort=Most+Reactions&nsfw=None"
+)
+PHOTO_MANIPULATION_PROMPT_PATTERN = re.compile(
+    r"\b(?:illusion|optical illusion|surreal(?:ism|istic)?|forced perspective|double exposure|"
+    r"levitat(?:e|ion|ing)|tilt.shift|droste|impossible object|miniature world)\b",
+    re.IGNORECASE,
+)
 PHOTO_MANIPULATION_QUERIES = (
     (
-        "optical illusion forced perspective photography",
+        "illusion",
         "خدعة المنظور القسري العملاق",
         "صورة فوتوغرافية توهم بضخامة عنصر قريب أو بُعد عنصر بعيد عبر محاذاة دقيقة بين مقدمة المشهد وخلفيته.",
     ),
     (
-        "surreal photo manipulation double exposure",
+        "surrealism",
         "دمج تعريض مزدوج بين البورتريه والغابة",
         "بورتريه سريالي يمزج ملامح الوجه مع طبقات غابة بتعريض مزدوج متوازن يحافظ على وضوح الشخصية.",
-    ),
-    (
-        "tilt shift miniature dioramas photorealistic",
-        "تأثير تيلت شيفت للعالم المصغر",
-        "مشهد واقعي يبدو كأنه مجسم مصغر باستخدام منظور مرتفع وعمق ميدان ضحل وانتقائية التركيز.",
-    ),
-    (
-        "levitation surreal portrait cinematic",
-        "بورتريه سريالي لشخصية تحلّق",
-        "بورتريه سينمائي يوحي بالتحليق مع ظلال واتزان بصري واقعيين يثبتان الشخصية داخل المكان.",
     ),
 )
 PHOTO_MANIPULATION_TEMPLATES = (
@@ -87,11 +93,6 @@ PHOTO_MANIPULATION_TEMPLATES = (
         "Create a cinematic photorealistic levitation portrait of [SUBJECT] floating calmly above a dark studio floor, with clothing and hair responding subtly to gravity and air movement. Frame a clean full-body composition on an 85mm lens at f/2.8 from a slightly low three-quarter angle; keep the subject's center of mass believable and leave visible negative space beneath the feet. Use a broad diffused key light from camera left, a cool rim light behind the shoulders, and a faint floor bounce; add a soft, correctly offset floor shadow and restrained atmospheric haze to anchor the scene. Preserve natural anatomy, fabric detail, and realistic motion cues. Hide all support rigs and remove extra limbs, text, logos, and watermarks.",
     ),
 )
-REDDIT_FEEDS = {
-    "reddit-freebies": ("r/Freebies", "https://www.reddit.com/r/Freebies/new/.rss?limit=100"),
-    "reddit-ai": ("r/ArtificialInteligence", "https://www.reddit.com/r/ArtificialInteligence/new/.rss?limit=100"),
-    "reddit-openai": ("r/OpenAI", "https://www.reddit.com/r/OpenAI/new/.rss?limit=100"),
-}
 FACTVERSE_FEEDS = {
     "factverse-futurology": ("r/Futurology", "https://www.reddit.com/r/Futurology/new/.rss?limit=100"),
     "factverse-sciencedaily": ("ScienceDaily", "https://www.sciencedaily.com/rss/top/science.xml"),
@@ -245,6 +246,33 @@ def fetch_text(url: str, accept: str = "text/plain, application/atom+xml, applic
         if response.status != 200:
             raise RuntimeError(f"Unexpected HTTP status {response.status} from {url}")
         return response.read().decode("utf-8", errors="replace")
+
+
+def fetch_text_range(url: str, byte_count: int) -> str:
+    request = Request(
+        url,
+        headers={
+            "Accept": "text/plain",
+            "Range": f"bytes=-{byte_count}",
+            "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0)",
+        },
+    )
+    with urlopen(request, timeout=60) as response:
+        if response.status != 206:
+            raise RuntimeError(f"Expected HTTP 206 for ranged request to {url}, got {response.status}")
+        content_range = response.headers.get("Content-Range", "")
+        match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", content_range)
+        if not match:
+            raise RuntimeError(f"Missing or invalid Content-Range from {url}")
+        start, end, total = map(int, match.groups())
+        if end != total - 1:
+            raise RuntimeError(f"Ranged response from {url} did not include the end of the file")
+        content = response.read()
+        if len(content) != end - start + 1:
+            raise RuntimeError(f"Incomplete ranged response from {url}")
+        if start:
+            content = content.split(b"\n", 1)[-1]
+        return content.decode("utf-8")
 
 
 def _plain_text(value: str) -> str:
@@ -467,44 +495,157 @@ def parse_lexica_illusion_prompts(payload: dict, query: str, now_ms: int) -> lis
                 title=title,
                 description=description,
                 prompt=prompt_text,
-                url="https://lexica.art/?q=" + urlencode({"q": query})[2:],
+                url="https://lexica.art/?q=" + quote_plus(query),
                 source_tag="Lexica",
                 published_at=now_ms,
+                thumbnail_url=str(result.get("src") or "").strip() or None,
             ),
         )
     return prompts
 
 
-def parse_reddit_illusion_prompts(payload: dict, now_ms: int) -> list[dict]:
-    posts = payload.get("data", {}).get("children", [])
-    if not isinstance(posts, list):
+def parse_civitai_illusion_prompts(payload: dict, now_ms: int) -> list[dict]:
+    images = payload.get("items", [])
+    if not isinstance(images, list):
         return []
     prompts = []
-    for post_entry in posts:
-        post = post_entry.get("data") if isinstance(post_entry, dict) else None
-        if not isinstance(post, dict):
+    for item in images:
+        if not isinstance(item, dict):
             continue
-        prompt_text = str(post.get("selftext") or "").strip()
-        if not prompt_text or prompt_text in {"[deleted]", "[removed]"} or len(prompt_text) > 12000:
+        meta = item.get("meta")
+        prompt_text = str(meta.get("prompt") or "").strip() if isinstance(meta, dict) else ""
+        image_url = str(item.get("url") or "").strip()
+        if not prompt_text or len(prompt_text) > 12000 or not image_url.startswith("https://"):
             continue
-        if not re.search(r"illusion|surreal|perspective|double[\s-]?exposure|tilt[\s-]?shift|levitat", prompt_text, re.IGNORECASE):
-            continue
-        post_id = str(post.get("id") or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:20])
-        title = _plain_text(str(post.get("title") or "Prompt illusion surrealism"))
-        permalink = str(post.get("permalink") or "")
-        published_at = int(float(post.get("created_utc", now_ms / 1000)) * 1000)
         prompts.append(
             _photo_manipulation_prompt(
-                item_id=f"reddit-illusion-{post_id}",
-                title=f"إلهام خداع بصري من Reddit: {title}",
-                description="برومبت مجتمعي مستوحى من منشور Reddit؛ افتح رابط المنشور لمراجعة السياق الأصلي.",
+                item_id=f"civitai-illusion-{item.get('id') or hashlib.sha256(prompt_text.encode('utf-8')).hexdigest()[:20]}",
+                title="برومبت خداع بصري من Civitai",
+                description="برومبت صورة حي من بيانات Civitai العامة؛ قد تختلف إمكانية فتح الصورة حسب المصدر.",
                 prompt=prompt_text,
-                url=urljoin("https://www.reddit.com", permalink) if permalink else "https://www.reddit.com/search/?q=flair%3APrompt%20illusion%20surrealism",
-                source_tag="Reddit",
-                published_at=published_at,
+                url=image_url,
+                source_tag="Civitai",
+                published_at=now_ms,
+                thumbnail_url=image_url,
             ),
         )
     return prompts
+
+
+def parse_huggingface_illusion_prompts(jsonl: str, now_ms: int) -> list[dict]:
+    prompts = []
+    for line in reversed(jsonl.splitlines()):
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        translations = record.get("i18n")
+        english = translations.get("en") if isinstance(translations, dict) else None
+        prompt_text = str(
+            (english.get("p") if isinstance(english, dict) else None)
+            or record.get("raw_p")
+            or "",
+        ).strip()
+        if not prompt_text or len(prompt_text) > 12000 or not PHOTO_MANIPULATION_PROMPT_PATTERN.search(prompt_text):
+            continue
+        media = record.get("media")
+        images = media.get("images") if isinstance(media, dict) else None
+        image_path = str(images[0]).strip() if isinstance(images, list) and images else ""
+        if not re.fullmatch(r"gpt-image-2/images/\d+/[\w.-]+\.(?:jpg|jpeg|png|webp)", image_path, re.IGNORECASE):
+            continue
+        item_id = str(record.get("id") or "").strip()
+        if not item_id:
+            continue
+        source_url = str(record.get("sourceLink") or "").strip()
+        if not source_url.startswith("https://"):
+            source_url = HUGGINGFACE_PROMPT_DATASET_URL
+        slug = str(record.get("slug") or item_id).replace("-", " ").replace("_", " ").strip()
+        item = _photo_manipulation_prompt(
+            item_id=f"huggingface-image-prompt-{item_id}",
+            title=f"خداع بصري: {slug}"[:240],
+            description=(
+                "برومبت وصورة من مجموعة Goku-OpenLab العامة على Hugging Face، "
+                "مرخصة CC BY 4.0 مع نسب المصدر."
+            ),
+            prompt=prompt_text,
+            url=source_url,
+            source_tag="Goku-OpenLab",
+            published_at=_published_timestamp(str(record.get("date") or ""), now_ms),
+            thumbnail_url=HUGGINGFACE_PROMPT_IMAGE_URL + quote(image_path, safe="/"),
+        )
+        item["source_url"] = HUGGINGFACE_PROMPT_DATASET_URL
+        item["attribution"] = "Goku-OpenLab, GPT Image 2 Prompt Dataset (CC BY 4.0)"
+        prompts.append(item)
+        if len(prompts) >= 20:
+            break
+    return prompts
+
+
+def _huggingface_space_matches(space: dict) -> bool:
+    card = space.get("cardData")
+    card_text = " ".join(
+        str(card.get(key) or "") for key in ("title", "short_description")
+    ) if isinstance(card, dict) else ""
+    searchable = " ".join([card_text, str(space.get("id") or ""), *map(str, space.get("tags", []))])
+    return bool(
+        re.search(
+            r"\b(?:ai|llm|chat|chatbot|language.model|text.generation|text2text|"
+            r"image.generation|text.to.image|diffusion|inference|generative|"
+            r"stable.diffusion|flux|transformer|copilot|assistant|model)\b",
+            searchable,
+            re.IGNORECASE,
+        ),
+    )
+
+
+def discover_huggingface_spaces() -> tuple[list[dict], bool]:
+    try:
+        payload = fetch_json(
+            HUGGINGFACE_SPACES_URL,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0)",
+                "Accept": "application/json",
+            },
+        )
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
+        print(f"Warning: could not read Hugging Face Spaces: {error}", file=sys.stderr)
+        return [], False
+    if isinstance(payload, list):
+        spaces = payload
+    elif isinstance(payload, dict) and isinstance(payload.get("items"), list):
+        spaces = payload["items"]
+    else:
+        raise ValueError("Hugging Face Spaces response has no items array")
+
+    now_ms = int(time.time() * 1000)
+    items = []
+    for space in spaces:
+        if not isinstance(space, dict) or not _huggingface_space_matches(space):
+            continue
+        space_id = str(space.get("id") or "").strip()
+        if not space_id:
+            continue
+        card = space.get("cardData") if isinstance(space.get("cardData"), dict) else {}
+        tags = space.get("tags") if isinstance(space.get("tags"), list) else []
+        items.append(
+            {
+                "id": f"huggingface-space-{space_id}",
+                "title": str(card.get("title") or space_id)[:240],
+                "description": str(card.get("short_description") or "مساحة ذكاء اصطناعي عامة على Hugging Face.")[:1200],
+                "url": f"https://huggingface.co/spaces/{space_id}",
+                "author": str(space.get("author") or space_id.split("/", 1)[0]),
+                "category_id": "ai-tools",
+                "free_status": "UNKNOWN",
+                "tags": [str(tag) for tag in tags if tag],
+                "likes": space.get("likes"),
+                "sdk": space.get("sdk"),
+                "published_at": _published_timestamp(str(space.get("createdAt") or ""), now_ms),
+                "source_name": "Hugging Face Spaces",
+            },
+        )
+    return items[:15], True
 
 
 def _photo_manipulation_prompt(
@@ -516,8 +657,9 @@ def _photo_manipulation_prompt(
     url: str,
     source_tag: str,
     published_at: int,
+    thumbnail_url: str | None = None,
 ) -> dict:
-    return {
+    item = {
         "id": item_id,
         "title": title,
         "description": description,
@@ -530,6 +672,9 @@ def _photo_manipulation_prompt(
         "url": url,
         "published_at": published_at,
     }
+    if thumbnail_url and thumbnail_url.startswith("https://"):
+        item["thumbnail_url"] = thumbnail_url
+    return item
 
 
 def discover_photo_manipulation_prompts(now_ms: int) -> tuple[list[dict], int]:
@@ -537,12 +682,13 @@ def discover_photo_manipulation_prompts(now_ms: int) -> tuple[list[dict], int]:
     successful_sources = 0
     for query, _, _ in PHOTO_MANIPULATION_QUERIES:
         try:
-            query_url = "https://lexica.art/api/v1/search?" + urlencode({"q": query})
+            query_url = "https://lexica.art/api/v1/search?q=" + quote_plus(query)
             discovered.extend(
                 parse_lexica_illusion_prompts(
                     fetch_json(
                         query_url,
                         headers={
+                            "Accept": "application/json",
                             "Referer": "https://lexica.art/",
                             "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0; +https://github.com/mhyb4243-lgtm/mersad-ai-android)",
                         },
@@ -554,16 +700,32 @@ def discover_photo_manipulation_prompts(now_ms: int) -> tuple[list[dict], int]:
             successful_sources += 1
         except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
             print(f"Warning: could not read Lexica photo-manipulation search {query!r}: {error}", file=sys.stderr)
-    reddit_url = "https://www.reddit.com/search.json?" + urlencode(
-        {"q": "flair:Prompt illusion surrealism", "sort": "new", "limit": 50},
-    )
     try:
         discovered.extend(
-            parse_reddit_illusion_prompts(fetch_json(reddit_url, user_agent="MersadAI/1.0"), now_ms),
+            parse_civitai_illusion_prompts(
+                fetch_json(
+                    PHOTO_MANIPULATION_API_URL,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0)",
+                        "Accept": "application/json",
+                    },
+                ),
+                now_ms,
+            ),
         )
         successful_sources += 1
     except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
-        print(f"Warning: could not read Reddit illusion search: {error}", file=sys.stderr)
+        print(f"Warning: could not read Civitai image prompts: {error}", file=sys.stderr)
+    try:
+        discovered.extend(
+            parse_huggingface_illusion_prompts(
+                fetch_text_range(HUGGINGFACE_PROMPT_METADATA_URL, HUGGINGFACE_PROMPT_TAIL_BYTES),
+                now_ms,
+            ),
+        )
+        successful_sources += 1
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
+        print(f"Warning: could not read Hugging Face image prompts: {error}", file=sys.stderr)
     unique = {prompt["id"]: prompt for prompt in discovered}
     return list(unique.values()), successful_sources
 
@@ -682,12 +844,6 @@ def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
 def discover_community_deals(now_ms: int) -> tuple[list[dict], int]:
     discovered = []
     successful_sources = 0
-    for source_id, (source_name, url) in REDDIT_FEEDS.items():
-        try:
-            discovered.extend(parse_rss_deals(fetch_text(url, "application/atom+xml, application/rss+xml"), source_id, source_name, now_ms))
-            successful_sources += 1
-        except (HTTPError, URLError, TimeoutError, ET.ParseError, RuntimeError) as error:
-            print(f"Warning: could not read {source_name} RSS: {error}", file=sys.stderr)
     try:
         discovered.extend(parse_github_deals(fetch_text(GITHUB_DEALS_URL), now_ms))
         successful_sources += 1
@@ -834,6 +990,20 @@ def validate_feed(feed: dict) -> None:
                 raise ValueError(f"photo-manipulation prompt {prompt['id']} must use the visual-tricks category")
             if PHOTO_MANIPULATION_CATEGORY_NAME not in prompt.get("tags", []) or "خداع بصري / تلاعب" not in prompt.get("tags", []):
                 raise ValueError(f"photo-manipulation prompt {prompt['id']} is missing its photography or illusion tags")
+            if prompt.get("thumbnail_url") and not str(prompt["thumbnail_url"]).startswith("https://"):
+                raise ValueError(f"photo-manipulation prompt {prompt['id']} must use an HTTPS thumbnail URL")
+    spaces_section = next(
+        (section for section in sections if section.get("id") == HUGGINGFACE_SPACES_SECTION_ID),
+        None,
+    )
+    if spaces_section:
+        if spaces_section.get("title") != HUGGINGFACE_SPACES_SECTION_TITLE:
+            raise ValueError("Hugging Face Spaces section has an unexpected title")
+        for space in spaces_section["items"]:
+            if not all(space.get(key) for key in ("id", "title", "description", "url")):
+                raise ValueError("each Hugging Face Space must include its id, title, description, and URL")
+            if not str(space["url"]).startswith("https://huggingface.co/spaces/"):
+                raise ValueError(f"Hugging Face Space {space['id']} must link to an HTTPS Space page")
     factverse_section = next((section for section in sections if section.get("id") == FACTVERSE_SECTION_ID), None)
     if factverse_section:
         if factverse_section.get("title") != FACTVERSE_SECTION_TITLE:
@@ -894,8 +1064,15 @@ def main() -> None:
     community_deals, successful_sources = discover_community_deals(now_ms)
     factverse_articles, successful_factverse_sources = discover_factverse_articles(now_ms)
     photo_manipulation_prompts, successful_photo_sources = discover_photo_manipulation_prompts(now_ms)
+    huggingface_spaces, spaces_source_succeeded = discover_huggingface_spaces()
     if successful_sources == 0:
-        raise RuntimeError("No community deal source could be fetched; feed was not updated")
+        print("Warning: no community deal source could be fetched; retaining cached official offers.", file=sys.stderr)
+    if not photo_manipulation_prompts:
+        raise RuntimeError("No live Civitai, Lexica, or Hugging Face image prompts were found; feed was not updated")
+    if not spaces_source_succeeded:
+        raise RuntimeError("Hugging Face Spaces could not be fetched; feed was not updated")
+    if not huggingface_spaces:
+        raise RuntimeError("No live chat or generation Hugging Face Spaces were found; feed was not updated")
     deal_section, verified_count = build_deals(feed.get("sections", []), community_deals, now_ms)
     factverse_section = build_factverse_section(feed.get("sections", []), factverse_articles, now_ms)
     photo_manipulation_section = build_photo_manipulation_section(
@@ -903,11 +1080,21 @@ def main() -> None:
         photo_manipulation_prompts,
         now_ms,
     )
+    huggingface_spaces_section = {
+        "id": HUGGINGFACE_SPACES_SECTION_ID,
+        "title": HUGGINGFACE_SPACES_SECTION_TITLE,
+        "items": huggingface_spaces,
+    }
     sections = [
         section for section in feed["sections"]
-        if section.get("id") not in {SECTION_ID, FACTVERSE_SECTION_ID, PHOTO_MANIPULATION_SECTION_ID}
+        if section.get("id") not in {
+            SECTION_ID,
+            FACTVERSE_SECTION_ID,
+            PHOTO_MANIPULATION_SECTION_ID,
+            HUGGINGFACE_SPACES_SECTION_ID,
+        }
     ]
-    sections.extend((deal_section, factverse_section, photo_manipulation_section))
+    sections.extend((deal_section, factverse_section, photo_manipulation_section, huggingface_spaces_section))
     updated = {**feed, "schema_version": 3, "prompts": prompts, "sections": sections}
     validate_feed(updated)
     FEED_PATH.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -915,7 +1102,7 @@ def main() -> None:
         f"Updated {len(prompts)} prompts, {len(deal_section['items'])} deals and "
         f"{len(factverse_section['items'])} FactVerse articles from {successful_factverse_sources} science sources, "
         f"and {len(photo_manipulation_section['items'])} photo-manipulation prompts from "
-        f"{successful_photo_sources} live sources; "
+        f"{successful_photo_sources} live sources, plus {len(huggingface_spaces)} Hugging Face Spaces; "
         f"verified {verified_count} official pages.",
     )
 

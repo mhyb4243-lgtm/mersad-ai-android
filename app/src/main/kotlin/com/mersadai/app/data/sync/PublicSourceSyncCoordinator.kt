@@ -187,7 +187,12 @@ class PublicSourceSyncCoordinator(
             if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "PHOTO_MANIPULATION") return@flatMap emptyList()
             section.getAsJsonArray("items")?.mapNotNull(::remotePromptItem).orEmpty()
         }.orEmpty()
-        return promptItems + dealItems + factVerseItems + photoManipulationItems
+        val huggingFaceSpaceItems = feed.getAsJsonArray("sections")?.flatMap { sectionElement ->
+            val section = sectionElement.takeIf { it.isJsonObject }?.asJsonObject ?: return@flatMap emptyList()
+            if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "huggingface-live-spaces") return@flatMap emptyList()
+            section.getAsJsonArray("items")?.mapNotNull(::remoteHuggingFaceSpaceItem).orEmpty()
+        }.orEmpty()
+        return promptItems + dealItems + factVerseItems + photoManipulationItems + huggingFaceSpaceItems
     }
 
     private fun remotePromptItem(element: com.google.gson.JsonElement): ContentItem? {
@@ -237,9 +242,52 @@ class PublicSourceSyncCoordinator(
             createdAt = timestamp,
             updatedAt = timestamp,
             language = entry.get("language")?.takeIf { it.isJsonPrimitive }?.asString ?: "en",
+            thumbnailUrl = entry.get("thumbnail_url")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf { it.startsWith("https://") },
             tags = tags,
             promptType = promptType,
             publishedAt = entry.long("published_at"),
+        )
+    }
+
+    private fun remoteHuggingFaceSpaceItem(element: com.google.gson.JsonElement): ContentItem? {
+        val entry = element.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val externalId = entry.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf { it.startsWith("https://huggingface.co/spaces/") } ?: return null
+        val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val timestamp = entry.long("published_at") ?: now()
+        val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
+            tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
+        }.orEmpty()
+        return ContentItem(
+            id = "remote-prompts:$externalId",
+            externalId = "remote-prompts:$externalId",
+            title = title,
+            originalTitle = title,
+            description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
+            originalDescription = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
+            url = url,
+            contentType = ContentType.AI_TOOL,
+            category = Category("ai-tools", "AI Tools"),
+            freeStatus = FreeStatus.UNKNOWN,
+            verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+            source = Source(
+                "hf-spaces",
+                "Hugging Face Spaces",
+                "huggingface-live-spaces",
+                "https://huggingface.co/spaces",
+                "https://huggingface.co/api/spaces",
+            ),
+            createdAt = timestamp,
+            updatedAt = timestamp,
+            publishedAt = timestamp,
+            author = entry.get("author")?.takeIf { it.isJsonPrimitive }?.asString,
+            likes = entry.long("likes"),
+            sdk = entry.get("sdk")?.takeIf { it.isJsonPrimitive }?.asString,
+            tags = tags,
         )
     }
 

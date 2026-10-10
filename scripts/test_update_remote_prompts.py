@@ -38,6 +38,14 @@ class FactVerseFeedTests(unittest.TestCase):
             {provider for _, provider, _, _, _ in updater.CREATOR_TOOL_OFFERS},
         )
 
+    @patch("update_remote_prompts.fetch_text", return_value="")
+    def test_community_deals_no_longer_request_reddit_feeds(self, fetch_text):
+        deals, successful_sources = updater.discover_community_deals(1_797_000_000_000)
+
+        self.assertEqual([], deals)
+        self.assertEqual(1, successful_sources)
+        fetch_text.assert_called_once_with(updater.GITHUB_DEALS_URL)
+
     @patch("update_remote_prompts.verify_offer", side_effect=RuntimeError("temporarily unavailable"))
     def test_official_tool_cards_remain_visible_when_plan_page_cannot_be_verified(self, _verify):
         section, verified = updater.build_deals([], [], 1_797_000_000_000)
@@ -183,55 +191,129 @@ class FactVerseFeedTests(unittest.TestCase):
             },
         )
 
-    def test_lexica_and_reddit_live_prompts_are_normalized_to_photo_category(self):
+    def test_lexica_and_civitai_live_prompts_are_normalized_to_photo_category(self):
         query = updater.PHOTO_MANIPULATION_QUERIES[0][0]
         lexica = updater.parse_lexica_illusion_prompts(
-            {"images": [{"id": "lexica-1", "prompt": "A forced perspective optical illusion portrait"}]},
+            {
+                "images": [
+                    {
+                        "id": "lexica-1",
+                        "prompt": "A forced perspective optical illusion portrait",
+                        "src": "https://image.lexica.art/preview.jpg",
+                    },
+                ],
+            },
             query,
             1000,
         )[0]
-        reddit = updater.parse_reddit_illusion_prompts(
+        civitai = updater.parse_civitai_illusion_prompts(
             {
-                "data": {
-                    "children": [
-                        {
-                            "data": {
-                                "id": "reddit-1",
-                                "title": "Surreal perspective prompt",
-                                "selftext": "Create a surreal perspective portrait with cinematic lighting.",
-                                "permalink": "/r/example/comments/reddit-1/prompt/",
-                                "created_utc": 1,
-                            },
-                        },
-                    ],
-                },
+                "items": [
+                    {
+                        "id": 42,
+                        "meta": {"prompt": "Create a surreal perspective portrait with cinematic lighting."},
+                        "url": "https://image.civitai.com/preview.jpg",
+                    },
+                    {
+                        "id": 43,
+                        "meta": None,
+                        "url": "https://image.civitai.com/no-prompt.jpg",
+                    },
+                ],
             },
             1000,
         )[0]
 
         self.assertEqual("lexica-illusion-lexica-1", lexica["id"])
         self.assertEqual("visual-tricks", lexica["category_id"])
-        self.assertEqual("https://www.reddit.com/r/example/comments/reddit-1/prompt/", reddit["url"])
-        self.assertEqual(1000, reddit["published_at"])
-        self.assertEqual(["Lexica", "Reddit"], [lexica["tags"][-1], reddit["tags"][-1]])
+        self.assertEqual("https://image.lexica.art/preview.jpg", lexica["thumbnail_url"])
+        self.assertEqual("https://image.civitai.com/preview.jpg", civitai["url"])
+        self.assertEqual("https://image.civitai.com/preview.jpg", civitai["thumbnail_url"])
+        self.assertEqual(1000, civitai["published_at"])
+        self.assertEqual(["Lexica", "Civitai"], [lexica["tags"][-1], civitai["tags"][-1]])
 
+    def test_huggingface_prompt_dataset_returns_attributed_live_image_prompts(self):
+        records = [
+            {
+                "id": "GI2_123",
+                "date": "2026-10-09",
+                "slug": "forced-perspective-example",
+                "raw_p": "Create an optical illusion using forced perspective.",
+                "i18n": {"en": {"p": "Create an optical illusion using forced perspective."}},
+                "media": {"images": ["gpt-image-2/images/4/GI2_123_0.jpg"]},
+                "sourceLink": "https://example.com/original-prompt",
+            },
+            {
+                "id": "GI2_124",
+                "raw_p": "A portrait in a garden.",
+                "media": {"images": ["gpt-image-2/images/4/GI2_124_0.jpg"]},
+            },
+        ]
+        jsonl = "\n".join(json.dumps(record) for record in records)
+
+        prompts = updater.parse_huggingface_illusion_prompts(jsonl, 1000)
+
+        self.assertEqual(1, len(prompts))
+        self.assertEqual("Create an optical illusion using forced perspective.", prompts[0]["prompt"])
+        self.assertEqual("https://example.com/original-prompt", prompts[0]["url"])
+        self.assertEqual(
+            updater.HUGGINGFACE_PROMPT_IMAGE_URL + "gpt-image-2/images/4/GI2_123_0.jpg",
+            prompts[0]["thumbnail_url"],
+        )
+        self.assertEqual(updater.HUGGINGFACE_PROMPT_DATASET_URL, prompts[0]["source_url"])
+        self.assertIn("CC BY 4.0", prompts[0]["attribution"])
+
+    @patch("update_remote_prompts.fetch_text_range", return_value="")
     @patch("update_remote_prompts.fetch_json")
-    def test_photo_manipulation_discovery_uses_lexica_queries_and_reddit_user_agent(self, fetch_json):
-        fetch_json.return_value = {"images": []}
+    def test_photo_manipulation_discovery_uses_short_lexica_queries_civitai_and_huggingface(
+        self,
+        fetch_json,
+        fetch_text_range,
+    ):
+        fetch_json.side_effect = [{"images": []}, {"images": []}, {"items": []}]
         now_ms = 1_797_000_000_000
 
         prompts, successful_sources = updater.discover_photo_manipulation_prompts(now_ms)
 
-        self.assertEqual(5, successful_sources)
+        self.assertEqual(4, successful_sources)
         self.assertEqual([], prompts)
-        self.assertEqual(5, fetch_json.call_count)
-        for call, (query, _, _) in zip(fetch_json.call_args_list, updater.PHOTO_MANIPULATION_QUERIES):
-            self.assertIn("q=" + query.replace(" ", "+"), call.args[0])
+        self.assertEqual(3, fetch_json.call_count)
+        fetch_text_range.assert_called_once_with(
+            updater.HUGGINGFACE_PROMPT_METADATA_URL,
+            updater.HUGGINGFACE_PROMPT_TAIL_BYTES,
+        )
+        for call, (query, _, _) in zip(fetch_json.call_args_list[:2], updater.PHOTO_MANIPULATION_QUERIES):
+            self.assertIn("q=" + query, call.args[0])
             self.assertEqual(1, len(call.args))
             self.assertEqual("https://lexica.art/", call.kwargs["headers"]["Referer"])
             self.assertIn("Mozilla/5.0", call.kwargs["headers"]["User-Agent"])
-        self.assertIn("flair%3APrompt+illusion+surrealism", fetch_json.call_args.args[0])
-        self.assertEqual("MersadAI/1.0", fetch_json.call_args.kwargs["user_agent"])
+            self.assertEqual("application/json", call.kwargs["headers"]["Accept"])
+        self.assertEqual(updater.PHOTO_MANIPULATION_API_URL, fetch_json.call_args.args[0])
+        self.assertIn("Mozilla/5.0", fetch_json.call_args.kwargs["headers"]["User-Agent"])
+
+    @patch("update_remote_prompts.fetch_json")
+    def test_huggingface_spaces_are_live_cards_without_claiming_free_access(self, fetch_json):
+        fetch_json.return_value = [
+            {
+                "id": "author/chat-demo",
+                "author": "author",
+                "likes": 25,
+                "sdk": "gradio",
+                "createdAt": "2026-10-09T10:00:00Z",
+                "tags": ["text-generation"],
+                "cardData": {"title": "Chat Demo", "short_description": "A public chat app"},
+            },
+            {"id": "author/portfolio", "tags": ["portfolio"], "cardData": {"title": "Portfolio"}},
+        ]
+
+        spaces, succeeded = updater.discover_huggingface_spaces()
+
+        self.assertTrue(succeeded)
+        self.assertEqual(1, len(spaces))
+        self.assertEqual("Chat Demo", spaces[0]["title"])
+        self.assertEqual("https://huggingface.co/spaces/author/chat-demo", spaces[0]["url"])
+        self.assertEqual("UNKNOWN", spaces[0]["free_status"])
+        self.assertEqual(updater.HUGGINGFACE_SPACES_URL, fetch_json.call_args.args[0])
 
 
 if __name__ == "__main__":

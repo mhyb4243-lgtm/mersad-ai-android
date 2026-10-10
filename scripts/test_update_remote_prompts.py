@@ -38,6 +38,18 @@ class FactVerseFeedTests(unittest.TestCase):
             {provider for _, provider, _, _, _ in updater.CREATOR_TOOL_OFFERS},
         )
 
+    @patch("update_remote_prompts.verify_offer", side_effect=RuntimeError("temporarily unavailable"))
+    def test_official_tool_cards_remain_visible_when_plan_page_cannot_be_verified(self, _verify):
+        section, verified = updater.build_deals([], [], 1_797_000_000_000)
+
+        self.assertEqual(0, verified)
+        offers = {offer["id"]: offer for offer in section["items"]}
+        self.assertTrue(set(updater.OFFER_DETAILS).issubset(offers))
+        for offer_id in updater.OFFER_DETAILS:
+            self.assertTrue(offers[offer_id]["url"].startswith("https://"))
+            self.assertIsNone(offers[offer_id]["verified_date"])
+            self.assertIn(updater.OFFER_DETAILS[offer_id][1], offers[offer_id]["free_limit"])
+
     def test_parses_sciencedaily_rss_as_english_https_article(self):
         rss = """<?xml version="1.0"?><rss><channel><item>
             <title>New result in quantum materials</title>
@@ -60,6 +72,12 @@ class FactVerseFeedTests(unittest.TestCase):
         self.assertEqual("factverse", article["category_id"])
         self.assertEqual("en", article["language"])
         self.assertEqual("factverse-sciencedaily", article["source_id"])
+        enriched = updater.enrich_factverse_article(article)
+        self.assertIn("LEFT PANEL", enriched["visual_prompt"])
+        self.assertIn("Scene 1 (0-10s):", enriched["reels_script"])
+        self.assertIn("Scene 2 (10-20s):", enriched["reels_script"])
+        self.assertIn("Scene 3 (20-30s):", enriched["reels_script"])
+        self.assertIn("FactVerse • Explore The Future", enriched["reels_script"])
 
     def test_rejects_unknown_sources_and_non_https_articles(self):
         with self.assertRaises(ValueError):
@@ -110,6 +128,24 @@ class FactVerseFeedTests(unittest.TestCase):
 
         self.assertIn(curated, result)
         self.assertIn("prompts-chat-7", [item["id"] for item in result])
+
+    @patch("update_remote_prompts.fetch_json")
+    def test_refresh_never_drops_previously_saved_prompt_cards(self, fetch_json):
+        fetch_json.side_effect = [
+            {"num_rows_total": 1},
+            {"rows": [{"row_idx": 7, "row": {"act": "Writing helper", "prompt": "Write a note."}}]},
+        ]
+        existing = [
+            {"id": "prompts-chat-6", "title": "Older prompt", "prompt": "Keep this prompt.", "published_at": 1},
+            {"id": "curated-prompt", "title": "Curated prompt", "prompt": "Keep this too.", "published_at": 2},
+        ]
+
+        result = updater.fetch_prompts(existing, 1_797_000_000_000)
+
+        self.assertEqual(
+            {"prompts-chat-6", "prompts-chat-7", "curated-prompt"},
+            {item["id"] for item in result},
+        )
 
 
 if __name__ == "__main__":

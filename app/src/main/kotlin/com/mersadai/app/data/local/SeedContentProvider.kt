@@ -36,9 +36,9 @@ object SeedContentProvider {
             listOf("BTS", "filmmaking", "director-monitor", "film-set", "video-generation"),
         ),
         creatorPrompt(
-            "seed-bts-camera-movement", "حركة كاميرا احترافية على مسار دوللي",
+            "seed-bts-camera-movement", "حركة كاميرا Dolly سينمائية",
             "استعراض حركة دوللي ناعمة مع تثبيت التركيز والتكوين حول الشخصية حتى نهاية اللقطة.",
-            "Vertical 9:16 professional filmmaking BTS shot. Show a camera operator executing a smooth dolly-in on a marked track while a focus puller maintains sharp focus on the lead actor. Reveal the stabilized cinema camera, matte box, follow-focus, and crew marks without obscuring the take. Controlled movement, realistic lens breathing, motivated framing, natural production-set lighting, documentary realism, no text, no logos.",
+            "Vertical 9:16 professional filmmaking BTS shot. Show a camera operator executing a smooth 1.5-meter dolly-in on a marked track while a focus puller maintains sharp focus on the lead actor. Reveal the stabilized cinema camera, matte box, follow-focus, and crew marks without obscuring the take. Frame the actor with a 35mm lens for the moving master, then show an 85mm monitor close-up; preserve natural perspective and realistic lens breathing. Soft key lighting through diffusion, subtle negative fill, gentle backlight, motivated practicals, controlled highlights, documentary realism, no text, no logos.",
             "bts-filmmaking", "🎬 كواليس وإخراج سينمائي (BTS & Filmmaking)", "video-generation", now - 2 * DAY,
             listOf("BTS", "camera-movement", "dolly", "focus-pulling", "filmmaking"),
         ),
@@ -231,6 +231,10 @@ object SeedContentProvider {
     ) + creatorDeals(now)
 
     private fun creatorDeals(now: Long): List<ContentItem> = listOf(
+        creatorDeal("chatgpt", "ChatGPT", "https://chatgpt.com/", "chat-assistant", now),
+        creatorDeal("claude", "Claude", "https://claude.ai/", "chat-assistant", now),
+        creatorDeal("perplexity", "Perplexity", "https://www.perplexity.ai/", "research", now),
+        creatorDeal("groq", "Groq", "https://console.groq.com/keys", "ai-api", now),
         creatorDeal("runway", "Runway", "https://runwayml.com/pricing", "video-generation", now),
         creatorDeal("kling", "Kling AI", "https://klingai.com/global/membership/membership-plan", "video-generation", now),
         creatorDeal("pika", "Pika", "https://pika.art/pricing", "video-generation", now),
@@ -239,12 +243,26 @@ object SeedContentProvider {
         creatorDeal("suno", "Suno", "https://suno.com/pricing", "music-generation", now),
     )
 
-    private fun creatorDeal(id: String, provider: String, url: String, mediaType: String, now: Long) = ContentItem(
+    private fun creatorDeal(id: String, provider: String, url: String, mediaType: String, now: Long): ContentItem {
+        val (description, freeLimit) = when (id) {
+            "runway" -> "صفحة الأسعار العامة لا تعرض حصة مجانية ثابتة قابلة للتحقق؛ الرصيد الفعلي يظهر في الحساب." to "لم تُنشر حصة مجانية ثابتة قابلة للتحقق."
+            "kling" -> "واجهة العضوية ديناميكية ولا تؤكد حصة يومية ثابتة في الصفحة العامة؛ تظهر الأرصدة بعد تسجيل الدخول." to "لا توجد حصة يومية ثابتة منشورة؛ افحص رصيد الحساب."
+            "pika" -> "تعرض صفحة الأسعار تعبئة مدفوعة بسعر 60 رصيداً لكل دولار ولا تعرض حصة مجانية شهرية ثابتة." to "60 رصيد تعبئة لكل دولار؛ لا توجد حصة شهرية مجانية ثابتة منشورة."
+            "elevenlabs" -> "الخطة المجانية تشمل 10,000 رصيد شهرياً؛ الترخيص التجاري غير مشمول." to "10,000 رصيد شهرياً؛ غير تجاري."
+            "leonardo" -> "صفحة الأسعار لا تُظهر حصة يومية ثابتة قابلة للتحقق في العرض العام؛ راجع رصيد حسابك." to "لم تُنشر حصة يومية ثابتة قابلة للتحقق."
+            "suno" -> "صفحة الأسعار العامة لا تعرض حصة يومية ثابتة قابلة للتحقق؛ تحقق من رصيد الحساب. الاستخدام التجاري يتطلب خطة مؤهلة." to "لم تُنشر حصة يومية ثابتة قابلة للتحقق."
+            "chatgpt" -> "خطة مجانية بحدود استخدام متغيرة حسب النموذج والضغط؛ تظهر الحصة داخل الحساب." to "حد رسائل ديناميكي؛ لا يوجد رقم يومي موحد معلن."
+            "claude" -> "حصة مجانية محدودة ضمن نافذة جلسة متحركة من خمس ساعات؛ لا يوجد عدد رسائل ثابت لأن الاستهلاك يعتمد على طول المحادثة والنموذج." to "إعادة ضبط ضمن نافذة متحركة كل 5 ساعات؛ لا يوجد عدد رسائل موحد."
+            "perplexity" -> "البحث الأساسي مجاني؛ حصة Pro Search محدودة ومتغيرة وتظهر في الحساب." to "بحث أساسي مجاني؛ حصة Pro Search متغيرة."
+            "groq" -> "مستوى مطور مجاني؛ حدود RPM وRPD والرموز تختلف حسب النموذج." to "حدود مختلفة لكل نموذج؛ القيم الحية في لوحة Groq."
+            else -> "خطة مجانية؛ راجع صفحة الخدمة لمعرفة شروط الحساب الحالية." to "راجع صفحة الخطة الرسمية للحدود الحالية."
+        }
+        return ContentItem(
         id = "creator-deal-$id",
         title = "$provider Free",
         originalTitle = "$provider Free",
-        description = "خطة مجانية لصناع المحتوى عبر $provider؛ تختلف الأرصدة والحدود حسب المنطقة وشروط المزود الحالية.",
-        originalDescription = "Official creator-tool free tier. Check the provider's pricing page for current credits and limits.",
+        description = description,
+        originalDescription = "Official free tier. Limits and eligibility may vary by country and account; check the linked provider page before use.",
         url = url,
         contentType = ContentType.AI_TOOL,
         category = Category("free-perks", "🎁 عروض وتجارب لصناع المحتوى"),
@@ -255,11 +273,12 @@ object SeedContentProvider {
         updatedAt = now,
         author = provider,
         requiresAccount = true,
-        freeLimit = "راجع صفحة الأسعار الرسمية لمعرفة الرصيد والحدود الحالية.",
+        freeLimit = freeLimit,
         dealType = "free plan",
         isActive = true,
         tags = listOf(provider.lowercase().replace(" ", "-"), "creator-tools", mediaType, "free-tier"),
     )
+    }
 
     private fun visualTrickPrompts(now: Long): List<ContentItem> = listOf(
         creatorPrompt(
@@ -286,7 +305,7 @@ object SeedContentProvider {
         ),
         creatorPrompt(
             "seed-visual-trick-03",
-            "Surreal Liquid & Splash",
+            "سريالية تدفق السوائل والذهب المتطاير",
             "تأثيرات السوائل المتطايرة، الذهب السائل، والانعكاسات الكرومية في مشهد ضوئي فاخر.",
             "Create a surreal liquid and splash composition around [User/Face Description]. Use flowing golden liquid, reflective chrome surfaces, shimmering droplets, and dynamic splash motion with a luxurious studio backdrop. Realistic surface detail, wet skin highlights, cinematic reflections, dramatic backlight, premium commercial aesthetic, ultra detailed, no text, no watermark.",
             "visual-tricks",
@@ -300,7 +319,7 @@ object SeedContentProvider {
     private fun socialPortraitPrompts(now: Long): List<ContentItem> = listOf(
         creatorPrompt(
             "seed-social-portrait-01",
-            "80s Retro Arab / Street Cafe",
+            "نوستالجيا الثمانينات العربية",
             "أجواء المقاهي الشعبية، ألوان كاميرات فيلم 35mm الدافئة، وملامح عربية أنيقة من الثمانينات.",
             "Create a classic 80s Arab street cafe portrait of [User/Face Description]. Warm 35mm film palette, soft grain, orange and amber tones, vintage cafe tables, old neon signage, worn wood textures, candid expression, subtle motion blur, nostalgic but premium editorial composition. Comfortable realism, true-to-life skin tones, no text, no watermark.",
             "social-portraits",
@@ -404,8 +423,8 @@ object SeedContentProvider {
             id = "offer-chatgpt-free",
             title = "ChatGPT Free",
             originalTitle = "ChatGPT Free",
-            description = "خطة مجانية للاستخدام اليومي مع ميزات أساسية قوية.",
-            originalDescription = "Free plan for everyday use with core features.",
+            description = "خطة مجانية بحدود استخدام متغيرة حسب النموذج والضغط؛ لا تعلن OpenAI حصة يومية ثابتة لجميع الحسابات.",
+            originalDescription = "Free plan with limited model and feature access. Message limits vary by model and demand and are shown in the account.",
             url = "https://openai.com/chatgpt/pricing/",
             contentType = ContentType.AI_TOOL,
             category = Category("ai-tools", "AI Tools"),
@@ -418,7 +437,7 @@ object SeedContentProvider {
             author = "OpenAI",
             requiresAccount = true,
             requiresPaymentCard = false,
-            freeLimit = "خطة مجانية مع استخدام يومي أساسي",
+            freeLimit = "حد رسائل ديناميكي بحسب النموذج والضغط؛ لا يوجد رقم يومي موحد معلن.",
             tags = listOf("chatgpt", "free-tier", "ai-tool"),
             license = "commercial",
         ),
@@ -426,8 +445,8 @@ object SeedContentProvider {
             id = "offer-gemini-free",
             title = "Gemini Free",
             originalTitle = "Gemini Free",
-            description = "تجربة مجانية سريعة للفرد مع ميزات قوية ومناسبة للبحث اليومي.",
-            originalDescription = "Quick free access for daily productivity and search.",
+            description = "استخدام مجاني للنماذج والميزات ضمن حدود يومية متغيرة حسب المنتج والمنطقة.",
+            originalDescription = "Free access with daily limits that vary by model, feature, and region; current limits are published on Google's pricing page.",
             url = "https://ai.google.dev/pricing",
             contentType = ContentType.AI_TOOL,
             category = Category("ai-tools", "AI Tools"),
@@ -440,7 +459,7 @@ object SeedContentProvider {
             author = "Google",
             requiresAccount = true,
             requiresPaymentCard = false,
-            freeLimit = "خطة مجانية بدون بطاقة بنكية",
+            freeLimit = "حصة مجانية متغيرة حسب النموذج والميزة والمنطقة؛ راجع صفحة الأسعار الرسمية.",
             tags = listOf("gemini", "free-tier", "google-ai"),
             license = "commercial",
         ),
@@ -448,8 +467,8 @@ object SeedContentProvider {
             id = "offer-claude-free",
             title = "Claude Free",
             originalTitle = "Claude Free",
-            description = "خطة مجانية مناسبة للكتابة والبحث ومساعدة الإنتاج اليومي.",
-            originalDescription = "Free access for writing, research, and everyday support.",
+            description = "خطة مجانية بحصة رسائل محدودة ومتغيرة؛ يظهر حد الحساب الحالي داخل Claude.",
+            originalDescription = "Free plan with a limited message allowance that varies with conversation length and demand.",
             url = "https://www.anthropic.com/claude/free",
             contentType = ContentType.AI_TOOL,
             category = Category("ai-tools", "AI Tools"),
@@ -462,7 +481,7 @@ object SeedContentProvider {
             author = "Anthropic",
             requiresAccount = true,
             requiresPaymentCard = false,
-            freeLimit = "لا يلزم بطاقة بنكية في الخطة المجانية",
+            freeLimit = "حصة رسائل محدودة ومتغيرة؛ لا تنشر Anthropic عدداً ثابتاً صالحاً لكل مستخدم.",
             tags = listOf("claude", "free-tier", "writing"),
             license = "commercial",
         ),
@@ -470,8 +489,8 @@ object SeedContentProvider {
             id = "offer-perplexity-free",
             title = "Perplexity Free",
             originalTitle = "Perplexity Free",
-            description = "بحث ذكي مجاني ومفيد في المراجعات اليومية والبحث السريع.",
-            originalDescription = "Smart search and research with a free plan.",
+            description = "البحث الأساسي مجاني؛ حصة Pro Search محدودة وديناميكية وتظهر في الحساب.",
+            originalDescription = "Free basic search; the limited Pro Search allowance may vary and is displayed in the account.",
             url = "https://www.perplexity.ai/pricing",
             contentType = ContentType.AI_TOOL,
             category = Category("ai-tools", "AI Tools"),
@@ -484,8 +503,30 @@ object SeedContentProvider {
             author = "Perplexity",
             requiresAccount = true,
             requiresPaymentCard = false,
-            freeLimit = "أرصدة مجانية وتعامل يومي بسيط",
+            freeLimit = "بحث أساسي مجاني؛ حصة Pro Search محدودة ومتغيرة.",
             tags = listOf("search", "free-credit", "research"),
+            license = "commercial",
+        ),
+        ContentItem(
+            id = "offer-groq-free",
+            title = "Groq API Free",
+            originalTitle = "Groq API Free",
+            description = "مستوى مطور مجاني؛ تختلف حدود الطلبات والرموز يومياً حسب النموذج وتظهر مباشرة في لوحة الحساب.",
+            originalDescription = "Free developer access with model-specific RPM, RPD, and token limits shown in the Groq console.",
+            url = "https://console.groq.com/keys",
+            contentType = ContentType.AI_TOOL,
+            category = Category("ai-tools", "AI Tools"),
+            freeStatus = FreeStatus.FREE_TIER,
+            verificationLevel = VerificationLevel.OFFICIAL,
+            source = Source("ai-offers", "AI Offers", "ai-offers", "https://groq.com", "https://console.groq.com/docs/rate-limits"),
+            lastVerifiedAt = now - 86_400_000L,
+            createdAt = now - 20L * 24 * 60 * 60 * 1000,
+            updatedAt = now - 86_400_000L,
+            author = "Groq",
+            requiresAccount = true,
+            requiresPaymentCard = false,
+            freeLimit = "حدود RPM وRPD والرموز تختلف حسب النموذج؛ القيم الحية في لوحة Groq.",
+            tags = listOf("groq", "free-tier", "ai-api", "developer-tools"),
             license = "commercial",
         ),
     )
@@ -493,10 +534,10 @@ object SeedContentProvider {
     private fun imagePrompts(now: Long): List<ContentItem> = listOf(
         ContentItem(
             id = "seed-image-prompt-01",
-            title = "Portrait cinematic lighting",
-            originalTitle = "Portrait cinematic lighting",
-            description = "أوامر تصوير ذات إضاءة سينمائية وشخصية قوية وتفاصيل واقعية.",
-            originalDescription = "Cinematic portrait, shallow depth of field, soft rim light, realistic skin tones, premium editorial composition.",
+            title = "بورتريه سينمائي بضوء ناعم",
+            originalTitle = "Soft-Light Cinematic Portrait",
+            description = "بورتريه تحريري بعدسة 85mm وإضاءة ناعمة متعددة الطبقات مع الحفاظ على ملمس البشرة الطبيعي.",
+            originalDescription = "Photorealistic editorial portrait of [SUBJECT], preserve identity and natural facial proportions. Full-frame camera, 85mm lens at f/2.8, ISO 100, 1/160s. Large diffused softbox key at 45 degrees, white reflector fill, subtle rim light, soft shadow transitions, natural skin texture, crisp eyes, refined magazine color grade, no plastic retouching, no text, no watermark.",
             url = "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
             contentType = ContentType.PROMPT,
             category = Category("image-prompts", "أوامر صور وتصميم"),
@@ -512,10 +553,10 @@ object SeedContentProvider {
         ),
         ContentItem(
             id = "seed-image-prompt-02",
-            title = "Product launch hero shot",
-            originalTitle = "Product launch hero shot",
-            description = "تجهيز منتج على خلفية مخصصة لإبراز التفاصيل والأسلوب الاحترافي.",
-            originalDescription = "Product photography hero shot, luxury studio background, macro close-up, crisp reflections, dramatic shadows.",
+            title = "وهج الإطلاق: لقطة المنتج البطولية",
+            originalTitle = "Product Launch Hero Shot",
+            description = "صورة إعلان منتج كاملة بإضاءة استوديو مضبوطة وانعكاسات واقعية ومساحة مناسبة للتصميم.",
+            originalDescription = "Create a premium product-launch hero image of [PRODUCT]. Center the exact supplied product without altering its silhouette, brand, label, or color. Full-frame camera, 50mm lens at f/8 for crisp product detail, large diffused soft key, narrow strip-light reflections, black flags for contrast, clean gradient backdrop, realistic contact shadow, controlled specular highlights, luxury commercial art direction, generous negative space, no extra text, no watermark.",
             url = "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
             contentType = ContentType.PROMPT,
             category = Category("image-prompts", "أوامر صور وتصميم"),
@@ -531,10 +572,10 @@ object SeedContentProvider {
         ),
         ContentItem(
             id = "seed-image-prompt-03",
-            title = "Architectural twilight render",
-            originalTitle = "Architectural twilight render",
-            description = "مشهد معماري أنيق مع إضاءة خافتة وأجواء فاخرة.",
-            originalDescription = "Architectural twilight scene, warm metallic reflections, ultra-detailed facade, cinematic dusk lighting.",
+            title = "معمار الشفق: واجهة تحت الضوء الذهبي",
+            originalTitle = "Architectural Twilight — Golden Facade",
+            description = "تصوير معماري عند الغروب بظلال واقعية وخامات دقيقة وتوازن بين الضوء الدافئ والسماء الباردة.",
+            originalDescription = "Photorealistic architectural photograph of [BUILDING] at blue-hour twilight. Full-frame camera, 35mm tilt-shift lens, corrected verticals, f/8, tripod-sharp facade. Warm 3200K interior practicals contrast with cool dusk sky; soft ambient fill, restrained metallic reflections, accurate material texture, realistic window glow, cinematic but plausible exposure, no invented structures, no text, no watermark.",
             url = "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
             contentType = ContentType.PROMPT,
             category = Category("image-prompts", "أوامر صور وتصميم"),
@@ -550,10 +591,10 @@ object SeedContentProvider {
         ),
         ContentItem(
             id = "seed-image-prompt-04",
-            title = "Fashion editorial close-up",
-            originalTitle = "Fashion editorial close-up",
-            description = "ألوان متقنة، ملامح فاخرة، ومشهد أسلوب مجلة أزياء.",
-            originalDescription = "Fashion editorial close-up, natural skin texture, high detail, magazine lighting, premium look.",
+            title = "أناقة المجلة: بورتريه أزياء تحريري",
+            originalTitle = "Fashion Editorial Close-Up",
+            description = "لقطة أزياء تحريرية ببشرة طبيعية وخلفية هادئة وإضاءة استوديو ناعمة.",
+            originalDescription = "Create a high-end fashion editorial close-up of [SUBJECT], preserve the reference identity, age, and natural skin texture. Full-frame camera, 85mm lens at f/2.8, soft octabox key, low-power reflector fill, delicate hair rim, elegant shadow falloff, precise eye focus, subtle film grain, premium magazine color science, no excessive retouching, no text, no watermark.",
             url = "https://huggingface.co/datasets/Gustavosta/Stable-Diffusion-Prompts",
             contentType = ContentType.PROMPT,
             category = Category("image-prompts", "أوامر صور وتصميم"),
@@ -646,7 +687,7 @@ object SeedContentProvider {
         creatorPrompt(
             "seed-viral-prompt-01", "انتقال ريلز من المكتب إلى عالم مصغر",
             "فكرة قصيرة بتحول مفاجئ من مشهد يومي إلى عالم مصغر داخل غرض على المكتب.",
-            "Vertical 9:16 TikTok/Reels micro-story. A creator taps a coffee mug on a cluttered desk; the camera dives through the coffee surface into a tiny cinematic city where miniature commuters cross a bridge made of cinnamon sticks. One continuous whip-zoom transition, clear readable action, playful surreal scale, warm practical desk light shifting into golden-hour miniature lighting, satisfying final reveal, 6 seconds, no captions, no logos.",
+            "Vertical 9:16 TikTok/Reels micro-story starring [SAME PERSON FROM REFERENCE PHOTO]. Preserve the exact face, age, skin tone, hairstyle, body proportions, and identity throughout; keep the same rust-colored overshirt and watch in every shot. The creator taps a coffee mug on a cluttered desk; the camera dives through the coffee surface into a tiny cinematic city where miniature commuters cross a bridge made of cinnamon sticks. One continuous 50mm-equivalent whip-zoom transition, clear readable action, playful surreal scale, soft 3200K practical desk key with gentle fill shifting into diffused golden-hour miniature lighting, maintain exposure and screen direction, 6 seconds, no captions, no logos.",
             "reels-prompts", "🎬 برومبتات ريلز وفيديو سينمائي", "viral-video-concept", now - 1 * DAY,
             listOf("TikTok", "viral-trend", "reels", "9:16", "surreal", "miniature", "Kling", "Veo", "Sora"),
         ),

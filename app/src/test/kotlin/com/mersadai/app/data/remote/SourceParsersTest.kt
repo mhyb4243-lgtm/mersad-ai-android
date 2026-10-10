@@ -10,6 +10,35 @@ import org.junit.Test
 
 class SourceParsersTest {
     @Test
+    fun parsesLatestGitHubReleaseWithDirectApkDownloadLink() {
+        val item = SourceParsers.githubLatestRelease(
+            """{"tag_name":"v2.0","name":"Release 2","html_url":"https://github.com/org/app/releases/tag/v2.0","published_at":"2025-01-01T00:00:00Z","body":"Bug fixes","assets":[{"name":"app.apk","browser_download_url":"https://github.com/org/app/releases/download/v2.0/app.apk"}]}""",
+            "org/app",
+            now = 10L,
+        )
+
+        assertEquals("android-media-design", item.category?.id)
+        assertEquals(ContentType.ANDROID_PROJECT, item.contentType)
+        assertEquals("https://github.com/org/app/releases/download/v2.0/app.apk", item.url)
+        assertTrue(item.description.orEmpty().contains("app.apk:"))
+        assertEquals("github-release:org/app:v2.0", item.externalId)
+    }
+
+    @Test
+    fun parsesPublicLexicaPromptsIntoImagePromptCards() {
+        val item = SourceParsers.lexicaImagePrompts(
+            """{"images":[{"id":"prompt-1","prompt":"A cinematic portrait","src":"https://image.lexica.art/full_jpg/one.jpg"}]}""",
+            now = 10L,
+        ).single()
+
+        assertEquals("lexica:prompt-1", item.externalId)
+        assertEquals(ContentType.PROMPT, item.contentType)
+        assertEquals("A cinematic portrait", item.originalDescription)
+        assertEquals("image-prompts", item.category?.id)
+        assertEquals("https://image.lexica.art/full_jpg/one.jpg", item.thumbnailUrl)
+    }
+
+    @Test
     fun parsesGitHubFieldsAndToleratesNullDescriptionAndLicense() {
         val item = SourceParsers.githubRepositories(GITHUB_FIXTURE, now = 10L).single()
 

@@ -23,6 +23,81 @@ import java.util.Locale
 import kotlin.math.min
 
 object SourceParsers {
+    fun githubLatestRelease(body: String, repository: String, now: Long = System.currentTimeMillis()): ContentItem {
+        val release = JsonParser.parseString(body).asObjectOrNull()
+            ?: throw SourceSchemaException("GitHub release response is not an object")
+        val tag = release.string("tag_name")?.takeIf(String::isNotBlank)
+            ?: throw SourceSchemaException("GitHub release has no tag")
+        val releaseUrl = release.string("html_url")?.httpsUrl()
+            ?: throw SourceSchemaException("GitHub release has no HTTPS URL")
+        val name = release.string("name")?.takeIf(String::isNotBlank) ?: tag
+        val assets = (release.array("assets") ?: JsonArray()).mapNotNull { element ->
+            val asset = element.asObjectOrNull() ?: return@mapNotNull null
+            val assetName = asset.string("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val downloadUrl = asset.string("browser_download_url")?.httpsUrl() ?: return@mapNotNull null
+            assetName to downloadUrl
+        }
+        val apk = assets.firstOrNull { (assetName, _) ->
+            assetName.endsWith(".apk", ignoreCase = true)
+        }?.second
+        val notes = release.string("body")?.shortText()
+        val downloadDetails = assets.take(8).joinToString("\n") { (assetName, url) -> "$assetName: $url" }
+        val description = listOfNotNull(notes, downloadDetails.takeIf(String::isNotBlank))
+            .joinToString("\n\n")
+            .ifBlank { "Latest public GitHub release: $name ($tag)." }
+        val publishedAt = release.string("published_at").epochMillis()
+        return ContentItem(
+            id = "github-release:$repository:$tag",
+            externalId = "github-release:$repository:$tag",
+            title = "$repository — $name",
+            originalTitle = name,
+            description = description,
+            originalDescription = description,
+            url = apk ?: releaseUrl,
+            contentType = ContentType.ANDROID_PROJECT,
+            category = Category("android-media-design", "📱 أفضل تطبيقات أندرويد للميديا والتصميم"),
+            freeStatus = FreeStatus.OPEN_SOURCE,
+            verificationLevel = VerificationLevel.OFFICIAL_SOURCE,
+            source = Source("github-releases", "GitHub Releases", repository, "https://github.com/$repository", "https://api.github.com/repos/$repository/releases/latest"),
+            createdAt = publishedAt ?: now,
+            updatedAt = publishedAt ?: now,
+            sourceUpdatedAt = publishedAt,
+            publishedAt = publishedAt,
+            tags = listOf("android", "github-release", "media-design") + assets.map { it.first },
+            author = repository.substringBefore('/'),
+        )
+    }
+
+    fun lexicaImagePrompts(body: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
+        val root = JsonParser.parseString(body).asObjectOrNull()
+            ?: throw SourceSchemaException("Lexica response is not an object")
+        val results = root.array("images") ?: throw SourceSchemaException("Lexica response has no images array")
+        return results.mapNotNull { element ->
+            val image = element.asObjectOrNull() ?: return@mapNotNull null
+            val prompt = image.string("prompt")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val promptId = image.string("id") ?: image.string("promptid") ?: prompt.hashCode().toString()
+            val imageUrl = image.string("src")?.httpsUrl()
+            ContentItem(
+                id = "lexica:$promptId",
+                externalId = "lexica:$promptId",
+                title = prompt.take(100).ifBlank { "Lexica image prompt" },
+                description = "Prompt from Lexica's public image search.",
+                originalDescription = prompt,
+                url = "https://lexica.art/",
+                contentType = ContentType.PROMPT,
+                category = Category("image-prompts", "أوامر صور وتصميم"),
+                freeStatus = FreeStatus.UNKNOWN,
+                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
+                source = Source("lexica", "Lexica", "lexica", "https://lexica.art", "https://lexica.art/api/v1/search?q=cinematic"),
+                createdAt = now,
+                updatedAt = now,
+                thumbnailUrl = imageUrl,
+                tags = listOf("lexica", "text-to-image", "image-generation"),
+                promptType = "text-to-image",
+            )
+        }
+    }
+
     fun githubIncompleteResults(body: String): Boolean = JsonParser.parseString(body)
         .asObjectOrNull()?.get("incomplete_results")?.let { runCatching { it.asBoolean }.getOrNull() } == true
 

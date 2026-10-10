@@ -100,8 +100,11 @@ class HomeSectionsTest {
     fun seededFreePerksAreCreatorToolsInsteadOfCloudApis() {
         val deals = SeedContentProvider.items(now).filter { it.id.startsWith("creator-deal-") }
 
-        assertEquals(setOf("Runway", "Kling AI", "Pika", "ElevenLabs", "Leonardo AI", "Suno"), deals.mapNotNull { it.author }.toSet())
-        assertFalse(deals.any { it.title.contains("Groq") || it.title.contains("Cloudflare") })
+        assertEquals(
+            setOf("ChatGPT", "Claude", "Perplexity", "Groq", "Runway", "Kling AI", "Pika", "ElevenLabs", "Leonardo AI", "Suno"),
+            deals.mapNotNull { it.author }.toSet(),
+        )
+        assertFalse(deals.any { it.title.contains("Cloudflare") })
     }
 
     @Test

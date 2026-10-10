@@ -24,7 +24,6 @@ DATASET = "fka/prompts.chat"
 DATASET_ROWS_URL = "https://datasets-server.huggingface.co/rows"
 SECTION_ID = "ai-deals-and-trials"
 SECTION_TITLE = "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)"
-MAX_PROMPTS = 300
 PAGE_SIZE = 100
 ACTIVE_DEAL_DAYS = 30
 DEAL_CATEGORY_ID = "ai-deals"
@@ -69,6 +68,62 @@ CREATOR_TOOL_OFFERS = (
     ("leonardo-free-tier", "Leonardo AI", "Leonardo AI Free", "https://leonardo.ai/pricing", "image-generation"),
     ("suno-free-tier", "Suno", "Suno Free", "https://suno.com/pricing", "music-generation"),
 )
+OFFER_DETAILS = {
+    "runway-free-tier": (
+        "تتوفر صفحة التسجيل الرسمية، لكن صفحة الأسعار التي أمكن التحقق منها لا تعرض حصة مجانية ثابتة أو رصيداً متجدداً؛ "
+        "تحقق من الرصيد الظاهر في حسابك قبل بدء التوليد.",
+        "لم تُنشر حصة مجانية ثابتة قابلة للتحقق في صفحة الأسعار العامة؛ الرصيد الفعلي يظهر في الحساب.",
+    ),
+    "kling-free-tier": (
+        "تعرض صفحة العضوية الخطط عبر واجهة ديناميكية ولا تؤكد حصة يومية ثابتة قابلة للتحقق في النص العام؛ "
+        "تظهر الأرصدة والإتاحة الحالية بعد تسجيل الدخول.",
+        "لا توجد حصة يومية ثابتة منشورة يمكن تأكيدها من الصفحة العامة؛ افحص رصيد الحساب.",
+    ),
+    "pika-free-tier": (
+        "صفحة الأسعار الحالية تعرض تعبئة مدفوعة بسعر 60 رصيداً لكل دولار ولا تعرض حصة مجانية شهرية متجددة؛ "
+        "تحقق من أي رصيد تسجيل جديد داخل الحساب قبل الاستخدام.",
+        "صفحة الأسعار تعرض 60 رصيد تعبئة لكل دولار؛ لا تعرض حصة مجانية شهرية ثابتة.",
+    ),
+    "elevenlabs-free-tier": (
+        "الخطة المجانية تشمل 10,000 رصيد شهرياً وميزات الصوت الأساسية؛ الترخيص التجاري غير مشمول بالخطة المجانية.",
+        "10,000 رصيد شهرياً؛ الاستخدام التجاري غير مشمول بالخطة المجانية.",
+    ),
+    "leonardo-free-tier": (
+        "صفحة الأسعار الرسمية لا تُظهر في العرض العام حصة يومية ثابتة قابلة للتحقق؛ تختلف الأرصدة باختلاف الحساب والميزة.",
+        "لم تُنشر حصة يومية ثابتة قابلة للتحقق؛ راجع رصيد الحساب وصفحة الخطة.",
+    ),
+    "suno-free-tier": (
+        "الخطة المجانية وإعادة تعبئة الرصيد قد تختلف حسب الحساب؛ صفحة الأسعار العامة لا تعرض حصة يومية ثابتة قابلة للتحقق. "
+        "الاستخدام التجاري يتطلب خطة تسمح بذلك.",
+        "لم تُنشر حصة يومية ثابتة قابلة للتحقق في صفحة الأسعار العامة؛ راجع الرصيد داخل الحساب.",
+    ),
+    "chatgpt-free-tier": (
+        "تتضمن الخطة المجانية وصولاً محدوداً إلى النماذج والميزات. حد الرسائل يتغير بحسب النموذج والضغط "
+        "ويُعرض داخل الحساب؛ لا تعلن OpenAI حصة يومية ثابتة لجميع المستخدمين.",
+        "حدود رسائل ديناميكية بحسب النموذج والضغط؛ لا يوجد رقم يومي موحد معلن.",
+    ),
+    "claude-free-tier": (
+        "الخطة المجانية محدودة الاستخدام وتُعاد الحصة ضمن نافذة جلسة متحركة من خمس ساعات؛ "
+        "لا يوجد عدد رسائل ثابت لأن الاستهلاك يتغير بحسب طول المحادثة والنموذج والميزات.",
+        "إعادة ضبط ضمن نافذة متحركة كل 5 ساعات؛ لا يوجد عدد رسائل موحد.",
+    ),
+    "perplexity-free-tier": (
+        "الخطة المجانية توفر البحث الأساسي دون اشتراك؛ ميزات Pro Search لها حصة محدودة تتغير حسب الخطة "
+        "والحساب، ويعرض التطبيق الرصيد الحالي.",
+        "البحث الأساسي متاح مجاناً؛ حصة Pro Search محدودة وديناميكية.",
+    ),
+    "groq-free-tier": (
+        "واجهة Groq API تتيح مستوى مطور مجاني بحدود طلبات ورموز يومية تختلف حسب النموذج وتتغير بمرور الوقت؛ "
+        "تعرض لوحة Limits الحصة الدقيقة لكل نموذج بعد تسجيل الدخول.",
+        "مستوى مطور مجاني؛ حدود RPM وRPD ورموز مختلفة لكل نموذج وتُعرض مباشرة في لوحة الحساب.",
+    ),
+}
+OFFICIAL_TOOL_OFFERS = (
+    ("chatgpt-free-tier", "OpenAI", "ChatGPT Free", "https://chatgpt.com/", "chat-assistant"),
+    ("claude-free-tier", "Claude", "Claude Free", "https://claude.ai/", "chat-assistant"),
+    ("perplexity-free-tier", "Perplexity", "Perplexity Free", "https://www.perplexity.ai/", "research"),
+    ("groq-free-tier", "Groq", "Groq Developer Free", "https://console.groq.com/keys", "ai-api"),
+)
 OFFERS = [
     {
         "id": offer_id,
@@ -89,7 +144,30 @@ OFFERS = [
         "is_active": True,
     }
     for offer_id, provider, title, url, media_type in CREATOR_TOOL_OFFERS
+] + [
+    {
+        "id": offer_id,
+        "title": title,
+        "description": OFFER_DETAILS[offer_id][0],
+        "url": url,
+        "deal_url": url,
+        "provider": provider,
+        "deal_type": "free plan",
+        "promo_code": None,
+        "category_id": "free-perks",
+        "source_type": "official",
+        "free_status": "FREE_TIER",
+        "free_limit": OFFER_DETAILS[offer_id][1],
+        "requires_account": True,
+        "requires_payment_card": None,
+        "tags": [provider.lower().replace(" ", "-"), "free-tier", media_type, "official"],
+        "is_active": True,
+    }
+    for offer_id, provider, title, url, media_type in OFFICIAL_TOOL_OFFERS
 ]
+for offer in OFFERS:
+    if offer["id"] in OFFER_DETAILS:
+        offer["description"], offer["free_limit"] = OFFER_DETAILS[offer["id"]]
 
 
 def fetch_json(url: str) -> dict:
@@ -314,13 +392,39 @@ def build_factverse_section(
     existing = next((section for section in previous_sections if section.get("id") == FACTVERSE_SECTION_ID), {})
     cutoff = now_ms - FACTVERSE_RETENTION_DAYS * 24 * 60 * 60 * 1000
     articles = {
-        article["id"]: article
+        article["id"]: enrich_factverse_article(article)
         for article in existing.get("items", [])
         if article.get("id") and int(article.get("published_at", 0)) >= cutoff
     }
-    articles.update({article["id"]: article for article in discovered})
+    articles.update({article["id"]: enrich_factverse_article(article) for article in discovered})
     ordered = sorted(articles.values(), key=lambda article: int(article.get("published_at", 0)), reverse=True)
     return {"id": FACTVERSE_SECTION_ID, "title": FACTVERSE_SECTION_TITLE, "items": ordered[:FACTVERSE_MAX_ITEMS]}
+
+
+def enrich_factverse_article(article: dict) -> dict:
+    title = _plain_text(str(article.get("title") or "Science discovery"))
+    summary = _plain_text(str(article.get("description") or title))
+    visual_prompt = article.get("visual_prompt") or (
+        f'Create a high-contrast sci-tech split-screen editorial image about "{title}". '
+        f'LEFT PANEL: accurately visualize the reported scientific mechanism: "{summary}". '
+        "RIGHT PANEL: show a plausible, grounded future impact of the same discovery. "
+        "Use a precise vertical split with one shared subject bridging both sides, midnight-navy shadows, "
+        "electric-cyan and amber highlights, soft cinematic lighting, crisp rim light, controlled volumetric haze, "
+        "photoreal materials, 35mm lens perspective, premium science-magazine art direction. "
+        "No text, logos, watermark, or unsupported scientific claims."
+    )
+    reels_script = article.get("reels_script") or (
+        f'Scene 1 (0-10s): Hook & Visual — Open on a striking close-up of "{title}", '
+        "then reveal the central visual contrast with a controlled push-in. Voiceover: "
+        '"What if this discovery changes how we understand the world?"\n'
+        f'Scene 2 (10-20s): Science Breakdown — Explain the reported finding plainly: "{summary}". '
+        "Use one evidence-led visualization and a steady camera. Voiceover: "
+        '"Here is the science, and what researchers have actually found."\n'
+        "Scene 3 (20-30s): Future Impact & Outro — Pull back to a grounded view of a possible application. "
+        'End on a clean hero frame. Voiceover: "The next chapter is still being written."\n'
+        'End card: "FactVerse • Explore The Future"'
+    )
+    return {**article, "visual_prompt": visual_prompt, "reels_script": reels_script}
 
 
 def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
@@ -409,10 +513,10 @@ def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
     refreshed_by_id = {item["id"]: item for item in refreshed}
     for item in existing:
         item_id = item.get("id")
-        if item_id and item_id not in refreshed_by_id and not item_id.startswith("prompts-chat-"):
+        if item_id and item_id not in refreshed_by_id:
             refreshed_by_id[item_id] = item
     ordered = sorted(refreshed_by_id.values(), key=lambda item: int(item.get("published_at", 0)), reverse=True)
-    return ordered[:MAX_PROMPTS]
+    return ordered
 
 
 def verify_offer(url: str) -> bool:
@@ -441,8 +545,6 @@ def build_deals(
             verified_count += 1
         except (HTTPError, URLError, TimeoutError, RuntimeError) as error:
             print(f"Warning: could not verify {offer['id']}: {error}", file=sys.stderr)
-            if not previous:
-                continue
             verified_at = previous.get("verified_at")
         item = {
             **offer,
@@ -508,6 +610,13 @@ def validate_feed(feed: dict) -> None:
                 raise ValueError(f"FactVerse article {article['id']} must use the English FactVerse category")
             if not article["url"].startswith("https://"):
                 raise ValueError(f"FactVerse article {article['id']} must use HTTPS")
+            if not article.get("visual_prompt") or not article.get("reels_script"):
+                raise ValueError(f"FactVerse article {article['id']} must include visual and 30-second reel prompts")
+            for scene in ("Scene 1 (0-10s):", "Scene 2 (10-20s):", "Scene 3 (20-30s):"):
+                if scene not in article["reels_script"]:
+                    raise ValueError(f"FactVerse article {article['id']} is missing {scene}")
+            if "FactVerse • Explore The Future" not in article["reels_script"]:
+                raise ValueError(f"FactVerse article {article['id']} is missing the fixed signature")
     for prompt in feed["prompts"]:
         if not prompt.get("id") or not prompt.get("title") or not prompt.get("prompt"):
             raise ValueError("each prompt must contain id, title, and prompt")
@@ -535,6 +644,9 @@ def main() -> None:
     args = parser.parse_args()
 
     feed = json.loads(FEED_PATH.read_text(encoding="utf-8"))
+    for section in feed.get("sections", []):
+        if section.get("id") == FACTVERSE_SECTION_ID:
+            section["items"] = [enrich_factverse_article(article) for article in section.get("items", [])]
     validate_feed(feed)
     if args.validate_only:
         print("Feed validation passed.")

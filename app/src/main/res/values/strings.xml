@@ -73,6 +73,8 @@
     <string name="verification">مستوى التحقق</string>
     <string name="source">المصدر</string>
     <string name="last_verified">آخر تحقق</string>
+    <string name="free_limit">حد الاستخدام المجاني</string>
+    <string name="deal_type">نوع العرض</string>
     <string name="published_date">تاريخ النشر</string>
     <string name="source_updated">آخر تحديث لدى المصدر</string>
     <string name="language">اللغة</string>
@@ -92,6 +94,10 @@
     <string name="author">الناشر</string>
     <string name="contributor">المساهم</string>
     <string name="copy_prompt">نسخ البرومبت / أمر التوليد</string>
+    <string name="copy_factverse_visual_prompt">نسخ البرومبت البصري</string>
+    <string name="copy_factverse_reels_script">نسخ سيناريو الريلز (30s)</string>
+    <string name="factverse_visual_prompt_copied">تم نسخ البرومبت البصري</string>
+    <string name="factverse_reels_script_copied">تم نسخ سيناريو الريلز</string>
     <string name="prompt_copied">تم نسخ البرومبت بنجاح</string>
     <string name="video_scene_heading">المشهد %1$d (%2$d-%3$ds)</string>
     <string name="copy_scene_prompt">نسخ المشهد %1$d</string>

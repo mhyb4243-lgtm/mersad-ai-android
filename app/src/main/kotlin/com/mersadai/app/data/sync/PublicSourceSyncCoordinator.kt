@@ -19,6 +19,7 @@ import com.mersadai.app.domain.model.Source
 import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.VerificationLevel
 import com.mersadai.app.domain.prompts.VideoPromptPolicy
+import com.mersadai.app.domain.prompts.FactVerseContent
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -144,6 +145,7 @@ class PublicSourceSyncCoordinator(
 
     private suspend fun fetch(source: SourceDefinition, previous: SyncStateEntity?): FetchOutcome = when (source.id) {
         "github" -> fetchGitHub(source, previous)
+        "android-media-releases" -> fetchAndroidMediaReleases(source, previous)
         "hf-models" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceModels(it) }
         "hf-spaces" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceSpaces(it) }
         "android-developers", "google-developers", "openai-news" ->
@@ -157,6 +159,7 @@ class PublicSourceSyncCoordinator(
             totalCount = SourceParsers::promptsChatTotalCount,
         ) { SourceParsers.promptsChat(it) }
         "image-prompts" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.imageGenerationPrompts(it) }
+        "lexica" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.lexicaImagePrompts(it) }
         "video-prompts" -> fetchLatestVideoPrompts(source, previous)
         "remote-prompts" -> fetchSingle(source, previous, source.endpoint, parser = ::remotePromptFeed)
         else -> FetchOutcome(error = "مصدر غير معروف.")
@@ -249,13 +252,19 @@ class PublicSourceSyncCoordinator(
             ?.takeIf(String::isNotBlank) ?: return null
         val timestamp = entry.long("published_at") ?: now()
         val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
+        val factVerseAssets = FactVerseContent.create(
+            title = title,
+            summary = description.orEmpty(),
+            visualPrompt = entry.get("visual_prompt")?.takeIf { it.isJsonPrimitive }?.asString,
+            reelsScript = entry.get("reels_script")?.takeIf { it.isJsonPrimitive }?.asString,
+        )
         return ContentItem(
             id = "remote-prompts:$externalId",
             externalId = "remote-prompts:$externalId",
             title = title,
             originalTitle = title,
             description = description,
-            originalDescription = description,
+            originalDescription = factVerseAssets.serialize(),
             url = url,
             contentType = ContentType.NEWS,
             category = Category(FACTVERSE_CATEGORY_ID, FACTVERSE_CATEGORY_NAME),
@@ -365,7 +374,13 @@ class PublicSourceSyncCoordinator(
         totalCount: ((String) -> Long?)? = null,
         parser: (String) -> List<ContentItem>,
     ): FetchOutcome {
-        val headers = conditionalHeaders(previous)
+        val headers = conditionalHeaders(previous).toMutableMap().apply {
+            if (source.id == "lexica") {
+                put("Accept", "application/json")
+                put("Referer", "https://lexica.art/")
+                put("User-Agent", "Mozilla/5.0 (compatible; MersadAI/1.0; +https://github.com/mhyb4243-lgtm/mersad-ai-android)")
+            }
+        }
         val response = transport.get(url, headers)
         val headerData = responseMetadata(response)
         if (response.statusCode == 304) return headerData.copy(notModified = true)
@@ -383,6 +398,46 @@ class PublicSourceSyncCoordinator(
             headerData.copy(items = parser(response.body), remoteTotalCount = totalCount?.invoke(response.body))
         } catch (_: Exception) {
             headerData.copy(error = "تغير تنسيق بيانات ${source.name}؛ احتُفظ بالنسخة المخزنة.")
+        }
+    }
+
+    private suspend fun fetchAndroidMediaReleases(
+        source: SourceDefinition,
+        previous: SyncStateEntity?,
+    ): FetchOutcome {
+        val releases = mutableListOf<ContentItem>()
+        var latest = FetchOutcome()
+        var failures = 0
+        val headers = conditionalHeaders(previous) + mapOf(
+            "Accept" to "application/vnd.github+json",
+            "X-GitHub-Api-Version" to "2022-11-28",
+            "User-Agent" to "MersadAI-Android/1.0 (public-source-sync)",
+        )
+        for (repository in androidMediaRepositories) {
+            val response = transport.get("https://api.github.com/repos/$repository/releases/latest", headers)
+            val metadata = responseMetadata(response)
+            latest = metadata
+            if (response.statusCode == 403 || response.statusCode == 429) {
+                return rateLimited(source, response, previous, metadata).copy(items = releases)
+            }
+            if (response.statusCode !in 200..299) {
+                failures++
+                continue
+            }
+            try {
+                releases += SourceParsers.githubLatestRelease(response.body, repository, now())
+            } catch (_: Exception) {
+                failures++
+            }
+        }
+        return when {
+            releases.isNotEmpty() -> latest.copy(items = releases)
+            failures > 0 -> latest.copy(
+                error = "تعذر تحديث إصدارات أدوات Android من GitHub؛ احتُفظ بالعناصر السابقة.",
+                transient = latest.statusCode == null || latest.statusCode >= 500,
+                nextAllowedSyncAt = now() + FAILURE_COOLDOWN,
+            )
+            else -> latest
         }
     }
 
@@ -531,6 +586,7 @@ class PublicSourceSyncCoordinator(
         )
         val sources = listOf(
             SourceDefinition("github", "GitHub", "https://api.github.com/search/repositories", 6 * HOUR),
+            SourceDefinition("android-media-releases", "إصدارات تطبيقات الميديا والتصميم", "https://api.github.com", 6 * HOUR),
             SourceDefinition("hf-models", "Hugging Face Models", "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20&full=true", 3 * HOUR),
             SourceDefinition("hf-spaces", "Hugging Face Spaces", "https://huggingface.co/api/spaces?sort=trendingScore&direction=-1&limit=20&full=true", 3 * HOUR),
             SourceDefinition("android-developers", "Android Developers", "https://android-developers.googleblog.com/feeds/posts/default?alt=rss", 6 * HOUR),
@@ -538,8 +594,10 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("openai-news", "OpenAI News", "https://openai.com/news/rss.xml", 6 * HOUR),
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
             SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
+            SourceDefinition("lexica", "Lexica public image prompts", "https://lexica.art/api/v1/search?q=cinematic", 6 * HOUR),
             SourceDefinition("video-prompts", "AI Video Prompt Book 2026", "https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train", 6 * HOUR),
             SourceDefinition("remote-prompts", "موجز البرومبتات المتجدد", REMOTE_PROMPTS_FEED_URL, 12 * HOUR),
         )
+        val androidMediaRepositories = listOf("JunkFood02/Seal", "T8RIN/ImageToolbox", "FossifyOrg/Gallery")
     }
 }

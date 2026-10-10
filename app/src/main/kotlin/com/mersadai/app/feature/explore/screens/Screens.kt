@@ -92,6 +92,7 @@ import com.mersadai.app.domain.model.SyncState
 import com.mersadai.app.domain.model.ThemeMode
 import com.mersadai.app.domain.model.VerificationLevel
 import com.mersadai.app.domain.prompts.VideoPromptPolicy
+import com.mersadai.app.domain.prompts.FactVerseContent
 import com.mersadai.app.domain.search.SimilarContent
 import com.mersadai.app.domain.social.SocialPostFormatter
 import com.mersadai.app.feature.explore.ExploreViewModel
@@ -217,6 +218,10 @@ fun HomeScreen(
         }
     }
 }
+
+private fun ContentItem.isPhotographyPrompt(): Boolean =
+    category?.id in setOf("image-prompts", "photorealistic-prompts", "visual-tricks", "social-portraits") ||
+        tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) }
 
 @Composable
 private fun HomeSectionHeading(section: HomeSectionContent, onShowAll: () -> Unit) {
@@ -496,8 +501,14 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
             } else {
                 emptyList()
             }
+            val factVersePackage = if (content.category?.id == "factverse") {
+                FactVerseContent.parse(content.originalDescription.orEmpty())
+                    ?: FactVerseContent.create(content.title, content.description.orEmpty())
+            } else {
+                null
+            }
             val sourceDescription = content.description
-                ?: content.originalDescription.takeIf { promptScenes.isEmpty() }
+                ?: content.originalDescription.takeIf { promptScenes.isEmpty() && factVersePackage == null }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(content.displayTitleAr ?: content.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -522,7 +533,32 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     content.displayDescriptionAr ?: sourceDescription ?: stringResource(R.string.no_description),
                 )
             }
-            if (promptScenes.isNotEmpty()) {
+            if (factVersePackage != null) {
+                item {
+                    Text("Split-Screen High-Contrast Sci-Tech Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(factVersePackage.visualPrompt, style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.ContentOrLtr))
+                }
+                item {
+                    Text("30-Second Reels Script", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(factVersePackage.reelsScript, style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.ContentOrLtr))
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            clipboard.setText(AnnotatedString(factVersePackage.visualPrompt))
+                            Toast.makeText(context, context.getString(R.string.factverse_visual_prompt_copied), Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text(stringResource(R.string.copy_factverse_visual_prompt))
+                        }
+                        OutlinedButton(onClick = {
+                            clipboard.setText(AnnotatedString(factVersePackage.reelsScript))
+                            Toast.makeText(context, context.getString(R.string.factverse_reels_script_copied), Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text(stringResource(R.string.copy_factverse_reels_script))
+                        }
+                    }
+                }
+            } else if (promptScenes.isNotEmpty()) {
                 promptScenes.forEach { scene ->
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -604,6 +640,12 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     stringResource(if (freeStatus == FreeStatus.OPEN_SOURCE) R.string.free_open_source_free else freeStatus.stringResource()),
                 )
             }
+            content.freeLimit?.takeIf(String::isNotBlank)?.let { limit ->
+                item { DetailValue(R.string.free_limit, limit) }
+            }
+            content.dealType?.takeIf(String::isNotBlank)?.let { dealType ->
+                item { DetailValue(R.string.deal_type, dealType) }
+            }
             item { DetailValue(R.string.verification, stringResource(content.verificationLevel.stringResource())) }
             item { DetailValue(R.string.source, content.source?.name ?: stringResource(R.string.source_not_available), forceLtr = content.source != null) }
             content.lastVerifiedAt?.let { verified ->
@@ -648,7 +690,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     }
                 }
             }
-            item {
+            if (factVersePackage == null) item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
                         val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
@@ -697,6 +739,8 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
     val isFavorite by viewModel.observeFavorite(item.id).collectAsStateWithLifecycle(initialValue = false)
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val copyablePrompt = item.originalDescription?.takeIf(String::isNotBlank)
+        ?: item.description?.takeIf(String::isNotBlank)
     LaunchedEffect(item.id, item.title, item.description, item.displayTitleAr, item.displayDescriptionAr) {
         if (item.displayTitleAr == null) {
             item.translatableTitle()?.let { title ->
@@ -782,8 +826,10 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                 if (item.contentType == ContentType.PROMPT) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = {
-                            clipboard.setText(AnnotatedString(item.originalDescription ?: item.description.orEmpty()))
-                            Toast.makeText(context, "تم نسخ البرومبت", Toast.LENGTH_SHORT).show()
+                            copyablePrompt?.let { prompt ->
+                                clipboard.setText(AnnotatedString(prompt))
+                                Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()
+                            }
                         }) { Text("نسخ البرومبت") }
                         TextButton(onClick = onClick) { Text("تجربة") }
                     }
@@ -801,7 +847,7 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
 
 private fun ContentItem.visualBadgeIcon(): String = when {
     category?.id == "factverse" -> "🌌"
-    contentType == ContentType.PROMPT && tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) } -> "📸"
+    contentType == ContentType.PROMPT && isPhotographyPrompt() -> "📸"
     contentType == ContentType.PROMPT -> "🎬"
     contentType == ContentType.AI_TOOL && category?.id == "free-perks" -> "🎁"
     contentType == ContentType.AI_TOOL -> "🧰"
@@ -814,7 +860,7 @@ private fun ContentItem.visualBadgeIcon(): String = when {
 private fun ContentItem.contentBadgeLabel(): String = when {
     category?.id == "factverse" -> "🌌 FactVerse"
     contentType == ContentType.AI_TOOL && category?.id == "free-perks" -> "🎁 صفقة تجريبية"
-    contentType == ContentType.PROMPT && tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) } -> "📸 صورة وفوتوغرافي"
+    contentType == ContentType.PROMPT && isPhotographyPrompt() -> "📸 صورة وفوتوغرافي"
     contentType == ContentType.PROMPT -> "🎬 ريلز وسينما"
     contentType == ContentType.AI_TOOL -> "أداة ذكاء اصطناعي"
     contentType == ContentType.ANDROID_PROJECT -> "تطبيق أندرويد"
@@ -896,7 +942,6 @@ private fun DetailValue(label: Int, value: String, forceLtr: Boolean = false) {
 @Composable
 private fun UrlValue(url: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.source), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Text(url, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

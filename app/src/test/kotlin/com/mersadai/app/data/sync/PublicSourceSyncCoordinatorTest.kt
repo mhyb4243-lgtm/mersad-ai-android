@@ -34,7 +34,7 @@ class PublicSourceSyncCoordinatorTest {
         val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertFalse(result.hasTransientFailure)
-        assertEquals(10, store.states.size)
+        assertEquals(12, store.states.size)
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals(403, store.states.getValue("github").lastHttpStatus)
         assertEquals(now + 3_600_000, store.states.getValue("github").nextAllowedSyncAt)
@@ -45,6 +45,11 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
         assertTrue(calls.any { it.second["Accept"] == "application/vnd.github+json" })
         assertTrue(calls.any { it.second["X-GitHub-Api-Version"] == "2022-11-28" })
+        assertTrue(calls.any {
+            it.first.startsWith("https://lexica.art/api/v1/search") &&
+                it.second["Referer"] == "https://lexica.art/" &&
+                it.second["User-Agent"]?.contains("Mozilla/5.0") == true
+        })
     }
 
     @Test
@@ -58,7 +63,7 @@ class PublicSourceSyncCoordinatorTest {
 
         PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
-        val githubCalls = calls.filter { it.first.startsWith("https://api.github.com") }
+        val githubCalls = calls.filter { it.first.startsWith("https://api.github.com/search/repositories") }
         assertEquals(3, githubCalls.size)
         assertTrue(githubCalls.all { it.first.contains("sort=updated") && it.first.contains("per_page=20") })
         assertTrue(githubCalls.any { it.first.contains("topic%3Aphotography") })
@@ -66,8 +71,11 @@ class PublicSourceSyncCoordinatorTest {
         assertTrue(githubCalls.any { it.first.contains("topic%3Ainvitation") })
         assertTrue(githubCalls.any { it.first.contains("topic%3Aposter-design") })
         assertTrue(githubCalls.all { it.second["User-Agent"]?.contains("MersadAI-Android") == true })
+        assertTrue(calls.any { it.first.contains("/repos/JunkFood02/Seal/releases/latest") })
+        assertTrue(calls.any { it.first.contains("/repos/T8RIN/ImageToolbox/releases/latest") })
+        assertTrue(calls.any { it.first.contains("/repos/FossifyOrg/Gallery/releases/latest") })
         assertEquals(3, store.items.count { it.externalId?.startsWith("github:") == true })
-        assertTrue(store.items.all { it.freeStatus == "UNKNOWN" })
+        assertTrue(store.items.filter { it.externalId?.startsWith("github:") == true }.all { it.freeStatus == "UNKNOWN" })
         assertEquals(0L, store.states.getValue("prompts-chat").remoteTotalCount)
     }
 
@@ -213,7 +221,11 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun freshCacheSkipsAllNetworkRequests() = runBlocking {
         val store = FakeStore()
-        listOf("github", "hf-models", "hf-spaces", "android-developers", "google-developers", "openai-news", "prompts-chat", "image-prompts", "video-prompts", "remote-prompts")
+        listOf(
+            "github", "android-media-releases", "hf-models", "hf-spaces", "android-developers",
+            "google-developers", "openai-news", "prompts-chat", "image-prompts", "lexica",
+            "video-prompts", "remote-prompts",
+        )
             .forEach { id -> store.states[id] = SyncStateEntity(id, "SUCCESS", now, now, null, lastAttemptAt = now, lastSuccessAt = now) }
         var requests = 0
         val transport = SourceHttpTransport { _, _ -> requests++; response(200) }
@@ -278,13 +290,18 @@ class PublicSourceSyncCoordinatorTest {
     }
 
     private fun successFor(url: String): SourceHttpResponse = when {
-        url.startsWith("https://api.github.com") -> response(
+        url.contains("/releases/latest") -> response(
+            200,
+            body = """{"tag_name":"v1.0","name":"v1.0","html_url":"https://github.com/org/app/releases/tag/v1.0","published_at":"2025-01-01T00:00:00Z","assets":[{"name":"app.apk","browser_download_url":"https://github.com/org/app/releases/download/v1.0/app.apk"}]}""",
+        )
+        url.startsWith("https://api.github.com/search/repositories") -> response(
             200,
             mapOf("ETag" to "\"github\"", "X-RateLimit-Remaining" to "54"),
             """{"incomplete_results":false,"items":[{"id":1,"full_name":"octo/repo","html_url":"https://github.com/octo/repo","owner":{"login":"octo"}},{"id":2,"full_name":"octo/repo-2","html_url":"https://github.com/octo/repo-2","owner":{"login":"octo"}},{"id":3,"full_name":"octo/repo-3","html_url":"https://github.com/octo/repo-3","owner":{"login":"octo"}}]}""",
         )
         url.contains("/api/models") || url.contains("/api/spaces") -> response(200, body = "[]")
         url.contains("datasets-server") -> response(200, body = """{"rows":[],"num_rows_total":0}""")
+        url.startsWith("https://lexica.art/api/") -> response(200, body = """{"images":[]}""")
         url.contains("remote_prompts.json") -> response(200, body = """{"schema_version":1,"prompts":[]}""")
         else -> response(200, body = "<rss version=\"2.0\"><channel></channel></rss>")
     }

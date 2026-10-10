@@ -817,6 +817,17 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    if (item.category?.id == "visual-tricks") {
+                        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
+                            Text(
+                                "خداع بصري / تلاعب",
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                     item.targetPlatforms().forEach { platform ->
                         Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
                             Text(platform, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)

@@ -182,7 +182,12 @@ class PublicSourceSyncCoordinator(
             if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "factverse-science") return@flatMap emptyList()
             section.getAsJsonArray("items")?.mapNotNull(::remoteFactVerseNewsItem).orEmpty()
         }.orEmpty()
-        return promptItems + dealItems + factVerseItems
+        val photoManipulationItems = feed.getAsJsonArray("sections")?.flatMap { sectionElement ->
+            val section = sectionElement.takeIf { it.isJsonObject }?.asJsonObject ?: return@flatMap emptyList()
+            if (section.get("id")?.takeIf { it.isJsonPrimitive }?.asString != "PHOTO_MANIPULATION") return@flatMap emptyList()
+            section.getAsJsonArray("items")?.mapNotNull(::remotePromptItem).orEmpty()
+        }.orEmpty()
+        return promptItems + dealItems + factVerseItems + photoManipulationItems
     }
 
     private fun remotePromptItem(element: com.google.gson.JsonElement): ContentItem? {

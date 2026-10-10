@@ -33,6 +33,60 @@ FACTVERSE_SECTION_TITLE = "🌌 FactVerse (Science, Future & AI)"
 FACTVERSE_CATEGORY_ID = "factverse"
 FACTVERSE_MAX_ITEMS = 70
 FACTVERSE_RETENTION_DAYS = 180
+PHOTO_MANIPULATION_SECTION_ID = "PHOTO_MANIPULATION"
+PHOTO_MANIPULATION_SECTION_TITLE = "📸 صورة وفوتوغرافي — خداع بصري / تلاعب"
+PHOTO_MANIPULATION_CATEGORY_ID = "visual-tricks"
+PHOTO_MANIPULATION_CATEGORY_NAME = "📸 صورة وفوتوغرافي"
+PHOTO_MANIPULATION_MAX_ITEMS = 60
+PHOTO_MANIPULATION_RETENTION_DAYS = 45
+PHOTO_MANIPULATION_QUERIES = (
+    (
+        "optical illusion forced perspective photography",
+        "خدعة المنظور القسري العملاق",
+        "صورة فوتوغرافية توهم بضخامة عنصر قريب أو بُعد عنصر بعيد عبر محاذاة دقيقة بين مقدمة المشهد وخلفيته.",
+    ),
+    (
+        "surreal photo manipulation double exposure",
+        "دمج تعريض مزدوج بين البورتريه والغابة",
+        "بورتريه سريالي يمزج ملامح الوجه مع طبقات غابة بتعريض مزدوج متوازن يحافظ على وضوح الشخصية.",
+    ),
+    (
+        "tilt shift miniature dioramas photorealistic",
+        "تأثير تيلت شيفت للعالم المصغر",
+        "مشهد واقعي يبدو كأنه مجسم مصغر باستخدام منظور مرتفع وعمق ميدان ضحل وانتقائية التركيز.",
+    ),
+    (
+        "levitation surreal portrait cinematic",
+        "بورتريه سريالي لشخصية تحلّق",
+        "بورتريه سينمائي يوحي بالتحليق مع ظلال واتزان بصري واقعيين يثبتان الشخصية داخل المكان.",
+    ),
+)
+PHOTO_MANIPULATION_TEMPLATES = (
+    (
+        "photo-manipulation-forced-perspective",
+        "خدعة المنظور القسري العملاق",
+        "لقطة فوتوغرافية تجعل شخصاً يبدو كأنه يمسك مبنى عملاقاً بين أصابعه عبر محاذاة المنظور القسري.",
+        "Create a photorealistic forced-perspective photograph in which [SUBJECT] appears to hold a monumental [LANDMARK] between two fingers. Precisely align the foreground hand close to the camera with the distant landmark on the same visual axis; use a low camera angle and deliberate camera-to-subject spacing so the scale illusion reads instantly while anatomy and architecture remain undistorted. Shoot on a 35mm lens at f/8 for enough depth to keep both the hand and landmark convincingly sharp. Use warm late-afternoon side light, a soft fill bounce, realistic contact shadows, atmospheric depth, natural skin texture, and restrained editorial color grading. Keep the horizon level, preserve believable perspective convergence, and avoid extra fingers, duplicate subjects, text, logos, and watermarks.",
+    ),
+    (
+        "photo-manipulation-double-exposure",
+        "دمج تعريض مزدوج بين البورتريه والغابة",
+        "بورتريه تحريري يدمج صورة الشخصية مع غابة ضبابية بتعريض مزدوج وطبقات ضوئية متوازنة.",
+        "Create a refined surreal double-exposure portrait of [SUBJECT], blending a misty old-growth forest into the silhouette and facial tones without obscuring recognizable features. Photograph the portrait on an 85mm lens at f/2 with a clean three-quarter profile, then composite the forest canopy and trunks as a controlled secondary exposure contained within the silhouette; retain natural skin highlights and smooth tonal transitions. Use a large soft key light at 45 degrees, subtle cool rim light, and deep but detailed shadows. Balance both exposures, preserve fine hair edges, add restrained atmospheric haze, and use a cinematic forest-green and neutral-skin palette. No hard cutout halos, extra faces, text, logos, or watermarks.",
+    ),
+    (
+        "photo-manipulation-tilt-shift",
+        "تأثير تيلت شيفت للعالم المصغر",
+        "منظر مدينة واقعي بتأثير تيلت شيفت يوحي بأنه مجسم ديوراما مصغر مصنوع يدوياً.",
+        "Photograph a photorealistic miniature-diorama illusion of [CITY OR SCENE] from an elevated oblique viewpoint. Use a 35mm lens with a controlled tilt-shift focus plane: keep a narrow horizontal band of miniature buildings crisp while foreground and distant background fall into smooth optical blur. Favor a high three-quarter camera angle, precise scale cues, tiny believable people and vehicles, and realistic model-making detail rather than toy-like exaggeration. Light the scene with soft overcast daylight and a gentle warm directional accent, preserving contact shadows and consistent reflections. Apply subtle saturation and natural color, maintain architectural geometry, and avoid artificial blur halos, text, logos, and watermarks.",
+    ),
+    (
+        "photo-manipulation-levitation",
+        "بورتريه سريالي لشخصية تحلّق",
+        "بورتريه سينمائي لشخص يطفو فوق أرضية الاستوديو مع ظلال وإضاءة واتزان فيزيائي مقنع.",
+        "Create a cinematic photorealistic levitation portrait of [SUBJECT] floating calmly above a dark studio floor, with clothing and hair responding subtly to gravity and air movement. Frame a clean full-body composition on an 85mm lens at f/2.8 from a slightly low three-quarter angle; keep the subject's center of mass believable and leave visible negative space beneath the feet. Use a broad diffused key light from camera left, a cool rim light behind the shoulders, and a faint floor bounce; add a soft, correctly offset floor shadow and restrained atmospheric haze to anchor the scene. Preserve natural anatomy, fabric detail, and realistic motion cues. Hide all support rigs and remove extra limbs, text, logos, and watermarks.",
+    ),
+)
 REDDIT_FEEDS = {
     "reddit-freebies": ("r/Freebies", "https://www.reddit.com/r/Freebies/new/.rss?limit=100"),
     "reddit-ai": ("r/ArtificialInteligence", "https://www.reddit.com/r/ArtificialInteligence/new/.rss?limit=100"),
@@ -170,8 +224,15 @@ for offer in OFFERS:
         offer["description"], offer["free_limit"] = OFFER_DETAILS[offer["id"]]
 
 
-def fetch_json(url: str) -> dict:
-    request = Request(url, headers={"User-Agent": "MersadAI-PromptFeed/1.0", "Accept": "application/json"})
+def fetch_json(
+    url: str,
+    user_agent: str = "MersadAI-PromptFeed/1.0",
+    headers: dict | None = None,
+) -> dict:
+    request_headers = {"User-Agent": user_agent, "Accept": "application/json"}
+    if headers:
+        request_headers.update(headers)
+    request = Request(url, headers=request_headers)
     with urlopen(request, timeout=30) as response:
         if response.status != 200:
             raise RuntimeError(f"Unexpected HTTP status {response.status} from {url}")
@@ -382,6 +443,168 @@ def discover_factverse_articles(now_ms: int) -> tuple[list[dict], int]:
             print(f"Warning: could not read FactVerse source {source_name}: {error}", file=sys.stderr)
     unique = {article["id"]: article for article in discovered}
     return list(unique.values()), successful_sources
+
+
+def parse_lexica_illusion_prompts(payload: dict, query: str, now_ms: int) -> list[dict]:
+    query_details = next((details for details in PHOTO_MANIPULATION_QUERIES if details[0] == query), None)
+    if query_details is None:
+        raise ValueError(f"Unknown photo-manipulation query: {query}")
+    _, title, description = query_details
+    results = payload.get("images", [])
+    if not isinstance(results, list):
+        return []
+    prompts = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        prompt_text = str(result.get("prompt") or "").strip()
+        if not prompt_text or len(prompt_text) > 12000:
+            continue
+        external_id = str(result.get("id") or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:20])
+        prompts.append(
+            _photo_manipulation_prompt(
+                item_id=f"lexica-illusion-{external_id}",
+                title=title,
+                description=description,
+                prompt=prompt_text,
+                url="https://lexica.art/?q=" + urlencode({"q": query})[2:],
+                source_tag="Lexica",
+                published_at=now_ms,
+            ),
+        )
+    return prompts
+
+
+def parse_reddit_illusion_prompts(payload: dict, now_ms: int) -> list[dict]:
+    posts = payload.get("data", {}).get("children", [])
+    if not isinstance(posts, list):
+        return []
+    prompts = []
+    for post_entry in posts:
+        post = post_entry.get("data") if isinstance(post_entry, dict) else None
+        if not isinstance(post, dict):
+            continue
+        prompt_text = str(post.get("selftext") or "").strip()
+        if not prompt_text or prompt_text in {"[deleted]", "[removed]"} or len(prompt_text) > 12000:
+            continue
+        if not re.search(r"illusion|surreal|perspective|double[\s-]?exposure|tilt[\s-]?shift|levitat", prompt_text, re.IGNORECASE):
+            continue
+        post_id = str(post.get("id") or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:20])
+        title = _plain_text(str(post.get("title") or "Prompt illusion surrealism"))
+        permalink = str(post.get("permalink") or "")
+        published_at = int(float(post.get("created_utc", now_ms / 1000)) * 1000)
+        prompts.append(
+            _photo_manipulation_prompt(
+                item_id=f"reddit-illusion-{post_id}",
+                title=f"إلهام خداع بصري من Reddit: {title}",
+                description="برومبت مجتمعي مستوحى من منشور Reddit؛ افتح رابط المنشور لمراجعة السياق الأصلي.",
+                prompt=prompt_text,
+                url=urljoin("https://www.reddit.com", permalink) if permalink else "https://www.reddit.com/search/?q=flair%3APrompt%20illusion%20surrealism",
+                source_tag="Reddit",
+                published_at=published_at,
+            ),
+        )
+    return prompts
+
+
+def _photo_manipulation_prompt(
+    *,
+    item_id: str,
+    title: str,
+    description: str,
+    prompt: str,
+    url: str,
+    source_tag: str,
+    published_at: int,
+) -> dict:
+    return {
+        "id": item_id,
+        "title": title,
+        "description": description,
+        "prompt_type": "image-generation",
+        "category_id": PHOTO_MANIPULATION_CATEGORY_ID,
+        "category_name": PHOTO_MANIPULATION_CATEGORY_NAME,
+        "prompt": prompt,
+        "language": "en",
+        "tags": [PHOTO_MANIPULATION_CATEGORY_NAME, "خداع بصري / تلاعب", "optical-illusion", "photo-manipulation", source_tag],
+        "url": url,
+        "published_at": published_at,
+    }
+
+
+def discover_photo_manipulation_prompts(now_ms: int) -> tuple[list[dict], int]:
+    discovered = []
+    successful_sources = 0
+    for query, _, _ in PHOTO_MANIPULATION_QUERIES:
+        try:
+            query_url = "https://lexica.art/api/v1/search?" + urlencode({"q": query})
+            discovered.extend(
+                parse_lexica_illusion_prompts(
+                    fetch_json(
+                        query_url,
+                        headers={
+                            "Referer": "https://lexica.art/",
+                            "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0; +https://github.com/mhyb4243-lgtm/mersad-ai-android)",
+                        },
+                    ),
+                    query,
+                    now_ms,
+                ),
+            )
+            successful_sources += 1
+        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
+            print(f"Warning: could not read Lexica photo-manipulation search {query!r}: {error}", file=sys.stderr)
+    reddit_url = "https://www.reddit.com/search.json?" + urlencode(
+        {"q": "flair:Prompt illusion surrealism", "sort": "new", "limit": 50},
+    )
+    try:
+        discovered.extend(
+            parse_reddit_illusion_prompts(fetch_json(reddit_url, user_agent="MersadAI/1.0"), now_ms),
+        )
+        successful_sources += 1
+    except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
+        print(f"Warning: could not read Reddit illusion search: {error}", file=sys.stderr)
+    unique = {prompt["id"]: prompt for prompt in discovered}
+    return list(unique.values()), successful_sources
+
+
+def build_photo_manipulation_section(
+    previous_sections: list[dict],
+    discovered: list[dict],
+    now_ms: int,
+) -> dict:
+    existing = next(
+        (section for section in previous_sections if section.get("id") == PHOTO_MANIPULATION_SECTION_ID),
+        {},
+    )
+    cutoff = now_ms - PHOTO_MANIPULATION_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    prompts = {
+        prompt["id"]: prompt
+        for prompt in existing.get("items", [])
+        if prompt.get("id")
+        and (
+            str(prompt["id"]).startswith("photo-manipulation-")
+            or int(prompt.get("published_at", 0)) >= cutoff
+        )
+    }
+    prompts.update({prompt["id"]: prompt for prompt in discovered if prompt.get("id")})
+    for item_id, title, description, prompt_text in PHOTO_MANIPULATION_TEMPLATES:
+        previous = prompts.get(item_id, {})
+        prompts[item_id] = _photo_manipulation_prompt(
+            item_id=item_id,
+            title=title,
+            description=description,
+            prompt=prompt_text,
+            url="https://lexica.art/",
+            source_tag="MersadAI",
+            published_at=int(previous.get("published_at", now_ms)),
+        )
+    ordered = sorted(prompts.values(), key=lambda prompt: int(prompt.get("published_at", 0)), reverse=True)
+    return {
+        "id": PHOTO_MANIPULATION_SECTION_ID,
+        "title": PHOTO_MANIPULATION_SECTION_TITLE,
+        "items": ordered[:PHOTO_MANIPULATION_MAX_ITEMS],
+    }
 
 
 def build_factverse_section(
@@ -597,6 +820,20 @@ def validate_feed(feed: dict) -> None:
     for section in sections:
         if not isinstance(section.get("items"), list):
             raise ValueError(f"section {section.get('id')} must contain an items array")
+    photo_manipulation_section = next(
+        (section for section in sections if section.get("id") == PHOTO_MANIPULATION_SECTION_ID),
+        None,
+    )
+    if photo_manipulation_section:
+        if photo_manipulation_section.get("title") != PHOTO_MANIPULATION_SECTION_TITLE:
+            raise ValueError("Photo manipulation section has an unexpected title")
+        for prompt in photo_manipulation_section["items"]:
+            if not all(prompt.get(key) for key in ("id", "title", "description", "prompt", "url")):
+                raise ValueError("each photo-manipulation prompt must include its title, description, prompt, and URL")
+            if prompt.get("category_id") != PHOTO_MANIPULATION_CATEGORY_ID:
+                raise ValueError(f"photo-manipulation prompt {prompt['id']} must use the visual-tricks category")
+            if PHOTO_MANIPULATION_CATEGORY_NAME not in prompt.get("tags", []) or "خداع بصري / تلاعب" not in prompt.get("tags", []):
+                raise ValueError(f"photo-manipulation prompt {prompt['id']} is missing its photography or illusion tags")
     factverse_section = next((section for section in sections if section.get("id") == FACTVERSE_SECTION_ID), None)
     if factverse_section:
         if factverse_section.get("title") != FACTVERSE_SECTION_TITLE:
@@ -656,21 +893,29 @@ def main() -> None:
     prompts = fetch_prompts(feed["prompts"], now_ms)
     community_deals, successful_sources = discover_community_deals(now_ms)
     factverse_articles, successful_factverse_sources = discover_factverse_articles(now_ms)
+    photo_manipulation_prompts, successful_photo_sources = discover_photo_manipulation_prompts(now_ms)
     if successful_sources == 0:
         raise RuntimeError("No community deal source could be fetched; feed was not updated")
     deal_section, verified_count = build_deals(feed.get("sections", []), community_deals, now_ms)
     factverse_section = build_factverse_section(feed.get("sections", []), factverse_articles, now_ms)
+    photo_manipulation_section = build_photo_manipulation_section(
+        feed.get("sections", []),
+        photo_manipulation_prompts,
+        now_ms,
+    )
     sections = [
         section for section in feed["sections"]
-        if section.get("id") not in {SECTION_ID, FACTVERSE_SECTION_ID}
+        if section.get("id") not in {SECTION_ID, FACTVERSE_SECTION_ID, PHOTO_MANIPULATION_SECTION_ID}
     ]
-    sections.extend((deal_section, factverse_section))
+    sections.extend((deal_section, factverse_section, photo_manipulation_section))
     updated = {**feed, "schema_version": 3, "prompts": prompts, "sections": sections}
     validate_feed(updated)
     FEED_PATH.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(
         f"Updated {len(prompts)} prompts, {len(deal_section['items'])} deals and "
-        f"{len(factverse_section['items'])} FactVerse articles from {successful_factverse_sources} science sources; "
+        f"{len(factverse_section['items'])} FactVerse articles from {successful_factverse_sources} science sources, "
+        f"and {len(photo_manipulation_section['items'])} photo-manipulation prompts from "
+        f"{successful_photo_sources} live sources; "
         f"verified {verified_count} official pages.",
     )
 

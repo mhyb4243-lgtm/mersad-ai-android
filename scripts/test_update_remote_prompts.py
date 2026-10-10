@@ -147,6 +147,92 @@ class FactVerseFeedTests(unittest.TestCase):
             {item["id"] for item in result},
         )
 
+    def test_photo_manipulation_section_contains_professional_curated_templates(self):
+        section = updater.build_photo_manipulation_section([], [], 1_797_000_000_000)
+
+        self.assertEqual("PHOTO_MANIPULATION", section["id"])
+        self.assertEqual(4, len(section["items"]))
+        templates = {item["id"]: item for item in section["items"]}
+        self.assertEqual(
+            {
+                "photo-manipulation-forced-perspective": "خدعة المنظور القسري العملاق",
+                "photo-manipulation-double-exposure": "دمج تعريض مزدوج بين البورتريه والغابة",
+                "photo-manipulation-tilt-shift": "تأثير تيلت شيفت للعالم المصغر",
+                "photo-manipulation-levitation": "بورتريه سريالي لشخصية تحلّق",
+            },
+            {item_id: item["title"] for item_id, item in templates.items()},
+        )
+        all_prompts = " ".join(item["prompt"] for item in templates.values())
+        self.assertIn("35mm", all_prompts)
+        self.assertIn("85mm", all_prompts)
+        for item in templates.values():
+            self.assertEqual("visual-tricks", item["category_id"])
+            self.assertEqual("📸 صورة وفوتوغرافي", item["category_name"])
+            self.assertIn("📸 صورة وفوتوغرافي", item["tags"])
+            self.assertIn("خداع بصري / تلاعب", item["tags"])
+            self.assertIn("light", item["prompt"].lower())
+
+        updater.validate_feed(
+            {
+                "schema_version": 3,
+                "prompts": [],
+                "sections": [
+                    {"id": updater.SECTION_ID, "title": updater.SECTION_TITLE, "items": []},
+                    section,
+                ],
+            },
+        )
+
+    def test_lexica_and_reddit_live_prompts_are_normalized_to_photo_category(self):
+        query = updater.PHOTO_MANIPULATION_QUERIES[0][0]
+        lexica = updater.parse_lexica_illusion_prompts(
+            {"images": [{"id": "lexica-1", "prompt": "A forced perspective optical illusion portrait"}]},
+            query,
+            1000,
+        )[0]
+        reddit = updater.parse_reddit_illusion_prompts(
+            {
+                "data": {
+                    "children": [
+                        {
+                            "data": {
+                                "id": "reddit-1",
+                                "title": "Surreal perspective prompt",
+                                "selftext": "Create a surreal perspective portrait with cinematic lighting.",
+                                "permalink": "/r/example/comments/reddit-1/prompt/",
+                                "created_utc": 1,
+                            },
+                        },
+                    ],
+                },
+            },
+            1000,
+        )[0]
+
+        self.assertEqual("lexica-illusion-lexica-1", lexica["id"])
+        self.assertEqual("visual-tricks", lexica["category_id"])
+        self.assertEqual("https://www.reddit.com/r/example/comments/reddit-1/prompt/", reddit["url"])
+        self.assertEqual(1000, reddit["published_at"])
+        self.assertEqual(["Lexica", "Reddit"], [lexica["tags"][-1], reddit["tags"][-1]])
+
+    @patch("update_remote_prompts.fetch_json")
+    def test_photo_manipulation_discovery_uses_lexica_queries_and_reddit_user_agent(self, fetch_json):
+        fetch_json.return_value = {"images": []}
+        now_ms = 1_797_000_000_000
+
+        prompts, successful_sources = updater.discover_photo_manipulation_prompts(now_ms)
+
+        self.assertEqual(5, successful_sources)
+        self.assertEqual([], prompts)
+        self.assertEqual(5, fetch_json.call_count)
+        for call, (query, _, _) in zip(fetch_json.call_args_list, updater.PHOTO_MANIPULATION_QUERIES):
+            self.assertIn("q=" + query.replace(" ", "+"), call.args[0])
+            self.assertEqual(1, len(call.args))
+            self.assertEqual("https://lexica.art/", call.kwargs["headers"]["Referer"])
+            self.assertIn("Mozilla/5.0", call.kwargs["headers"]["User-Agent"])
+        self.assertIn("flair%3APrompt+illusion+surrealism", fetch_json.call_args.args[0])
+        self.assertEqual("MersadAI/1.0", fetch_json.call_args.kwargs["user_agent"])
+
 
 if __name__ == "__main__":
     unittest.main()

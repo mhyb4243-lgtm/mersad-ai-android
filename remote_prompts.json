@@ -31,7 +31,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://runwayml.com/pricing",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         },
         {
           "id": "kling-free-tier",
@@ -59,7 +59,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://klingai.com/membership",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         },
         {
           "id": "pika-free-tier",
@@ -87,7 +87,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://pika.art/pricing",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         },
         {
           "id": "elevenlabs-free-tier",
@@ -115,7 +115,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://elevenlabs.io/pricing",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         },
         {
           "id": "leonardo-free-tier",
@@ -170,7 +170,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://suno.com/pricing",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         },
         {
           "id": "chatgpt-free-tier",
@@ -279,7 +279,7 @@
           "verified_date": "2026-10-10",
           "source_url": "https://console.groq.com/keys",
           "source_name": "Official provider",
-          "verified_at": 1791609774407
+          "verified_at": 1791623118453
         }
       ]
     },
@@ -1686,6 +1686,88 @@
           ],
           "visual_prompt": "Create a high-contrast sci-tech split-screen editorial image about \"US Launches $215 Million Race to Build an Error-Corrected Quantum Computer by 2028\". LEFT PANEL: accurately visualize the reported scientific mechanism: \"A government-funded competition would award prizes for quantum computers that do useful work no supercomputer can touch. The post US Launches $215 Million Race to Build an Error-Corrected Quantum Computer by 2028 appeared first on SingularityHub .\". RIGHT PANEL: show a plausible, grounded future impact of the same discovery. Use a precise vertical split with one shared subject bridging both sides, midnight-navy shadows, electric-cyan and amber highlights, soft cinematic lighting, crisp rim light, controlled volumetric haze, photoreal materials, 35mm lens perspective, premium science-magazine art direction. No text, logos, watermark, or unsupported scientific claims.",
           "reels_script": "Scene 1 (0-10s): Hook & Visual — Open on a striking close-up of \"US Launches $215 Million Race to Build an Error-Corrected Quantum Computer by 2028\", then reveal the central visual contrast with a controlled push-in. Voiceover: \"What if this discovery changes how we understand the world?\"\nScene 2 (10-20s): Science Breakdown — Explain the reported finding plainly: \"A government-funded competition would award prizes for quantum computers that do useful work no supercomputer can touch. The post US Launches $215 Million Race to Build an Error-Corrected Quantum Computer by 2028 appeared first on SingularityHub .\". Use one evidence-led visualization and a steady camera. Voiceover: \"Here is the science, and what researchers have actually found.\"\nScene 3 (20-30s): Future Impact & Outro — Pull back to a grounded view of a possible application. End on a clean hero frame. Voiceover: \"The next chapter is still being written.\"\nEnd card: \"FactVerse • Explore The Future\""
+        }
+      ]
+    },
+    {
+      "id": "PHOTO_MANIPULATION",
+      "title": "📸 صورة وفوتوغرافي — خداع بصري / تلاعب",
+      "items": [
+        {
+          "id": "photo-manipulation-forced-perspective",
+          "title": "خدعة المنظور القسري العملاق",
+          "description": "لقطة فوتوغرافية تجعل شخصاً يبدو كأنه يمسك مبنى عملاقاً بين أصابعه عبر محاذاة المنظور القسري.",
+          "prompt_type": "image-generation",
+          "category_id": "visual-tricks",
+          "category_name": "📸 صورة وفوتوغرافي",
+          "prompt": "Create a photorealistic forced-perspective photograph in which [SUBJECT] appears to hold a monumental [LANDMARK] between two fingers. Precisely align the foreground hand close to the camera with the distant landmark on the same visual axis; use a low camera angle and deliberate camera-to-subject spacing so the scale illusion reads instantly while anatomy and architecture remain undistorted. Shoot on a 35mm lens at f/8 for enough depth to keep both the hand and landmark convincingly sharp. Use warm late-afternoon side light, a soft fill bounce, realistic contact shadows, atmospheric depth, natural skin texture, and restrained editorial color grading. Keep the horizon level, preserve believable perspective convergence, and avoid extra fingers, duplicate subjects, text, logos, and watermarks.",
+          "language": "en",
+          "tags": [
+            "📸 صورة وفوتوغرافي",
+            "خداع بصري / تلاعب",
+            "optical-illusion",
+            "photo-manipulation",
+            "MersadAI"
+          ],
+          "url": "https://lexica.art/",
+          "published_at": 1791622800600
+        },
+        {
+          "id": "photo-manipulation-double-exposure",
+          "title": "دمج تعريض مزدوج بين البورتريه والغابة",
+          "description": "بورتريه تحريري يدمج صورة الشخصية مع غابة ضبابية بتعريض مزدوج وطبقات ضوئية متوازنة.",
+          "prompt_type": "image-generation",
+          "category_id": "visual-tricks",
+          "category_name": "📸 صورة وفوتوغرافي",
+          "prompt": "Create a refined surreal double-exposure portrait of [SUBJECT], blending a misty old-growth forest into the silhouette and facial tones without obscuring recognizable features. Photograph the portrait on an 85mm lens at f/2 with a clean three-quarter profile, then composite the forest canopy and trunks as a controlled secondary exposure contained within the silhouette; retain natural skin highlights and smooth tonal transitions. Use a large soft key light at 45 degrees, subtle cool rim light, and deep but detailed shadows. Balance both exposures, preserve fine hair edges, add restrained atmospheric haze, and use a cinematic forest-green and neutral-skin palette. No hard cutout halos, extra faces, text, logos, or watermarks.",
+          "language": "en",
+          "tags": [
+            "📸 صورة وفوتوغرافي",
+            "خداع بصري / تلاعب",
+            "optical-illusion",
+            "photo-manipulation",
+            "MersadAI"
+          ],
+          "url": "https://lexica.art/",
+          "published_at": 1791622800600
+        },
+        {
+          "id": "photo-manipulation-tilt-shift",
+          "title": "تأثير تيلت شيفت للعالم المصغر",
+          "description": "منظر مدينة واقعي بتأثير تيلت شيفت يوحي بأنه مجسم ديوراما مصغر مصنوع يدوياً.",
+          "prompt_type": "image-generation",
+          "category_id": "visual-tricks",
+          "category_name": "📸 صورة وفوتوغرافي",
+          "prompt": "Photograph a photorealistic miniature-diorama illusion of [CITY OR SCENE] from an elevated oblique viewpoint. Use a 35mm lens with a controlled tilt-shift focus plane: keep a narrow horizontal band of miniature buildings crisp while foreground and distant background fall into smooth optical blur. Favor a high three-quarter camera angle, precise scale cues, tiny believable people and vehicles, and realistic model-making detail rather than toy-like exaggeration. Light the scene with soft overcast daylight and a gentle warm directional accent, preserving contact shadows and consistent reflections. Apply subtle saturation and natural color, maintain architectural geometry, and avoid artificial blur halos, text, logos, and watermarks.",
+          "language": "en",
+          "tags": [
+            "📸 صورة وفوتوغرافي",
+            "خداع بصري / تلاعب",
+            "optical-illusion",
+            "photo-manipulation",
+            "MersadAI"
+          ],
+          "url": "https://lexica.art/",
+          "published_at": 1791622800600
+        },
+        {
+          "id": "photo-manipulation-levitation",
+          "title": "بورتريه سريالي لشخصية تحلّق",
+          "description": "بورتريه سينمائي لشخص يطفو فوق أرضية الاستوديو مع ظلال وإضاءة واتزان فيزيائي مقنع.",
+          "prompt_type": "image-generation",
+          "category_id": "visual-tricks",
+          "category_name": "📸 صورة وفوتوغرافي",
+          "prompt": "Create a cinematic photorealistic levitation portrait of [SUBJECT] floating calmly above a dark studio floor, with clothing and hair responding subtly to gravity and air movement. Frame a clean full-body composition on an 85mm lens at f/2.8 from a slightly low three-quarter angle; keep the subject's center of mass believable and leave visible negative space beneath the feet. Use a broad diffused key light from camera left, a cool rim light behind the shoulders, and a faint floor bounce; add a soft, correctly offset floor shadow and restrained atmospheric haze to anchor the scene. Preserve natural anatomy, fabric detail, and realistic motion cues. Hide all support rigs and remove extra limbs, text, logos, and watermarks.",
+          "language": "en",
+          "tags": [
+            "📸 صورة وفوتوغرافي",
+            "خداع بصري / تلاعب",
+            "optical-illusion",
+            "photo-manipulation",
+            "MersadAI"
+          ],
+          "url": "https://lexica.art/",
+          "published_at": 1791622800600
         }
       ]
     }

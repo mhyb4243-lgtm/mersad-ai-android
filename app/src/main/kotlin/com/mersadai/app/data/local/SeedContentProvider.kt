@@ -23,10 +23,23 @@ object SeedContentProvider {
         addAll(creativeTrendPrompts(now))
         addAll(btsPrompts(now))
         addAll(cinematicCategoryPrompts(now))
-    }
+    }.withoutSourceDates()
 
     fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
-        androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now) + cinematicCategoryPrompts(now)
+        (androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now) + cinematicCategoryPrompts(now))
+            .withoutSourceDates()
+
+    private fun List<ContentItem>.withoutSourceDates(): List<ContentItem> = map { item ->
+        item.copy(
+            lastVerifiedAt = null,
+            createdAt = null,
+            updatedAt = null,
+            fetchedAt = null,
+            publishedAt = null,
+            sourceUpdatedAt = null,
+            pushedAt = null,
+        )
+    }
     private fun btsPrompts(now: Long): List<ContentItem> = listOf(
         creatorPrompt(
             "seed-bts-director-monitor", "كواليس شاشة المخرج ومراجعة اللقطة",
@@ -547,7 +560,6 @@ object SeedContentProvider {
             lastVerifiedAt = now - 5 * 24 * 60 * 60 * 1000,
             createdAt = now - 40L * 24 * 60 * 60 * 1000,
             updatedAt = now - 5 * 24 * 60 * 60 * 1000,
-            sourceUpdatedAt = now - 5 * 24 * 60 * 60 * 1000,
             tags = listOf("text-to-image", "portrait", "cinematic", "lighting"),
             promptType = "text-to-image",
         ),
@@ -566,7 +578,6 @@ object SeedContentProvider {
             lastVerifiedAt = now - 6 * 24 * 60 * 60 * 1000,
             createdAt = now - 42L * 24 * 60 * 60 * 1000,
             updatedAt = now - 6 * 24 * 60 * 60 * 1000,
-            sourceUpdatedAt = now - 6 * 24 * 60 * 60 * 1000,
             tags = listOf("text-to-image", "product-shot", "studio", "luxury"),
             promptType = "image-editing",
         ),
@@ -585,7 +596,6 @@ object SeedContentProvider {
             lastVerifiedAt = now - 7 * 24 * 60 * 60 * 1000,
             createdAt = now - 44L * 24 * 60 * 60 * 1000,
             updatedAt = now - 7 * 24 * 60 * 60 * 1000,
-            sourceUpdatedAt = now - 7 * 24 * 60 * 60 * 1000,
             tags = listOf("text-to-image", "architecture", "dusk", "cinematic"),
             promptType = "text-to-image",
         ),
@@ -604,7 +614,6 @@ object SeedContentProvider {
             lastVerifiedAt = now - 8 * 24 * 60 * 60 * 1000,
             createdAt = now - 46L * 24 * 60 * 60 * 1000,
             updatedAt = now - 8 * 24 * 60 * 60 * 1000,
-            sourceUpdatedAt = now - 8 * 24 * 60 * 60 * 1000,
             tags = listOf("text-to-image", "fashion", "editorial", "portrait"),
             promptType = "image-editing",
         ),

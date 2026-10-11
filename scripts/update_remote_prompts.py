@@ -48,7 +48,7 @@ HUGGINGFACE_PROMPT_METADATA_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/mai
 HUGGINGFACE_PROMPT_IMAGE_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/main/"
 HUGGINGFACE_PROMPT_TAIL_BYTES = 4 * 1024 * 1024
 PHOTO_MANIPULATION_API_URL = (
-    "https://civitai.com/api/v1/images?limit=20&sort=Most+Reactions&nsfw=None"
+    "https://civitai.com/api/v1/images?limit=20&sort=Most+Reactions&nsfw=None&withMeta=true"
 )
 PHOTO_MANIPULATION_PROMPT_PATTERN = re.compile(
     r"\b(?:illusion|optical illusion|surreal(?:ism|istic)?|forced perspective|double exposure|"
@@ -226,7 +226,7 @@ for offer in OFFERS:
 
 
 def fetch_json(
-    url: str,
+    url: str | None,
     user_agent: str = "MersadAI-PromptFeed/1.0",
     headers: dict | None = None,
 ) -> dict:
@@ -279,7 +279,7 @@ def _plain_text(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
 
 
-def _published_timestamp(value: str, fallback: int) -> int:
+def _published_timestamp(value: str, fallback: int | None = None) -> int | None:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -322,7 +322,7 @@ def _deal_record(
     source_id: str,
     source_name: str,
     source_url: str,
-    published_at: int,
+    published_at: int | None,
     now_ms: int,
 ) -> dict:
     combined_text = f"{title} {description}"
@@ -330,7 +330,7 @@ def _deal_record(
     canonical = urlparse(deal_url)
     identity = f"{provider.lower()}|{canonical.netloc.lower()}{canonical.path.rstrip('/')}"
     deal_id = "community-" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
-    age_ms = now_ms - published_at
+    age_ms = now_ms - published_at if published_at is not None else None
     return {
         "id": deal_id,
         "title": title[:240],
@@ -348,7 +348,7 @@ def _deal_record(
         "category_name": DEAL_CATEGORY_NAME,
         "published_at": published_at,
         "verified_date": datetime.fromtimestamp(now_ms / 1000, timezone.utc).date().isoformat(),
-        "is_active": 0 <= age_ms <= ACTIVE_DEAL_DAYS * 24 * 60 * 60 * 1000,
+        "is_active": age_ms is not None and 0 <= age_ms <= ACTIVE_DEAL_DAYS * 24 * 60 * 60 * 1000,
         "free_status": "FREE_CREDIT" if re.search(r"credit|token", combined_text, re.IGNORECASE) else "TEMPORARY_OFFER",
         "tags": ["ai-deal", "community", source_id],
     }
@@ -389,7 +389,7 @@ def parse_rss_deals(xml_body: str, source_id: str, source_name: str, now_ms: int
         if not deal_url:
             continue
         published = next((fields[key] for key in ("published", "updated", "pubdate") if fields.get(key)), "")
-        published_at = _published_timestamp(published, now_ms)
+        published_at = _published_timestamp(published)
         deals.append(
             _deal_record(
                 title=title,
@@ -432,7 +432,7 @@ def parse_science_rss(xml_body: str, source_id: str, source_name: str, now_ms: i
             continue
         description = _plain_text(" ".join(fields.get(key, "") for key in ("summary", "description", "content")))
         published = next((fields[key] for key in ("published", "updated", "pubdate") if fields.get(key)), "")
-        published_at = _published_timestamp(published, now_ms)
+        published_at = _published_timestamp(published)
         guid = fields.get("guid") or fields.get("id") or url
         external_id = f"{source_id}-{hashlib.sha256(f'{source_id}|{guid}|{url}'.encode('utf-8')).hexdigest()[:20]}"
         articles.append(
@@ -489,16 +489,20 @@ def parse_lexica_illusion_prompts(payload: dict, query: str, now_ms: int) -> lis
         if not prompt_text or len(prompt_text) > 12000:
             continue
         external_id = str(result.get("id") or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:20])
+        candidate_url = str(result.get("url") or result.get("href") or "").strip()
+        parsed_url = urlparse(candidate_url)
+        source_url = candidate_url if parsed_url.scheme == "https" and parsed_url.hostname in {"lexica.art", "www.lexica.art"} else None
         prompts.append(
             _photo_manipulation_prompt(
                 item_id=f"lexica-illusion-{external_id}",
                 title=title,
                 description=description,
                 prompt=prompt_text,
-                url="https://lexica.art/?q=" + quote_plus(query),
+                url=source_url,
                 source_tag="Lexica",
-                published_at=now_ms,
+                published_at=_published_timestamp(str(result.get("createdAt") or result.get("date") or "")),
                 thumbnail_url=str(result.get("src") or "").strip() or None,
+                source_url=source_url,
             ),
         )
     return prompts
@@ -517,16 +521,21 @@ def parse_civitai_illusion_prompts(payload: dict, now_ms: int) -> list[dict]:
         image_url = str(item.get("url") or "").strip()
         if not prompt_text or len(prompt_text) > 12000 or not image_url.startswith("https://"):
             continue
+        image_id = str(item.get("id") or "").strip()
+        if not image_id:
+            continue
+        post_url = f"https://civitai.com/images/{image_id}"
         prompts.append(
             _photo_manipulation_prompt(
-                item_id=f"civitai-illusion-{item.get('id') or hashlib.sha256(prompt_text.encode('utf-8')).hexdigest()[:20]}",
+                item_id=f"civitai-illusion-{image_id}",
                 title="برومبت خداع بصري من Civitai",
                 description="برومبت صورة حي من بيانات Civitai العامة؛ قد تختلف إمكانية فتح الصورة حسب المصدر.",
                 prompt=prompt_text,
-                url=image_url,
+                url=post_url,
                 source_tag="Civitai",
-                published_at=now_ms,
+                published_at=_published_timestamp(str(item.get("createdAt") or "")),
                 thumbnail_url=image_url,
+                source_url=post_url,
             ),
         )
     return prompts
@@ -572,10 +581,10 @@ def parse_huggingface_illusion_prompts(jsonl: str, now_ms: int) -> list[dict]:
             prompt=prompt_text,
             url=source_url,
             source_tag="Goku-OpenLab",
-            published_at=_published_timestamp(str(record.get("date") or ""), now_ms),
+            published_at=_published_timestamp(str(record.get("date") or "")),
             thumbnail_url=HUGGINGFACE_PROMPT_IMAGE_URL + quote(image_path, safe="/"),
+            source_url=source_url,
         )
-        item["source_url"] = HUGGINGFACE_PROMPT_DATASET_URL
         item["attribution"] = "Goku-OpenLab, GPT Image 2 Prompt Dataset (CC BY 4.0)"
         prompts.append(item)
         if len(prompts) >= 20:
@@ -641,7 +650,7 @@ def discover_huggingface_spaces() -> tuple[list[dict], bool]:
                 "tags": [str(tag) for tag in tags if tag],
                 "likes": space.get("likes"),
                 "sdk": space.get("sdk"),
-                "published_at": _published_timestamp(str(space.get("createdAt") or ""), now_ms),
+                "published_at": _published_timestamp(str(space.get("createdAt") or "")),
                 "source_name": "Hugging Face Spaces",
             },
         )
@@ -656,8 +665,9 @@ def _photo_manipulation_prompt(
     prompt: str,
     url: str,
     source_tag: str,
-    published_at: int,
+    published_at: int | None,
     thumbnail_url: str | None = None,
+    source_url: str | None = None,
 ) -> dict:
     item = {
         "id": item_id,
@@ -669,9 +679,13 @@ def _photo_manipulation_prompt(
         "prompt": prompt,
         "language": "en",
         "tags": [PHOTO_MANIPULATION_CATEGORY_NAME, "خداع بصري / تلاعب", "optical-illusion", "photo-manipulation", source_tag],
-        "url": url,
-        "published_at": published_at,
     }
+    if url and url.startswith("https://"):
+        item["url"] = url
+    if published_at is not None:
+        item["published_at"] = published_at
+    if source_url and source_url.startswith("https://"):
+        item["source_url"] = source_url
     if thumbnail_url and thumbnail_url.startswith("https://"):
         item["thumbnail_url"] = thumbnail_url
     return item
@@ -751,15 +765,14 @@ def build_photo_manipulation_section(
     }
     prompts.update({prompt["id"]: prompt for prompt in discovered if prompt.get("id")})
     for item_id, title, description, prompt_text in PHOTO_MANIPULATION_TEMPLATES:
-        previous = prompts.get(item_id, {})
         prompts[item_id] = _photo_manipulation_prompt(
             item_id=item_id,
             title=title,
             description=description,
             prompt=prompt_text,
-            url="https://lexica.art/",
+            url=None,
             source_tag="MersadAI",
-            published_at=int(previous.get("published_at", now_ms)),
+            published_at=None,
         )
     ordered = sorted(prompts.values(), key=lambda prompt: int(prompt.get("published_at", 0)), reverse=True)
     return {
@@ -833,7 +846,7 @@ def parse_github_deals(markdown: str, now_ms: int) -> list[dict]:
                     source_id="github-free-llm-api-resources",
                     source_name="GitHub: free-llm-api-resources",
                     source_url=GITHUB_DEALS_URL,
-                    published_at=now_ms,
+                    published_at=None,
                     now_ms=now_ms,
                 ),
             )
@@ -861,7 +874,6 @@ def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
     rows_query = urlencode({"dataset": DATASET, "config": "default", "split": "train", "offset": offset, "length": PAGE_SIZE})
     rows = fetch_json(f"{DATASET_ROWS_URL}?{rows_query}").get("rows", [])
 
-    old_by_id = {item.get("id"): item for item in existing if item.get("id")}
     refreshed = []
     for record in rows:
         row = record.get("row") or {}
@@ -871,7 +883,6 @@ def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
         if not title or not prompt or row_index is None or len(prompt) > 12000:
             continue
         item_id = f"prompts-chat-{row_index}"
-        old_item = old_by_id.get(item_id, {})
         refreshed.append(
             {
                 "id": item_id,
@@ -883,8 +894,7 @@ def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
                 "prompt": prompt,
                 "language": "en",
                 "tags": ["prompts.chat", "CC0-1.0"],
-                "url": "https://prompts.chat/",
-                "published_at": int(old_item.get("published_at", now_ms)),
+                "url": "https://huggingface.co/datasets/fka/prompts.chat",
                 "license": "CC0-1.0",
             }
         )
@@ -893,7 +903,10 @@ def fetch_prompts(existing: list[dict], now_ms: int) -> list[dict]:
     for item in existing:
         item_id = item.get("id")
         if item_id and item_id not in refreshed_by_id:
-            refreshed_by_id[item_id] = item
+            retained = dict(item)
+            if str(item_id).startswith("prompts-chat-"):
+                retained.pop("published_at", None)
+            refreshed_by_id[item_id] = retained
     ordered = sorted(refreshed_by_id.values(), key=lambda item: int(item.get("published_at", 0)), reverse=True)
     return ordered
 
@@ -927,7 +940,6 @@ def build_deals(
             verified_at = previous.get("verified_at")
         item = {
             **offer,
-            "published_at": previous.get("published_at", now_ms),
             "verified_date": verified_date if verified_at is not None else previous.get("verified_date"),
             "source_url": offer["deal_url"],
             "source_name": "Official provider",
@@ -940,12 +952,7 @@ def build_deals(
     for deal_id, deal in discovered_by_id.items():
         if not _is_creator_tool_deal(deal):
             continue
-        previous = old_items.get(deal_id, {})
-        deal = {
-            **deal,
-            "published_at": previous.get("published_at", deal["published_at"]),
-            "verified_date": verified_date,
-        }
+        deal = {**deal, "verified_date": verified_date}
         items.append(deal)
 
     for deal_id, previous in old_items.items():
@@ -984,8 +991,10 @@ def validate_feed(feed: dict) -> None:
         if photo_manipulation_section.get("title") != PHOTO_MANIPULATION_SECTION_TITLE:
             raise ValueError("Photo manipulation section has an unexpected title")
         for prompt in photo_manipulation_section["items"]:
-            if not all(prompt.get(key) for key in ("id", "title", "description", "prompt", "url")):
-                raise ValueError("each photo-manipulation prompt must include its title, description, prompt, and URL")
+            if not all(prompt.get(key) for key in ("id", "title", "description", "prompt")):
+                raise ValueError("each photo-manipulation prompt must include its title, description, and prompt")
+            if prompt.get("url") and not str(prompt["url"]).startswith("https://"):
+                raise ValueError(f"photo-manipulation prompt {prompt['id']} must use an HTTPS URL")
             if prompt.get("category_id") != PHOTO_MANIPULATION_CATEGORY_ID:
                 raise ValueError(f"photo-manipulation prompt {prompt['id']} must use the visual-tricks category")
             if PHOTO_MANIPULATION_CATEGORY_NAME not in prompt.get("tags", []) or "خداع بصري / تلاعب" not in prompt.get("tags", []):

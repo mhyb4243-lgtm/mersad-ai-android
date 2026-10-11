@@ -154,6 +154,7 @@ class FactVerseFeedTests(unittest.TestCase):
             {"prompts-chat-6", "prompts-chat-7", "curated-prompt"},
             {item["id"] for item in result},
         )
+        self.assertTrue(all("published_at" not in item for item in result if item["id"].startswith("prompts-chat-")))
 
     def test_photo_manipulation_section_contains_professional_curated_templates(self):
         section = updater.build_photo_manipulation_section([], [], 1_797_000_000_000)
@@ -179,6 +180,8 @@ class FactVerseFeedTests(unittest.TestCase):
             self.assertIn("📸 صورة وفوتوغرافي", item["tags"])
             self.assertIn("خداع بصري / تلاعب", item["tags"])
             self.assertIn("light", item["prompt"].lower())
+            self.assertNotIn("published_at", item)
+            self.assertNotIn("url", item)
 
         updater.validate_feed(
             {
@@ -211,6 +214,7 @@ class FactVerseFeedTests(unittest.TestCase):
                 "items": [
                     {
                         "id": 42,
+                        "createdAt": "2025-01-02T03:04:05Z",
                         "meta": {"prompt": "Create a surreal perspective portrait with cinematic lighting."},
                         "url": "https://image.civitai.com/preview.jpg",
                     },
@@ -227,9 +231,13 @@ class FactVerseFeedTests(unittest.TestCase):
         self.assertEqual("lexica-illusion-lexica-1", lexica["id"])
         self.assertEqual("visual-tricks", lexica["category_id"])
         self.assertEqual("https://image.lexica.art/preview.jpg", lexica["thumbnail_url"])
-        self.assertEqual("https://image.civitai.com/preview.jpg", civitai["url"])
+        self.assertNotIn("url", lexica)
+        self.assertNotIn("source_url", lexica)
+        self.assertEqual("https://civitai.com/images/42", civitai["url"])
+        self.assertEqual("https://civitai.com/images/42", civitai["source_url"])
         self.assertEqual("https://image.civitai.com/preview.jpg", civitai["thumbnail_url"])
-        self.assertEqual(1000, civitai["published_at"])
+        self.assertEqual(1735787045000, civitai["published_at"])
+        self.assertNotIn("published_at", lexica)
         self.assertEqual(["Lexica", "Civitai"], [lexica["tags"][-1], civitai["tags"][-1]])
 
     def test_huggingface_prompt_dataset_returns_attributed_live_image_prompts(self):
@@ -260,7 +268,7 @@ class FactVerseFeedTests(unittest.TestCase):
             updater.HUGGINGFACE_PROMPT_IMAGE_URL + "gpt-image-2/images/4/GI2_123_0.jpg",
             prompts[0]["thumbnail_url"],
         )
-        self.assertEqual(updater.HUGGINGFACE_PROMPT_DATASET_URL, prompts[0]["source_url"])
+        self.assertEqual("https://example.com/original-prompt", prompts[0]["source_url"])
         self.assertIn("CC BY 4.0", prompts[0]["attribution"])
 
     @patch("update_remote_prompts.fetch_text_range", return_value="")

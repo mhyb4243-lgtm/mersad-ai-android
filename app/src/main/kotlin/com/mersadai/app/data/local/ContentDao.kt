@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ContentDao {
     @Transaction
-    @Query("SELECT * FROM items ORDER BY COALESCE(publishedAt, pushedAt, sourceUpdatedAt, createdAt) DESC")
+    @Query("SELECT * FROM items ORDER BY COALESCE(publishedAt, pushedAt, sourceUpdatedAt) DESC, id")
     fun observeItems(): Flow<List<ItemWithMetadata>>
 
     @Transaction
@@ -46,7 +46,7 @@ interface ContentDao {
             OR (contentType = 'MODEL' AND (:query LIKE '%نموذج%' OR :query LIKE '%نماذج%'))
             OR (contentType = 'PROMPT' AND (:query LIKE '%برومبت%' OR :query LIKE '%برومبتات%' OR :query LIKE '%أمر توليد%' OR :query LIKE '%أوامر توليد%' OR :query LIKE '%prompt%' OR :query LIKE '%prompts%' OR :query LIKE '%أمر التوليد%'))
             OR (contentType = 'NEWS' AND (:query LIKE '%خبر%' OR :query LIKE '%أخبار%'))
-            ORDER BY COALESCE(publishedAt, sourceUpdatedAt, pushedAt, createdAt) DESC""",
+            ORDER BY COALESCE(publishedAt, pushedAt, sourceUpdatedAt) DESC, id""",
     )
     fun searchItems(query: String): Flow<List<ItemWithMetadata>>
 
@@ -70,6 +70,9 @@ interface ContentDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM items WHERE id = :id OR (:externalId IS NOT NULL AND externalId = :externalId))")
     suspend fun hasRemoteIdentity(id: String, externalId: String?): Boolean
+
+    @Query("SELECT * FROM items WHERE id = :id OR (:externalId IS NOT NULL AND externalId = :externalId) LIMIT 1")
+    suspend fun getRemoteItem(id: String, externalId: String?): ItemEntity?
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE itemId = :id)")
     fun observeFavorite(id: String): Flow<Boolean>
@@ -95,9 +98,21 @@ interface ContentDao {
         source: SourceEntity,
         category: CategoryEntity?,
     ): Boolean {
-        val isNew = !hasRemoteIdentity(item.id, item.externalId)
+        val previous = getRemoteItem(item.id, item.externalId)
+        val isNew = previous == null
         upsertSource(source)
-        upsertItem(item)
+        upsertItem(
+            item.copy(
+                createdAt = item.createdAt.takeIf { it > 0L } ?: previous?.createdAt ?: 0L,
+                updatedAt = item.updatedAt.takeIf { it > 0L } ?: previous?.updatedAt ?: 0L,
+                url = item.url ?: previous?.url,
+                thumbnailUrl = item.thumbnailUrl ?: previous?.thumbnailUrl,
+                sourceUrl = item.sourceUrl ?: previous?.sourceUrl,
+                publishedAt = item.publishedAt ?: previous?.publishedAt,
+                sourceUpdatedAt = item.sourceUpdatedAt ?: previous?.sourceUpdatedAt,
+                pushedAt = item.pushedAt ?: previous?.pushedAt,
+            ),
+        )
         upsertItemSource(ItemSourceEntity(item.id, source.id))
         if (category != null) {
             upsertCategory(category)

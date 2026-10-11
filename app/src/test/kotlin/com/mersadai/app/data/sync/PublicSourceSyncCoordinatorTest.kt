@@ -106,7 +106,7 @@ class PublicSourceSyncCoordinatorTest {
     fun remotePromptFeedMergesWithoutDuplicatesAndAddsVideoRequirements() = runBlocking {
         val store = FakeStore()
         val entry = """{"id":"film-ad","title":"Film Ad","prompt_type":"video-generation","category_id":"bts-filmmaking","category_name":"BTS & Filmmaking","duration_seconds":30,"prompt":"A 30-second commercial starring [CHARACTER]."}"""
-        val photoPrompt = """{"id":"photo-manipulation-forced-perspective","title":"خدعة المنظور القسري العملاق","description":"وصف عربي.","category_id":"visual-tricks","category_name":"📸 صورة وفوتوغرافي","prompt_type":"image-generation","prompt":"A complete forced-perspective prompt.","thumbnail_url":"https://image.civitai.com/preview.jpg","tags":["📸 صورة وفوتوغرافي","خداع بصري / تلاعب"],"published_at":$now}"""
+        val photoPrompt = """{"id":"photo-manipulation-forced-perspective","title":"خدعة المنظور القسري العملاق","description":"وصف عربي.","category_id":"visual-tricks","category_name":"📸 صورة وفوتوغرافي","prompt_type":"image-generation","prompt":"A complete forced-perspective prompt.","url":"https://civitai.com/images/42","source_url":"https://civitai.com/images/42","thumbnail_url":"https://image.civitai.com/preview.jpg","tags":["📸 صورة وفوتوغرافي","خداع بصري / تلاعب"]}"""
         val space = """{"id":"huggingface-space-author-chat","title":"Chat Demo","description":"A public chat app","url":"https://huggingface.co/spaces/author/chat-demo","author":"author","free_status":"UNKNOWN","tags":["text-generation"],"likes":25,"sdk":"gradio","published_at":$now}"""
         val feed = """{"schema_version":3,"prompts":[$entry,$entry],"sections":[{"id":"PHOTO_MANIPULATION","title":"📸 صورة وفوتوغرافي — خداع بصري / تلاعب","items":[$photoPrompt]},{"id":"huggingface-live-spaces","title":"مساحات Hugging Face الحية للذكاء الاصطناعي","items":[$space]}]}"""
         val transport = SourceHttpTransport { url, _ ->
@@ -126,6 +126,10 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals("visual-tricks", itemCategory(store, photoItem.id))
         assertEquals("خدعة المنظور القسري العملاق", photoItem.title)
         assertEquals("https://image.civitai.com/preview.jpg", photoItem.thumbnailUrl)
+        assertEquals("https://civitai.com/images/42", photoItem.url)
+        assertEquals("https://civitai.com/images/42", photoItem.sourceUrl)
+        assertNull(photoItem.publishedAt)
+        assertEquals(now, photoItem.fetchedAt)
         assertTrue(photoItem.tags.orEmpty().contains("خداع بصري / تلاعب"))
         val huggingFaceSpace = store.items.single { it.externalId == "remote-prompts:huggingface-space-author-chat" }
         assertEquals(ContentType.AI_TOOL.name, huggingFaceSpace.contentType)

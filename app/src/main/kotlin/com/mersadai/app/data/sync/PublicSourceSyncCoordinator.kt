@@ -73,6 +73,7 @@ class PublicSourceSyncCoordinator(
                     try {
                         val discoveredAt = now()
                         val persistedItem = item.copy(
+                            fetchedAt = discoveredAt,
                             freeStatus = if (item.license == null && item.freeStatus == com.mersadai.app.domain.model.FreeStatus.OPEN_SOURCE) {
                                 com.mersadai.app.domain.model.FreeStatus.UNKNOWN
                             } else {
@@ -219,7 +220,7 @@ class PublicSourceSyncCoordinator(
         val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
             tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
         }.orEmpty()
-        val timestamp = entry.long("published_at") ?: now()
+        val timestamp = entry.long("published_at")
         return ContentItem(
             id = "remote-prompts:$externalId",
             externalId = "remote-prompts:$externalId",
@@ -227,7 +228,7 @@ class PublicSourceSyncCoordinator(
             originalTitle = entry.get("original_title")?.takeIf { it.isJsonPrimitive }?.asString,
             description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString,
             originalDescription = prompt,
-            url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString ?: REMOTE_PROMPTS_FEED_URL,
+            url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank),
             contentType = ContentType.PROMPT,
             category = Category(categoryId, categoryName),
             freeStatus = FreeStatus.UNKNOWN,
@@ -241,6 +242,9 @@ class PublicSourceSyncCoordinator(
             ),
             createdAt = timestamp,
             updatedAt = timestamp,
+            sourceUrl = entry.get("source_url")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf { it.startsWith("https://") }
+                ?: entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.startsWith("https://") },
             language = entry.get("language")?.takeIf { it.isJsonPrimitive }?.asString ?: "en",
             thumbnailUrl = entry.get("thumbnail_url")?.takeIf { it.isJsonPrimitive }?.asString
                 ?.takeIf { it.startsWith("https://") },
@@ -258,7 +262,7 @@ class PublicSourceSyncCoordinator(
             ?.takeIf { it.startsWith("https://huggingface.co/spaces/") } ?: return null
         val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
             ?.takeIf(String::isNotBlank) ?: return null
-        val timestamp = entry.long("published_at") ?: now()
+        val timestamp = entry.long("published_at")
         val tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
             tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
         }.orEmpty()
@@ -281,9 +285,11 @@ class PublicSourceSyncCoordinator(
                 "https://huggingface.co/spaces",
                 "https://huggingface.co/api/spaces",
             ),
-            createdAt = timestamp,
-            updatedAt = timestamp,
+            createdAt = entry.long("created_at"),
+            updatedAt = entry.long("last_modified"),
+            sourceUpdatedAt = entry.long("last_modified"),
             publishedAt = timestamp,
+            sourceUrl = url,
             author = entry.get("author")?.takeIf { it.isJsonPrimitive }?.asString,
             likes = entry.long("likes"),
             sdk = entry.get("sdk")?.takeIf { it.isJsonPrimitive }?.asString,
@@ -303,7 +309,7 @@ class PublicSourceSyncCoordinator(
             ?.takeIf { it in FACTVERSE_SOURCE_IDS } ?: return null
         val sourceName = entry.get("source_name")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
             ?.takeIf(String::isNotBlank) ?: return null
-        val timestamp = entry.long("published_at") ?: now()
+        val timestamp = entry.long("published_at")
         val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
         val factVerseAssets = FactVerseContent.create(
             title = title,
@@ -332,6 +338,8 @@ class PublicSourceSyncCoordinator(
             updatedAt = timestamp,
             sourceUpdatedAt = timestamp,
             publishedAt = timestamp,
+            sourceUrl = entry.get("source_url")?.takeIf { it.isJsonPrimitive }?.asString
+                ?.takeIf { it.startsWith("https://") } ?: url,
             language = "en",
             tags = listOf("FactVerse", "science", "future", "AI"),
         )
@@ -345,7 +353,7 @@ class PublicSourceSyncCoordinator(
             ?.takeIf(String::isNotBlank) ?: return null
         val url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
             ?.takeIf { it.startsWith("https://") } ?: return null
-        val timestamp = entry.long("published_at") ?: now()
+        val timestamp = entry.long("published_at")
         val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
         return ContentItem(
             id = "remote-prompts:$externalId",

@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         StarSnapshotEntity::class,
         NotificationHistoryEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class MersadDatabase : RoomDatabase() {
@@ -77,12 +77,37 @@ abstract class MersadDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE items ADD COLUMN fetchedAt INTEGER")
+                database.execSQL("ALTER TABLE items ADD COLUMN sourceUrl TEXT")
+                database.execSQL(
+                    """UPDATE items SET createdAt = 0, updatedAt = 0, publishedAt = NULL,
+                        sourceUpdatedAt = NULL, pushedAt = NULL, lastVerifiedAt = NULL
+                        WHERE id LIKE 'seed-%' OR id LIKE 'creator-deal-%' OR id LIKE 'free-perk-%'
+                            OR id LIKE 'offer-%'""",
+                )
+                database.execSQL(
+                    """UPDATE items SET createdAt = 0, updatedAt = 0, publishedAt = NULL,
+                        sourceUpdatedAt = NULL, pushedAt = NULL
+                        WHERE id LIKE 'prompts-chat:%' OR id LIKE 'image-prompts:%'
+                            OR id LIKE 'video-prompts:%' OR id LIKE 'lexica:%'
+                            OR id LIKE 'remote-prompts:image-prompts-%'
+                            OR id LIKE 'remote-prompts:video-prompts-%'
+                            OR id LIKE 'remote-prompts:prompts-chat-%'
+                            OR id LIKE 'remote-prompts:photo-manipulation-%'
+                            OR id LIKE 'remote-prompts:huggingface-space-%'""",
+                )
+            }
+        }
+
         fun create(context: Context): MersadDatabase {
             val database = Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
                 .addMigrations(MIGRATION_4_5)
+                .addMigrations(MIGRATION_5_6)
                 .build()
 
             CoroutineScope(Dispatchers.IO).launch {

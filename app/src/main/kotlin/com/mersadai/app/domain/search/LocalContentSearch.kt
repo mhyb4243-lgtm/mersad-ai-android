@@ -38,7 +38,7 @@ object LocalContentSearch {
             }
             .sortedWith(
                 compareByDescending<Pair<ContentItem, Int>> { it.second }
-                    .thenByDescending { it.first.sourceTimestamp() ?: it.first.createdAt }
+                    .thenByDescending { it.first.sourceTimestamp() }
                     .thenBy { normalize(it.first.title) }
                     .thenBy { it.first.id },
             )

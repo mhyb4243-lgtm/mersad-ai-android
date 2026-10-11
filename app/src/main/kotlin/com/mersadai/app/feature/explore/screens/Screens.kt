@@ -103,6 +103,8 @@ import com.mersadai.app.feature.explore.isNewToday
 import com.mersadai.app.feature.explore.sourceTimestamp
 import com.mersadai.app.data.translation.TranslationFields
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -656,7 +658,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     )
                 }
             }
-            content.url?.let { sourceUrl ->
+            (content.sourceUrl ?: content.url)?.let { sourceUrl ->
                 item { UrlValue(sourceUrl) }
                 item {
                     OutlinedButton(onClick = {
@@ -677,7 +679,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                         Text(stringResource(if (isFavorite) R.string.remove_favorite else R.string.save_favorite))
                     }
                     Button(onClick = {
-                        val shareText = listOfNotNull(content.title, content.description ?: content.originalDescription, content.url).joinToString("\n")
+                        val shareText = listOfNotNull(content.title, content.description ?: content.originalDescription, content.sourceUrl ?: content.url).joinToString("\n")
                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)
@@ -761,12 +763,26 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             val safeThumbnail = item.thumbnailUrl?.takeIf { Uri.parse(it).scheme == "https" }
-            if (safeThumbnail != null) {
+            var thumbnailFailed by remember(item.thumbnailUrl) { mutableStateOf(false) }
+            var thumbnailAttempt by remember(item.thumbnailUrl) { mutableStateOf(0) }
+            LaunchedEffect(safeThumbnail, thumbnailFailed) {
+                if (thumbnailFailed && thumbnailAttempt == 0) {
+                    delay(600)
+                    thumbnailAttempt = 1
+                    thumbnailFailed = false
+                }
+            }
+            if (safeThumbnail != null && !thumbnailFailed) {
                 AsyncImage(
-                    model = safeThumbnail,
+                    model = ImageRequest.Builder(context)
+                        .data(safeThumbnail)
+                        .memoryCacheKey("$safeThumbnail:$thumbnailAttempt")
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.size(44.dp),
                     contentScale = ContentScale.Crop,
+                    onError = { thumbnailFailed = true },
+                    onSuccess = { thumbnailFailed = false },
                 )
             } else {
                 Surface(

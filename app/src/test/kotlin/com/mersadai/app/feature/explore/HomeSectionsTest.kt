@@ -108,6 +108,16 @@ class HomeSectionsTest {
     }
 
     @Test
+    fun offlineSeedItemsHaveNoInventedSourceDates() {
+        assertTrue(
+            (SeedContentProvider.items(now) + SeedContentProvider.additiveItems(now)).all { item ->
+                item.createdAt == null && item.updatedAt == null && item.lastVerifiedAt == null &&
+                    item.sourceUpdatedAt == null && item.publishedAt == null && item.pushedAt == null
+            },
+        )
+    }
+
+    @Test
     fun publishedContentIsOrderedNewestFirstAndRemotePromptsHaveASection() {
         val older = item("older", ContentType.PROMPT, "remote-prompts", publishedAt = now - 2_000L)
             .copy(category = Category("ai-prompts", "أوامر توليد من prompts.chat"))
@@ -117,6 +127,17 @@ class HomeSectionsTest {
         val promptSection = homeSections(listOf(older, newer)).single { it.section == HomeSection.PROMPTS }
 
         assertEquals(listOf("newer", "older"), promptSection.items.map(ContentItem::id))
+    }
+
+    @Test
+    fun duplicateExternalItemsAppearOnceInEachHomeSection() {
+        val original = item("remote-one", ContentType.NEWS, "openai-news", publishedAt = now)
+            .copy(externalId = "openai:post-1")
+        val duplicate = original.copy(id = "room-alias", title = "Duplicate title")
+
+        val latest = homeSections(listOf(original, duplicate)).single { it.section == HomeSection.LATEST }
+
+        assertEquals(listOf("remote-one"), latest.items.map(ContentItem::id))
     }
 
     @Test

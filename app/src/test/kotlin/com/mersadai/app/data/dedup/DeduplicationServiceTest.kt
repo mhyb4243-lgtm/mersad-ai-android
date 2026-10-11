@@ -46,7 +46,7 @@ class DeduplicationServiceTest {
     }
 
     @Test
-    fun identicalPromptsWithDifferentExternalIdsAreMerged() {
+    fun differentPromptExternalIdsAreNotMergedBySimilarText() {
         val first = item(id = "local-one", externalId = "seed:one", title = "مشهد سينمائي").copy(
             contentType = com.mersadai.app.domain.model.ContentType.PROMPT,
             originalDescription = "A quiet cinematic scene follows a lone traveler through a rain-soaked city street.",
@@ -56,7 +56,7 @@ class DeduplicationServiceTest {
             originalDescription = "A quiet cinematic scene follows a lone traveler through a rain soaked city street!",
         )
 
-        assertEquals(1, service.unique(listOf(first, second)).size)
+        assertEquals(2, service.unique(listOf(first, second)).size)
     }
 
     @Test

@@ -95,6 +95,56 @@ class FavoritesDaoTest {
         }
     }
 
+    @Test
+    fun resyncWithoutSourceMetadataPreservesDatesLinksAndFavorite() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = Room.inMemoryDatabaseBuilder(context, MersadDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val dao = database.contentDao()
+            val original = item("remote").copy(
+                url = "https://github.com/example/project",
+                sourceUrl = "https://github.com/example/project",
+                thumbnailUrl = "https://images.example/project.png",
+                createdAt = 1_000L,
+                updatedAt = 2_000L,
+                publishedAt = 3_000L,
+                sourceUpdatedAt = 4_000L,
+                pushedAt = 5_000L,
+                fetchedAt = 6_000L,
+                externalId = "github:42",
+            )
+            val source = SourceEntity("github", "GitHub", "github", "https://github.com", "https://api.github.com")
+            dao.upsertRemoteContent(original, source, null)
+            dao.setFavorite("remote", true, 7_000L)
+
+            dao.upsertRemoteContent(original.copy(
+                url = null,
+                sourceUrl = null,
+                thumbnailUrl = null,
+                createdAt = 0L,
+                updatedAt = 0L,
+                publishedAt = null,
+                sourceUpdatedAt = null,
+                pushedAt = null,
+                fetchedAt = 8_000L,
+            ), source, null)
+
+            val saved = dao.observeItem("remote").first()?.item ?: error("remote item was not saved")
+            assertEquals(3_000L, saved.publishedAt)
+            assertEquals(4_000L, saved.sourceUpdatedAt)
+            assertEquals(5_000L, saved.pushedAt)
+            assertEquals("https://github.com/example/project", saved.url)
+            assertEquals("https://github.com/example/project", saved.sourceUrl)
+            assertEquals("https://images.example/project.png", saved.thumbnailUrl)
+            assertEquals(8_000L, saved.fetchedAt)
+            assertTrue(dao.isFavorite("remote"))
+        } finally {
+            database.close()
+        }
+    }
+
     private fun item(id: String) = ItemEntity(
         id = id,
         title = id,

@@ -36,6 +36,9 @@ class SourceParsersTest {
         assertEquals("A cinematic portrait", item.originalDescription)
         assertEquals("image-prompts", item.category?.id)
         assertEquals("https://image.lexica.art/full_jpg/one.jpg", item.thumbnailUrl)
+        assertNull(item.createdAt)
+        assertNull(item.publishedAt)
+        assertNull(item.sourceUrl)
     }
 
     @Test
@@ -51,7 +54,7 @@ class SourceParsersTest {
         assertEquals("octo", item.author)
         assertNull(item.description)
         assertNull(item.license)
-        assertEquals(FreeStatus.OPEN_SOURCE, item.freeStatus)
+        assertEquals(FreeStatus.UNKNOWN, item.freeStatus)
         assertEquals(VerificationLevel.OFFICIAL, item.verificationLevel)
     }
 
@@ -118,7 +121,7 @@ class SourceParsersTest {
         assertEquals("prompts-chat:7", item.externalId)
         assertEquals("Writing helper", item.title)
         assertEquals("Write a short note.", item.originalDescription)
-        assertEquals("https://prompts.chat/", item.url)
+        assertEquals("https://huggingface.co/datasets/fka/prompts.chat", item.url)
         assertEquals("contributor", item.contributor)
         assertEquals("CC0-1.0", item.license)
         assertEquals(1L, SourceParsers.promptsChatTotalCount(PROMPTS_FIXTURE))
@@ -135,6 +138,8 @@ class SourceParsersTest {
         assertEquals("A cinematic landscape", item.originalDescription)
         assertEquals("image-prompts", item.source?.id)
         assertEquals(listOf("text-to-image", "stable-diffusion", "image-generation"), item.tags)
+        assertNull(item.publishedAt)
+        assertNull(item.sourceUpdatedAt)
     }
 
     @Test
@@ -147,6 +152,8 @@ class SourceParsersTest {
         assertTrue(item.originalDescription.orEmpty().startsWith("Vertical 9:16 cyberpunk avatar transformation"))
         assertTrue(item.originalDescription.orEmpty().endsWith("Lower-third overlay: Arabic text \"محمد ابوهادي\" with green WhatsApp icon and \"+967776577658\""))
         assertEquals("AI Video Prompt Book 2026", item.source?.name)
+        assertNull(item.publishedAt)
+        assertNull(item.sourceUpdatedAt)
         assertEquals("cc-by-4.0", item.license)
         assertTrue(item.tags.containsAll(listOf("ai-video", "viral-trend", "Veo", "Sora", "Kling", "9:16")))
         assertEquals(698L, SourceParsers.videoGenerationPromptsTotalCount(VIDEO_PROMPTS_FIXTURE))

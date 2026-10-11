@@ -46,6 +46,7 @@ fun homeSections(items: List<ContentItem>, limit: Int = 5): List<HomeSectionCont
     HomeSection.entries.mapNotNull { section ->
         val matching = items.asSequence()
             .filter { it.belongsToHomeSection(section) }
+            .distinctBy { it.externalId?.takeIf(String::isNotBlank) ?: it.id }
             .sortedByDescending { it.sourceTimestamp() ?: Long.MIN_VALUE }
             .take(limit)
             .toList()

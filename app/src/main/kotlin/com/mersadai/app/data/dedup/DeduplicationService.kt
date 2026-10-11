@@ -8,9 +8,6 @@ import java.util.Locale
 
 class DeduplicationService {
     fun keyFor(item: ContentItem): String {
-        if (item.contentType == ContentType.PROMPT) {
-            promptFingerprint(item)?.let { return "prompt:$it" }
-        }
         if (item.contentType == ContentType.AI_TOOL && item.category?.id == "free-perks") {
             canonicalUrl(item.url)?.let { return "creator-deal:$it" }
         }
@@ -51,12 +48,4 @@ class DeduplicationService {
     private fun String?.normalized(): String? =
         this?.trim()?.lowercase(Locale.ROOT)?.takeIf(String::isNotEmpty)
 
-    private fun promptFingerprint(item: ContentItem): String? {
-        val text = (item.originalDescription ?: item.description ?: item.originalTitle ?: item.title)
-            .lowercase(Locale.ROOT)
-            .replace(Regex("[^\\p{L}\\p{N}]"), "")
-            .takeIf { it.length >= 32 }
-            ?: return null
-        return "${item.category?.id.orEmpty()}:$text"
-    }
 }

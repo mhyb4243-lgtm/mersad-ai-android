@@ -135,4 +135,75 @@ class MersadDatabaseMigrationTest {
             InstrumentationRegistry.getInstrumentation().targetContext.deleteDatabase(databaseName)
         }
     }
+
+    @Test
+    fun migrationEightToNineKeepsExistingOpportunityFavoritesAndCreatesUniquePromptStorage() {
+        val databaseName = "migration-8-9-test"
+        helper.createDatabase(databaseName, 8).apply {
+            execSQL(
+                """INSERT INTO items (
+                    id, title, contentType, freeStatus, verificationLevel, createdAt, updatedAt
+                ) VALUES (
+                    'free-perk-existing', 'Existing opportunity', 'AI_TOOL', 'UNKNOWN',
+                    'OFFICIAL_SOURCE', 123, 456
+                )""",
+            )
+            execSQL("INSERT INTO favorites (itemId, savedAt) VALUES ('free-perk-existing', 789)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            databaseName,
+            9,
+            true,
+            MersadDatabase.MIGRATION_8_9,
+        )
+        try {
+            migrated.query(
+                "SELECT title, contentType FROM items WHERE id = 'free-perk-existing'",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Existing opportunity", cursor.getString(0))
+                assertEquals("AI_TOOL", cursor.getString(1))
+            }
+            migrated.query(
+                "SELECT savedAt FROM favorites WHERE itemId = 'free-perk-existing'",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(789L, cursor.getLong(0))
+            }
+
+            migrated.execSQL(
+                """INSERT OR IGNORE INTO prompts (
+                    sourceId, sourcePostId, postId, prompt, postUrl, imageUrl, modelName,
+                    publishedAt, discoveredAt
+                ) VALUES (
+                    'civitai', '9001', 9001, 'Original prompt',
+                    'https://civitai.com/posts/9001', 'https://image.civitai.com/42.jpg',
+                    'Checkpoint One', 1000, 2000
+                )""",
+            )
+            migrated.execSQL(
+                """INSERT OR IGNORE INTO prompts (
+                    sourceId, sourcePostId, postId, prompt, postUrl, imageUrl, modelName,
+                    publishedAt, discoveredAt
+                ) VALUES (
+                    'civitai', '9001', 9001, 'Duplicate prompt',
+                    'https://civitai.com/posts/9001', NULL, NULL, NULL, 3000
+                )""",
+            )
+            migrated.query(
+                "SELECT prompt, imageUrl, discoveredAt FROM prompts WHERE sourceId = 'civitai' AND sourcePostId = '9001'",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Original prompt", cursor.getString(0))
+                assertEquals("https://image.civitai.com/42.jpg", cursor.getString(1))
+                assertEquals(2000L, cursor.getLong(2))
+                assertEquals(false, cursor.moveToNext())
+            }
+        } finally {
+            migrated.close()
+            InstrumentationRegistry.getInstrumentation().targetContext.deleteDatabase(databaseName)
+        }
+    }
 }

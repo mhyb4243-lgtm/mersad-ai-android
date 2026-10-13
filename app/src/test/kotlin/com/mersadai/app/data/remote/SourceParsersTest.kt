@@ -45,6 +45,44 @@ class SourceParsersTest {
     }
 
     @Test
+    fun extractsOnlySourcePromptsAndKeepsCivitaiPostAndImageUrlsSeparate() {
+        val parsed = SourceParsers.civitaiImagesAndPrompts(
+            """{"items":[
+                {"id":42,"postId":9001,"url":"https://image.civitai.com/42.jpg","createdAt":"2025-01-01T00:00:00Z","meta":{"prompt":"A real source prompt","resources":[{"name":"Checkpoint One","type":"checkpoint"}]}},
+                {"id":43,"postId":9002,"url":"https://image.civitai.com/43.jpg","meta":{}},
+                {"id":44,"url":"http://image.civitai.com/44.jpg","meta":{"prompt":"Prompt without valid image"}}
+            ]}""",
+        )
+
+        assertEquals(3, parsed.items.size)
+        assertEquals(2, parsed.prompts.size)
+        val withImage = parsed.prompts.single { it.postId == 9001L }
+        assertEquals("A real source prompt", withImage.prompt)
+        assertEquals("9001", withImage.sourcePostId)
+        assertEquals("https://civitai.com/posts/9001", withImage.postUrl)
+        assertEquals("https://image.civitai.com/42.jpg", withImage.imageUrl)
+        assertEquals("Checkpoint One", withImage.modelName)
+        assertEquals(1_735_689_600_000L, withImage.publishedAt)
+
+        val withoutImage = parsed.prompts.single { it.postId == null }
+        assertEquals("image:44", withoutImage.sourcePostId)
+        assertEquals("https://civitai.com/images/44", withoutImage.postUrl)
+        assertNull(withoutImage.imageUrl)
+        assertEquals("Prompt without valid image", withoutImage.prompt)
+    }
+
+    @Test
+    fun doesNotCreatePromptRecordsWhenSourcePromptIsMissing() {
+        val parsed = SourceParsers.civitaiImagesAndPrompts(
+            """{"items":[{"id":43,"url":"https://image.civitai.com/43.jpg","meta":{}}]}""",
+        )
+
+        assertEquals(1, parsed.items.size)
+        assertTrue(parsed.prompts.isEmpty())
+        assertNull(parsed.items.single().originalDescription)
+    }
+
+    @Test
     fun keepsImageWhenPromptAndDateAreUnavailableButSkipsEmptyOrInvalidImage() {
         val items = SourceParsers.civitaiImages(
             """{"items":[

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -45,6 +46,12 @@ class ExploreViewModel(
     val items: StateFlow<List<ContentItem>> = repository.observeItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val favorites: StateFlow<List<ContentItem>> = repository.observeFavorites()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val radarItems: StateFlow<List<ContentItem>> = items
+        .map(::promptRadarItems)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val promptRadarFavorites: StateFlow<List<ContentItem>> = favorites
+        .map { saved -> saved.filter(ContentItem::isPromptRadarEntry) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val activeFilters = combine(
         selectedSection,

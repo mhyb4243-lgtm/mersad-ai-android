@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ fun MersadNavHost(
     val currentRoute = backStackEntry?.destination?.route
     val destinations = listOf(
         Destination(Routes.HOME, R.string.nav_home, Icons.Default.Home),
+        Destination(Routes.PROMPT_RADAR, R.string.nav_prompt_radar, Icons.Default.AutoAwesome),
         Destination(Routes.SEARCH, R.string.nav_search, Icons.Default.Search),
         Destination(Routes.FAVORITES, R.string.nav_favorites, Icons.Default.Favorite),
         Destination(Routes.SETTINGS, R.string.nav_settings, Icons.Default.Settings),
@@ -80,8 +82,7 @@ fun MersadNavHost(
             NavigationBar {
                 destinations.forEach { destination ->
                     NavigationBarItem(
-                        selected = currentRoute == destination.route ||
-                            (destination.route == Routes.HOME && currentRoute == Routes.PROMPT_RADAR),
+                        selected = currentRoute == destination.route,
                         onClick = {
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }

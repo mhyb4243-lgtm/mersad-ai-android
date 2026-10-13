@@ -5,6 +5,7 @@ import com.mersadai.app.data.local.ContentDao
 import com.mersadai.app.data.local.RemoteContentSaveResult
 import com.mersadai.app.data.local.ItemEntity
 import com.mersadai.app.data.local.NotificationHistoryEntity
+import com.mersadai.app.data.local.PromptEntity
 import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
 
@@ -16,6 +17,7 @@ interface SyncStore {
         source: SourceEntity,
         category: CategoryEntity?,
     ): RemoteContentSaveResult
+    suspend fun savePrompts(prompts: List<PromptEntity>)
     suspend fun enqueueNotifications(entries: List<NotificationHistoryEntity>)
 }
 
@@ -29,6 +31,10 @@ class RoomSyncStore(private val dao: ContentDao) : SyncStore {
         source: SourceEntity,
         category: CategoryEntity?,
     ): RemoteContentSaveResult = dao.upsertRemoteContent(item, source, category)
+
+    override suspend fun savePrompts(prompts: List<PromptEntity>) {
+        if (prompts.isNotEmpty()) dao.insertPromptsIgnore(prompts)
+    }
 
     override suspend fun enqueueNotifications(entries: List<NotificationHistoryEntity>) {
         if (entries.isNotEmpty()) dao.enqueueNotificationHistory(entries)

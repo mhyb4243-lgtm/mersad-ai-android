@@ -2,6 +2,7 @@ package com.mersadai.app.data.sync
 
 import com.mersadai.app.data.local.CategoryEntity
 import com.mersadai.app.data.local.ItemEntity
+import com.mersadai.app.data.local.PromptEntity
 import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
 import com.mersadai.app.data.local.RemoteContentSaveResult
@@ -79,6 +80,37 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals(3, store.items.count { it.externalId?.startsWith("github:") == true })
         assertTrue(store.items.filter { it.externalId?.startsWith("github:") == true }.all { it.freeStatus == "UNKNOWN" })
         assertEquals(0L, store.states.getValue("prompts-chat").remoteTotalCount)
+    }
+
+    @Test
+    fun civitaiPersistsOriginalPromptMetadataAndDeduplicatesByPostIdentity() = runBlocking {
+        val store = FakeStore()
+        val body = """{"items":[
+            {"id":42,"postId":9001,"url":"https://image.civitai.com/42.jpg","createdAt":"2025-01-01T00:00:00Z","meta":{"prompt":"Original prompt","Model":"Checkpoint One"}},
+            {"id":43,"postId":9001,"url":"https://image.civitai.com/43.jpg","meta":{"prompt":"Duplicate post prompt"}},
+            {"id":44,"url":"https://image.civitai.com/44.jpg","meta":{}}
+        ]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.startsWith("https://civitai.com/api/v1/images")) {
+                response(200, body = body)
+            } else {
+                successFor(url)
+            }
+        }
+
+        PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertEquals(1, store.prompts.size)
+        val prompt = store.prompts.single()
+        assertEquals("civitai", prompt.sourceId)
+        assertEquals("9001", prompt.sourcePostId)
+        assertEquals(9001L, prompt.postId)
+        assertEquals("Original prompt", prompt.prompt)
+        assertEquals("https://civitai.com/posts/9001", prompt.postUrl)
+        assertEquals("https://image.civitai.com/42.jpg", prompt.imageUrl)
+        assertEquals("Checkpoint One", prompt.modelName)
+        assertEquals(1_735_689_600_000L, prompt.publishedAt)
+        assertEquals(now, prompt.discoveredAt)
     }
 
     @Test
@@ -480,6 +512,7 @@ class PublicSourceSyncCoordinatorTest {
     private class FakeStore : SyncStore {
         val states = mutableMapOf<String, SyncStateEntity>()
         val items = mutableListOf<ItemEntity>()
+        val prompts = mutableListOf<PromptEntity>()
         val categories = mutableMapOf<String, String?>()
         val sources = mutableMapOf<String, String>()
         val notifications = mutableListOf<com.mersadai.app.data.local.NotificationHistoryEntity>()
@@ -512,6 +545,17 @@ class PublicSourceSyncCoordinatorTest {
             categories[item.id] = category?.id
             sources[item.id] = source.id
             return RemoteContentSaveResult(inserted, changed)
+        }
+
+        override suspend fun savePrompts(prompts: List<PromptEntity>) {
+            prompts.forEach { prompt ->
+                if (this.prompts.none {
+                        it.sourceId == prompt.sourceId && it.sourcePostId == prompt.sourcePostId
+                    }
+                ) {
+                    this.prompts += prompt
+                }
+            }
         }
 
         override suspend fun enqueueNotifications(entries: List<com.mersadai.app.data.local.NotificationHistoryEntity>) {

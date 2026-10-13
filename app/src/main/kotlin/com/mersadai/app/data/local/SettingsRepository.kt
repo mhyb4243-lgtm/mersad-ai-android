@@ -21,6 +21,7 @@ class SettingsRepository(private val context: Context) {
             autoUpdate = preferences[AUTO_UPDATE] ?: false,
             notificationsEnabled = preferences[NOTIFICATIONS_ENABLED] ?: false,
             notifyAiTools = preferences[NOTIFY_AI_TOOLS] ?: true,
+            notifyFreeOffers = preferences[NOTIFY_FREE_OFFERS] ?: true,
             notifyAndroidProjects = preferences[NOTIFY_ANDROID_PROJECTS] ?: true,
             notifyModels = preferences[NOTIFY_MODELS] ?: true,
             notifyPrompts = preferences[NOTIFY_PROMPTS] ?: true,
@@ -45,6 +46,7 @@ class SettingsRepository(private val context: Context) {
         context.settingsDataStore.edit { preferences ->
             when (type) {
                 "ai-tools" -> preferences[NOTIFY_AI_TOOLS] = enabled
+                "free-offers" -> preferences[NOTIFY_FREE_OFFERS] = enabled
                 "android-projects" -> preferences[NOTIFY_ANDROID_PROJECTS] = enabled
                 "models" -> preferences[NOTIFY_MODELS] = enabled
                 "prompts" -> preferences[NOTIFY_PROMPTS] = enabled
@@ -62,6 +64,7 @@ class SettingsRepository(private val context: Context) {
         val AUTO_UPDATE = booleanPreferencesKey("auto_update")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val NOTIFY_AI_TOOLS = booleanPreferencesKey("notify_ai_tools")
+        val NOTIFY_FREE_OFFERS = booleanPreferencesKey("notify_free_offers")
         val NOTIFY_ANDROID_PROJECTS = booleanPreferencesKey("notify_android_projects")
         val NOTIFY_MODELS = booleanPreferencesKey("notify_models")
         val NOTIFY_PROMPTS = booleanPreferencesKey("notify_prompts")

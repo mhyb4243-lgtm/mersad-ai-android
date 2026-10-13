@@ -3,17 +3,93 @@ package com.mersadai.app.feature.explore
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.Category
 import com.mersadai.app.domain.model.ContentType
+import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.data.local.SeedContentProvider
 import java.time.Instant
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeSectionsTest {
     private val now = 1_700_000_000_000L
+
+    @Test
+    fun promptFreshnessSeparatesPublicationFromDiscoveryAndDoesNotRefreshOldSourceDates() {
+        assertEquals(
+            PromptFreshness.SOURCE_NEW,
+            item("source-new", ContentType.PROMPT, "civitai", publishedAt = now - 1_000, discoveredAt = now).promptFreshness(now),
+        )
+        assertEquals(
+            PromptFreshness.DISCOVERED_RECENTLY,
+            item("discovered", ContentType.PROMPT, "prompts-chat", discoveredAt = now - 1_000).promptFreshness(now),
+        )
+        assertNull(
+            item(
+                "old-source",
+                ContentType.PROMPT,
+                "civitai",
+                publishedAt = now - 30L * 24 * 60 * 60 * 1000,
+                discoveredAt = now,
+            ).promptFreshness(now),
+        )
+        assertNull(item("unknown", ContentType.PROMPT, "prompts-chat").promptFreshness(now))
+    }
+
+    @Test
+    fun promptRadarKeepsOnlySourceIdentifiedItemsAndFiltersByTextCategorySourceModelAndLocalFavorite() {
+        val civitai = ContentItem(
+            id = "civitai:image:42",
+            title = "Cinematic landscape",
+            originalDescription = "A cinematic blue-hour landscape",
+            contentType = ContentType.PROMPT,
+            source = Source("civitai", "Civitai"),
+            category = Category("photorealistic-prompts", "واقعي"),
+            modelName = "Flux",
+            publishedAt = now - 1_000,
+        )
+        val datasetPrompt = item("video-prompts:8", ContentType.PROMPT, "video-prompts", discoveredAt = now)
+        val mergedFeedPrompt = item("remote-prompts:photo-1", ContentType.PROMPT, "remote-prompts")
+        val seededPrompt = item("seed-image-prompt-01", ContentType.PROMPT, "image-prompts")
+        val radar = promptRadarItems(listOf(civitai, datasetPrompt, mergedFeedPrompt, seededPrompt))
+
+        assertEquals(listOf("civitai:image:42", "video-prompts:8"), radar.map(ContentItem::id))
+        assertEquals(
+            listOf("civitai:image:42"),
+            filterPromptRadarItems(
+                radar,
+                PromptRadarFilters(
+                    query = "blue-hour",
+                    categoryId = "photorealistic-prompts",
+                    sourceId = "civitai",
+                    modelName = "Flux",
+                    savedOnly = true,
+                ),
+                favoriteIds = setOf("civitai:image:42"),
+            ).map(ContentItem::id),
+        )
+        assertTrue(
+            filterPromptRadarItems(radar, PromptRadarFilters(savedOnly = true), favoriteIds = emptySet()).isEmpty(),
+        )
+    }
+
+    @Test
+    fun promptCopyUsesOnlyTheOriginalPromptAndNeverFallsBackToDescription() {
+        val prompt = ContentItem(
+            id = "prompt",
+            title = "Prompt",
+            description = "A descriptive label, not a prompt",
+            originalDescription = "  The exact original prompt.  ",
+            contentType = ContentType.PROMPT,
+        )
+        val missing = prompt.copy(originalDescription = null)
+
+        assertEquals("  The exact original prompt.  ", prompt.originalPromptText())
+        assertNull(missing.originalPromptText())
+    }
 
     @Test
     fun realSourcesMapToExpectedSectionsAndEmptySectionsAreOmitted() {
@@ -97,14 +173,28 @@ class HomeSectionsTest {
     }
 
     @Test
-    fun seededFreePerksAreCreatorToolsInsteadOfCloudApis() {
-        val deals = SeedContentProvider.items(now).filter { it.id.startsWith("creator-deal-") }
+    fun openRouterFreeApiModelsHaveTheirOwnSectionAndPaidModelsAreExcluded() {
+        val freeModel = item("openrouter-free", ContentType.MODEL, "openrouter", publishedAt = now)
+            .copy(freeStatus = FreeStatus.FREE_TIER)
+        val unknownModel = item("openrouter-paid", ContentType.MODEL, "openrouter", publishedAt = now)
 
+        assertTrue(freeModel.belongsToHomeSection(HomeSection.API_FREE_MODELS))
+        assertFalse(unknownModel.belongsToHomeSection(HomeSection.API_FREE_MODELS))
         assertEquals(
-            setOf("ChatGPT", "Claude", "Perplexity", "Groq", "Runway", "Kling AI", "Pika", "ElevenLabs", "Leonardo AI", "Suno"),
-            deals.mapNotNull { it.author }.toSet(),
+            listOf(freeModel.id),
+            homeSections(listOf(freeModel, unknownModel))
+                .single { it.section == HomeSection.API_FREE_MODELS }
+                .items.map(ContentItem::id),
         )
-        assertFalse(deals.any { it.title.contains("Cloudflare") })
+    }
+
+    @Test
+    fun unverifiedOffersAreNotSeededAsRealOpportunities() {
+        val seededItems = SeedContentProvider.items(now) + SeedContentProvider.additiveItems(now)
+
+        assertFalse(seededItems.any { item ->
+            item.id.startsWith("creator-deal-") || item.id.startsWith("free-perk-") || item.id.startsWith("offer-")
+        })
     }
 
     @Test
@@ -214,6 +304,7 @@ class HomeSectionsTest {
         publishedAt: Long? = null,
         pushedAt: Long? = null,
         sourceUpdatedAt: Long? = null,
+        discoveredAt: Long? = null,
         createdAt: Long = 1,
     ) = ContentItem(
         id = id,
@@ -223,6 +314,7 @@ class HomeSectionsTest {
         publishedAt = publishedAt,
         pushedAt = pushedAt,
         sourceUpdatedAt = sourceUpdatedAt,
+        discoveredAt = discoveredAt,
         createdAt = createdAt,
         updatedAt = createdAt,
     )

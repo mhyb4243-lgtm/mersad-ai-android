@@ -32,11 +32,13 @@ import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.screens.DetailsScreen
 import com.mersadai.app.feature.explore.screens.FavoritesScreen
 import com.mersadai.app.feature.explore.screens.HomeScreen
+import com.mersadai.app.feature.explore.screens.PromptRadarScreen
 import com.mersadai.app.feature.explore.screens.SearchScreen
 import com.mersadai.app.feature.explore.screens.SettingsScreen
 
 private object Routes {
     const val HOME = "home"
+    const val PROMPT_RADAR = "prompt-radar"
     const val SEARCH = "search"
     const val FAVORITES = "favorites"
     const val SETTINGS = "settings"
@@ -53,10 +55,13 @@ fun MersadNavHost(
     settingsRepository: SettingsRepository,
     onManualSync: suspend () -> Unit,
     initialDiscoverySection: HomeSection? = null,
+    initialDiscoveryItemId: String? = null,
 ) {
     val navController = rememberNavController()
-    LaunchedEffect(initialDiscoverySection) {
-        if (initialDiscoverySection != null) {
+    LaunchedEffect(initialDiscoverySection, initialDiscoveryItemId) {
+        if (!initialDiscoveryItemId.isNullOrBlank()) {
+            navController.navigate(Routes.details(initialDiscoveryItemId)) { launchSingleTop = true }
+        } else if (initialDiscoverySection != null) {
             viewModel.selectSearchSection(initialDiscoverySection)
             navController.navigate(Routes.SEARCH) { launchSingleTop = true }
         }
@@ -75,7 +80,8 @@ fun MersadNavHost(
             NavigationBar {
                 destinations.forEach { destination ->
                     NavigationBarItem(
-                        selected = currentRoute == destination.route,
+                        selected = currentRoute == destination.route ||
+                            (destination.route == Routes.HOME && currentRoute == Routes.PROMPT_RADAR),
                         onClick = {
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -98,6 +104,15 @@ fun MersadNavHost(
                         viewModel.selectSearchSection(section)
                         navController.navigate(Routes.SEARCH)
                     },
+                    onOpenPromptRadar = { navController.navigate(Routes.PROMPT_RADAR) },
+                    onOpenItem = { navController.navigate(Routes.details(it)) },
+                    onManualSync = onManualSync,
+                    contentPadding = padding,
+                )
+            }
+            composable(Routes.PROMPT_RADAR) {
+                PromptRadarScreen(
+                    viewModel = viewModel,
                     onOpenItem = { navController.navigate(Routes.details(it)) },
                     onManualSync = onManualSync,
                     contentPadding = padding,

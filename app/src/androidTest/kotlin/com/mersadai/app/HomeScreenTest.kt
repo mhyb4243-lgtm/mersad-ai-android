@@ -1,6 +1,6 @@
 package com.mersadai.app
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
@@ -12,7 +12,7 @@ class HomeScreenTest {
 
     @Test
     fun homeAndArabicNavigationAreVisible() {
-        composeRule.onNodeWithText("مِرصد AI").assertExists()
-        composeRule.onNodeWithText("الرئيسية").assertExists()
+        composeRule.onNodeWithText("مِرصد AI").assertIsDisplayed()
+        composeRule.onNodeWithText("الرئيسية").assertIsDisplayed()
     }
 }

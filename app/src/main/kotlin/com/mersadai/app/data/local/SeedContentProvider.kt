@@ -10,10 +10,8 @@ import com.mersadai.app.domain.prompts.VideoPromptPolicy
 
 object SeedContentProvider {
     fun items(now: Long = System.currentTimeMillis()): List<ContentItem> = buildList {
-        addAll(aiOffers(now))
         addAll(androidReadyAiCatalog(now))
         addAll(androidCreativeApps(now))
-        addAll(freePerks(now))
         addAll(imagePrompts(now))
         addAll(creatorPrompts(now))
         addAll(photographyPrompts(now))
@@ -26,7 +24,7 @@ object SeedContentProvider {
     }.withoutSourceDates()
 
     fun additiveItems(now: Long = System.currentTimeMillis()): List<ContentItem> =
-        (androidCreativeApps(now) + freePerks(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now) + cinematicCategoryPrompts(now))
+        (androidCreativeApps(now) + creatorPrompts(now) + photographyPrompts(now) + eventDesignPrompts(now) + visualTrickPrompts(now) + socialPortraitPrompts(now) + creativeTrendPrompts(now) + btsPrompts(now) + cinematicCategoryPrompts(now))
             .withoutSourceDates()
 
     private fun List<ContentItem>.withoutSourceDates(): List<ContentItem> = map { item ->

@@ -30,7 +30,7 @@ class FreeAiClassifierTest {
             updatedAt = 1L,
         )
 
-        assertTrue(free.isFreeNow())
+        assertFalse(free.isFreeNow())
         assertTrue(free.isOpenSource())
         assertEquals(FreeStatus.OPEN_SOURCE, free.classifiedFreeStatus())
         assertTrue(tier.isFreeNow())
@@ -69,7 +69,7 @@ class FreeAiClassifierTest {
         )
 
         assertEquals(FreeStatus.OPEN_SOURCE, item.classifiedFreeStatus())
-        assertTrue(item.isFreeNow())
+        assertFalse(item.isFreeNow())
         assertFalse(FreeAiClassifier.hasOpenSourceLicense("MITRE proprietary"))
     }
 
@@ -115,6 +115,19 @@ class FreeAiClassifierTest {
     }
 
     @Test
+    fun datedOfferIsClassifiedAsExpiredWithoutBeingDeleted() {
+        val item = ContentItem(
+            id = "expired-offer",
+            title = "Past free trial",
+            freeStatus = FreeStatus.TEMPORARY_OFFER,
+            endAt = 900L,
+        )
+
+        assertEquals(FreeStatus.EXPIRED, item.classifiedFreeStatus(now = 1_000L))
+        assertFalse(item.isFreeNow(now = 1_000L))
+    }
+
+    @Test
     fun explicitOpenSourceLicensesAreClassifiedAsFreeAndOpenSource() {
         listOf("apache-2.0", "MIT", "bsd-3-clause").forEach { license ->
             val item = ContentItem(
@@ -127,7 +140,7 @@ class FreeAiClassifierTest {
             )
 
             assertEquals(FreeStatus.OPEN_SOURCE, item.classifiedFreeStatus())
-            assertTrue(item.isFreeNow())
+            assertFalse(item.isFreeNow())
             assertTrue(item.isOpenSource())
         }
     }

@@ -2,6 +2,7 @@ package com.mersadai.app.feature.explore
 
 import com.mersadai.app.domain.model.ContentItem
 import com.mersadai.app.domain.model.ContentType
+import com.mersadai.app.domain.model.FreeStatus
 import java.time.Instant
 import java.time.ZoneId
 
@@ -11,6 +12,7 @@ enum class HomeSection {
     ANDROID_PROJECTS,
     ANDROID_MEDIA_DESIGN,
     MODELS,
+    API_FREE_MODELS,
     PROMPTS,
     IMAGE_PROMPTS,
     REELS_PROMPTS,
@@ -31,7 +33,63 @@ enum class HomeSection {
 
 data class HomeSectionContent(val section: HomeSection, val items: List<ContentItem>)
 
+enum class PromptFreshness { SOURCE_NEW, DISCOVERED_RECENTLY }
+
+data class PromptRadarFilters(
+    val query: String = "",
+    val categoryId: String? = null,
+    val sourceId: String? = null,
+    val modelName: String? = null,
+    val savedOnly: Boolean = false,
+)
+
+fun ContentItem.isPromptRadarEntry(): Boolean = contentType == ContentType.PROMPT && when (source?.id) {
+    "civitai" -> id.startsWith("civitai:image:")
+    "prompts-chat" -> id.startsWith("prompts-chat:")
+    "image-prompts" -> id.startsWith("image-prompts:")
+    "video-prompts" -> id.startsWith("video-prompts:")
+    else -> false
+}
+
+fun promptRadarItems(items: List<ContentItem>): List<ContentItem> = items.asSequence()
+    .filter(ContentItem::isPromptRadarEntry)
+    .sortedWith(
+        compareByDescending<ContentItem> { it.sourceTimestamp() != null }
+            .thenByDescending { it.sourceTimestamp() ?: it.discoveredAt ?: Long.MIN_VALUE },
+    )
+    .toList()
+
+fun filterPromptRadarItems(
+    items: List<ContentItem>,
+    filters: PromptRadarFilters,
+    favoriteIds: Set<String>,
+): List<ContentItem> = items.filter { item ->
+    (!filters.savedOnly || item.id in favoriteIds) &&
+        (filters.categoryId == null || item.category?.id == filters.categoryId) &&
+        (filters.sourceId == null || item.source?.id == filters.sourceId) &&
+        (filters.modelName == null || item.modelName == filters.modelName) &&
+        (filters.query.isBlank() || listOfNotNull(
+            item.title,
+            item.originalDescription,
+            item.modelName,
+            item.author,
+        ).plus(item.tags).any { it.contains(filters.query.trim(), ignoreCase = true) })
+}
+
+fun ContentItem.originalPromptText(): String? =
+    originalDescription?.takeIf(String::isNotBlank)
+
 fun ContentItem.sourceTimestamp(): Long? = publishedAt ?: pushedAt ?: sourceUpdatedAt
+
+fun ContentItem.promptFreshness(now: Long, maxAgeMillis: Long = 24 * 60 * 60 * 1000L): PromptFreshness? {
+    val sourceDate = sourceTimestamp()
+    return when {
+        sourceDate != null && sourceDate in (now - maxAgeMillis)..now -> PromptFreshness.SOURCE_NEW
+        sourceDate != null -> null
+        discoveredAt?.let { it in (now - maxAgeMillis)..now } == true -> PromptFreshness.DISCOVERED_RECENTLY
+        else -> null
+    }
+}
 
 fun ContentItem.isNewAt(now: Long, maxAgeMillis: Long = 7 * 24 * 60 * 60 * 1000L): Boolean =
     sourceTimestamp()?.let { it in (now - maxAgeMillis)..now } == true
@@ -85,6 +143,8 @@ fun ContentItem.belongsToHomeSection(section: HomeSection): Boolean = when (sect
     HomeSection.ANDROID_PROJECTS -> contentType == ContentType.ANDROID_PROJECT && source?.id == "github" && !isCreativeAndroidApp()
     HomeSection.ANDROID_MEDIA_DESIGN -> contentType == ContentType.ANDROID_PROJECT && (category?.id == "android-media-design" || isCreativeAndroidApp())
     HomeSection.MODELS -> contentType == ContentType.MODEL && source?.id == "hf-models"
+    HomeSection.API_FREE_MODELS -> contentType == ContentType.MODEL &&
+        source?.id == "openrouter" && classifiedFreeStatus() == FreeStatus.FREE_TIER && isFreeNow()
     HomeSection.PROMPTS -> contentType == ContentType.PROMPT &&
         (source?.id == "prompts-chat" || category?.id == "ai-prompts") && !hasExcludedPromptStyle()
     HomeSection.IMAGE_PROMPTS -> contentType == ContentType.PROMPT && source?.id == "image-prompts" && !hasExcludedPromptStyle()

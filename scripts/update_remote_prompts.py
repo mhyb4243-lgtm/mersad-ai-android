@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refresh the public prompt feed from Hugging Face and verify official free plans."""
+"""Refresh the public feed; reachable pricing pages do not prove free-plan terms."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, quote_plus, urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,24 +48,12 @@ HUGGINGFACE_PROMPT_METADATA_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/mai
 HUGGINGFACE_PROMPT_IMAGE_URL = f"{HUGGINGFACE_PROMPT_DATASET_URL}/resolve/main/"
 HUGGINGFACE_PROMPT_TAIL_BYTES = 4 * 1024 * 1024
 PHOTO_MANIPULATION_API_URL = (
-    "https://civitai.com/api/v1/images?limit=20&sort=Most+Reactions&nsfw=None&withMeta=true"
+    "https://civitai.com/api/v1/images?limit=20&sort=Newest&nsfw=None&withMeta=true"
 )
 PHOTO_MANIPULATION_PROMPT_PATTERN = re.compile(
     r"\b(?:illusion|optical illusion|surreal(?:ism|istic)?|forced perspective|double exposure|"
     r"levitat(?:e|ion|ing)|tilt.shift|droste|impossible object|miniature world)\b",
     re.IGNORECASE,
-)
-PHOTO_MANIPULATION_QUERIES = (
-    (
-        "illusion",
-        "خدعة المنظور القسري العملاق",
-        "صورة فوتوغرافية توهم بضخامة عنصر قريب أو بُعد عنصر بعيد عبر محاذاة دقيقة بين مقدمة المشهد وخلفيته.",
-    ),
-    (
-        "surrealism",
-        "دمج تعريض مزدوج بين البورتريه والغابة",
-        "بورتريه سريالي يمزج ملامح الوجه مع طبقات غابة بتعريض مزدوج متوازن يحافظ على وضوح الشخصية.",
-    ),
 )
 PHOTO_MANIPULATION_TEMPLATES = (
     (
@@ -473,41 +461,6 @@ def discover_factverse_articles(now_ms: int) -> tuple[list[dict], int]:
     return list(unique.values()), successful_sources
 
 
-def parse_lexica_illusion_prompts(payload: dict, query: str, now_ms: int) -> list[dict]:
-    query_details = next((details for details in PHOTO_MANIPULATION_QUERIES if details[0] == query), None)
-    if query_details is None:
-        raise ValueError(f"Unknown photo-manipulation query: {query}")
-    _, title, description = query_details
-    results = payload.get("images", [])
-    if not isinstance(results, list):
-        return []
-    prompts = []
-    for result in results:
-        if not isinstance(result, dict):
-            continue
-        prompt_text = str(result.get("prompt") or "").strip()
-        if not prompt_text or len(prompt_text) > 12000:
-            continue
-        external_id = str(result.get("id") or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:20])
-        candidate_url = str(result.get("url") or result.get("href") or "").strip()
-        parsed_url = urlparse(candidate_url)
-        source_url = candidate_url if parsed_url.scheme == "https" and parsed_url.hostname in {"lexica.art", "www.lexica.art"} else None
-        prompts.append(
-            _photo_manipulation_prompt(
-                item_id=f"lexica-illusion-{external_id}",
-                title=title,
-                description=description,
-                prompt=prompt_text,
-                url=source_url,
-                source_tag="Lexica",
-                published_at=_published_timestamp(str(result.get("createdAt") or result.get("date") or "")),
-                thumbnail_url=str(result.get("src") or "").strip() or None,
-                source_url=source_url,
-            ),
-        )
-    return prompts
-
-
 def parse_civitai_illusion_prompts(payload: dict, now_ms: int) -> list[dict]:
     images = payload.get("items", [])
     if not isinstance(images, list):
@@ -694,26 +647,6 @@ def _photo_manipulation_prompt(
 def discover_photo_manipulation_prompts(now_ms: int) -> tuple[list[dict], int]:
     discovered = []
     successful_sources = 0
-    for query, _, _ in PHOTO_MANIPULATION_QUERIES:
-        try:
-            query_url = "https://lexica.art/api/v1/search?q=" + quote_plus(query)
-            discovered.extend(
-                parse_lexica_illusion_prompts(
-                    fetch_json(
-                        query_url,
-                        headers={
-                            "Accept": "application/json",
-                            "Referer": "https://lexica.art/",
-                            "User-Agent": "Mozilla/5.0 (compatible; MersadAI/1.0; +https://github.com/mhyb4243-lgtm/mersad-ai-android)",
-                        },
-                    ),
-                    query,
-                    now_ms,
-                ),
-            )
-            successful_sources += 1
-        except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
-            print(f"Warning: could not read Lexica photo-manipulation search {query!r}: {error}", file=sys.stderr)
     try:
         discovered.extend(
             parse_civitai_illusion_prompts(
@@ -926,26 +859,31 @@ def build_deals(
     existing = next((section for section in previous_sections if section.get("id") == SECTION_ID), {})
     old_items = {item.get("id"): item for item in existing.get("items", []) if item.get("id")}
     items = []
-    verified_count = 0
-    verified_date = datetime.fromtimestamp(now_ms / 1000, timezone.utc).date().isoformat()
+    reachable_pages_count = 0
     for offer in OFFERS:
-        previous = old_items.get(offer["id"], {})
         try:
             if not verify_offer(offer["deal_url"]):
                 raise RuntimeError("official page returned a non-success status")
-            verified_at = now_ms
-            verified_count += 1
+            reachable_pages_count += 1
         except (HTTPError, URLError, TimeoutError, RuntimeError) as error:
-            print(f"Warning: could not verify {offer['id']}: {error}", file=sys.stderr)
-            verified_at = previous.get("verified_at")
+            print(f"Warning: official page unavailable for {offer['id']}: {error}", file=sys.stderr)
         item = {
             **offer,
-            "verified_date": verified_date if verified_at is not None else previous.get("verified_date"),
+            "title": f"{offer['provider']} — الصفحة الرسمية",
+            "description": "صفحة رسمية للمزود؛ لم يتم التحقق آليًا من توفر خطة مجانية أو شروطها.",
+            "free_status": "UNKNOWN",
+            "free_limit": None,
+            "requires_account": None,
+            "requires_payment_card": None,
+            "requires_api_key": None,
+            "deal_type": None,
+            "promo_code": None,
+            "is_active": None,
             "source_url": offer["deal_url"],
-            "source_name": "Official provider",
+            "source_name": "Official provider; offer terms unverified",
         }
-        if verified_at is not None:
-            item["verified_at"] = verified_at
+        for field in ("published_at", "verified_at", "verified_date", "terms_verified_at"):
+            item.pop(field, None)
         items.append(item)
 
     discovered_by_id = {deal["id"]: deal for deal in discovered}
@@ -965,7 +903,7 @@ def build_deals(
         items.append({**previous, "is_active": is_active})
 
     unique_items = {item["id"]: item for item in items}
-    return {"id": SECTION_ID, "title": SECTION_TITLE, "items": list(unique_items.values())}, verified_count
+    return {"id": SECTION_ID, "title": SECTION_TITLE, "items": list(unique_items.values())}, reachable_pages_count
 
 
 def validate_feed(feed: dict) -> None:
@@ -1082,7 +1020,7 @@ def main() -> None:
         raise RuntimeError("Hugging Face Spaces could not be fetched; feed was not updated")
     if not huggingface_spaces:
         raise RuntimeError("No live chat or generation Hugging Face Spaces were found; feed was not updated")
-    deal_section, verified_count = build_deals(feed.get("sections", []), community_deals, now_ms)
+    deal_section, reachable_pages_count = build_deals(feed.get("sections", []), community_deals, now_ms)
     factverse_section = build_factverse_section(feed.get("sections", []), factverse_articles, now_ms)
     photo_manipulation_section = build_photo_manipulation_section(
         feed.get("sections", []),
@@ -1112,7 +1050,7 @@ def main() -> None:
         f"{len(factverse_section['items'])} FactVerse articles from {successful_factverse_sources} science sources, "
         f"and {len(photo_manipulation_section['items'])} photo-manipulation prompts from "
         f"{successful_photo_sources} live sources, plus {len(huggingface_spaces)} Hugging Face Spaces; "
-        f"verified {verified_count} official pages.",
+        f"{reachable_pages_count} official pages were reachable; offer terms were not verified.",
     )
 
 

@@ -4,6 +4,7 @@ import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.FreeStatus
 import com.mersadai.app.domain.model.VerificationLevel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,20 +26,46 @@ class SourceParsersTest {
     }
 
     @Test
-    fun parsesPublicLexicaPromptsIntoImagePromptCards() {
-        val item = SourceParsers.lexicaImagePrompts(
-            """{"images":[{"id":"prompt-1","prompt":"A cinematic portrait","src":"https://image.lexica.art/full_jpg/one.jpg"}]}""",
-            now = 10L,
+    fun parsesCivitaiImageWithOnlyPublishedMetadata() {
+        val item = SourceParsers.civitaiImages(
+            """{"items":[{"id":42,"url":"https://image.civitai.com/42.jpg","createdAt":"2025-01-01T00:00:00Z","username":"artist","meta":{"prompt":"A cinematic portrait","Model":"Flux Realism","negativePrompt":"blurry","seed":7,"steps":24}}]}""",
         ).single()
 
-        assertEquals("lexica:prompt-1", item.externalId)
+        assertEquals("civitai:image:42", item.externalId)
         assertEquals(ContentType.PROMPT, item.contentType)
         assertEquals("A cinematic portrait", item.originalDescription)
-        assertEquals("image-prompts", item.category?.id)
-        assertEquals("https://image.lexica.art/full_jpg/one.jpg", item.thumbnailUrl)
-        assertNull(item.createdAt)
-        assertNull(item.publishedAt)
-        assertNull(item.sourceUrl)
+        assertEquals("social-portraits", item.category?.id)
+        assertEquals("https://image.civitai.com/42.jpg", item.thumbnailUrl)
+        assertEquals("https://civitai.com/images/42", item.sourceUrl)
+        assertEquals(1_735_689_600_000L, item.publishedAt)
+        assertEquals("Flux Realism", item.modelName)
+        assertTrue(item.generationSettings.orEmpty().contains("negativePrompt"))
+        assertEquals("artist", item.author)
+        assertEquals("civitai", item.source?.id)
+    }
+
+    @Test
+    fun keepsImageWhenPromptAndDateAreUnavailableButSkipsEmptyOrInvalidImage() {
+        val items = SourceParsers.civitaiImages(
+            """{"items":[
+                {"id":1,"url":"https://image.civitai.com/1.jpg","createdAt":"not-a-date","meta":{}},
+                {"id":2,"url":"http://image.civitai.com/2.jpg","meta":{}},
+                {"id":3,"meta":{"prompt":"A prompt without an image"}},
+                {"id":4,"url":"https://images.example/4.jpg","meta":{}}
+            ]}""",
+        )
+
+        assertEquals(2, items.size)
+        val imageWithoutPrompt = items.single { it.thumbnailUrl != null }
+        assertNull(imageWithoutPrompt.originalDescription)
+        assertNull(imageWithoutPrompt.publishedAt)
+        assertNull(imageWithoutPrompt.createdAt)
+        assertEquals("A prompt without an image", items.single { it.thumbnailUrl == null }.originalDescription)
+    }
+
+    @Test
+    fun rejectsMalformedCivitaiResponse() {
+        assertTrue(runCatching { SourceParsers.civitaiImages("""{"data":[]}""") }.isFailure)
     }
 
     @Test
@@ -72,6 +99,23 @@ class SourceParsersTest {
         assertEquals("transformers", item.libraryName)
         assertNull(item.description)
         assertEquals(FreeStatus.OPEN_SOURCE, item.freeStatus)
+    }
+
+    @Test
+    fun openRouterMarksOnlyZeroPricedModelsAsFreeAndRequiresAnApiKey() {
+        val items = SourceParsers.openRouterModels(OPENROUTER_FIXTURE, now = 1_800_000_000_000L)
+        val free = items.single { it.externalId == "openrouter:provider/free-model:free" }
+        val paid = items.single { it.externalId == "openrouter:provider/paid-model" }
+
+        assertEquals(FreeStatus.FREE_TIER, free.freeStatus)
+        assertEquals("https://openrouter.ai/provider/free-model:free", free.url)
+        assertEquals("https://openrouter.ai/provider/free-model:free", free.sourceUrl)
+        assertEquals("openrouter", free.source?.id)
+        assertEquals(true, free.requiresAccount)
+        assertEquals(true, free.requiresApiKey)
+        assertEquals(FreeStatus.UNKNOWN, paid.freeStatus)
+        assertFalse(paid.isFreeNow())
+        assertNull(free.freeLimit)
     }
 
     @Test
@@ -170,6 +214,7 @@ class SourceParsersTest {
     private companion object {
         const val GITHUB_FIXTURE = """{"total_count":1,"incomplete_results":false,"items":[{"id":42,"name":"android-app","full_name":"octo/android-app","description":null,"html_url":"https://github.com/octo/android-app","owner":{"login":"octo","avatar_url":"https://avatars.githubusercontent.com/u/42"},"language":"Kotlin","stargazers_count":17,"forks_count":2,"open_issues_count":1,"license":{"spdx_id":"NOASSERTION"},"topics":["android"],"created_at":"2024-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","pushed_at":"2025-01-02T00:00:00Z","archived":false,"fork":false}]}"""
         const val MODEL_FIXTURE = """[{"id":"org/model","author":"org","createdAt":"2024-01-01T00:00:00Z","lastModified":"2025-01-01T00:00:00Z","downloads":100,"likes":5,"trendingScore":2.5,"pipeline_tag":"text-generation","library_name":"transformers","tags":["license:apache-2.0"],"gated":false,"private":false}]"""
+        const val OPENROUTER_FIXTURE = """{"data":[{"id":"provider/free-model:free","name":"Free route","description":"A free hosted route.","created":1740000000,"architecture":{"modality":"text->text"},"pricing":{"prompt":"0","completion":"0"}},{"id":"provider/paid-model","name":"Paid route","created":1740000000,"pricing":{"prompt":"0.000001","completion":"0.000002"}}]}"""
         const val SPACE_FIXTURE = """[{"id":"org/demo","author":"org","lastModified":"2025-01-01T00:00:00Z","likes":9,"trendingScore":3.5,"sdk":"gradio","tags":["llm","gradio"],"cardData":{"title":"Demo"},"createdAt":"2024-01-01T00:00:00Z"}]"""
         const val RSS_FIXTURE = """<?xml version="1.0"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title><![CDATA[A & B]]></title><link>https://openai.com/news/example</link><description><![CDATA[<p>Useful <b>update</b></p>]]></description><media:thumbnail url="https://openai.com/news/image.jpg"/><pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate><guid>post-1</guid><category>AI</category><dc:creator>OpenAI</dc:creator></item></channel></rss>"""
         const val PROMPTS_FIXTURE = """{"num_rows_total":1,"rows":[{"row_idx":7,"row":{"act":"Writing helper","prompt":"Write a short note.","for_devs":false,"type":"writing","contributor":"contributor"}}]}"""

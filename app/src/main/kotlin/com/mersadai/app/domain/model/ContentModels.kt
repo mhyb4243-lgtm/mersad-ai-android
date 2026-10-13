@@ -76,9 +76,12 @@ data class ContentItem(
     val createdAt: Long? = null,
     val updatedAt: Long? = null,
     val fetchedAt: Long? = null,
+    val discoveredAt: Long? = null,
     val language: String? = null,
     val thumbnailUrl: String? = null,
     val sourceUrl: String? = null,
+    val modelName: String? = null,
+    val generationSettings: String? = null,
     val externalId: String? = null,
     val tags: List<String> = emptyList(),
     val license: String? = null,
@@ -111,23 +114,37 @@ data class ContentItem(
     val promoCode: String? = null,
     val isActive: Boolean? = null,
     val localRunnable: Boolean? = null,
+    val requiresApiKey: Boolean? = null,
     val lastVerificationError: String? = null,
     val startAt: Long? = null,
     val endAt: Long? = null,
     val displayTitleAr: String? = null,
     val displayDescriptionAr: String? = null,
 ) {
-    fun classifiedFreeStatus(): FreeStatus = FreeAiClassifier.classify(freeStatus, license)
+    fun classifiedFreeStatus(now: Long = System.currentTimeMillis()): FreeStatus {
+        val classified = FreeAiClassifier.classify(freeStatus, license)
+        val expired = endAt?.let { it <= now } == true ||
+            (isActive == false && startAt?.let { it > now } != true)
+        return if (expired && classified in setOf(
+                FreeStatus.FULLY_FREE,
+                FreeStatus.FREE_TIER,
+                FreeStatus.FREE_CREDIT,
+                FreeStatus.TEMPORARY_OFFER,
+            )
+        ) {
+            FreeStatus.EXPIRED
+        } else {
+            classified
+        }
+    }
 
-    fun isFreeNow(): Boolean = isActive != false &&
-        (startAt == null || startAt <= System.currentTimeMillis()) &&
-        (endAt == null || endAt > System.currentTimeMillis()) &&
-        classifiedFreeStatus() in setOf(
+    fun isFreeNow(now: Long = System.currentTimeMillis()): Boolean =
+        (startAt == null || startAt <= now) &&
+        classifiedFreeStatus(now) in setOf(
             FreeStatus.FULLY_FREE,
             FreeStatus.FREE_TIER,
             FreeStatus.FREE_CREDIT,
             FreeStatus.TEMPORARY_OFFER,
-            FreeStatus.OPEN_SOURCE,
         )
 
     fun isOpenSource(): Boolean = openSourceStatus == OpenSourceStatus.OPEN_SOURCE ||
@@ -177,6 +194,7 @@ data class AppSettings(
     val autoUpdate: Boolean = false,
     val notificationsEnabled: Boolean = false,
     val notifyAiTools: Boolean = true,
+    val notifyFreeOffers: Boolean = true,
     val notifyAndroidProjects: Boolean = true,
     val notifyModels: Boolean = true,
     val notifyPrompts: Boolean = true,

@@ -29,6 +29,7 @@ interface ContentDao {
             OR originalTitle LIKE '%' || :query || '%'
             OR description LIKE '%' || :query || '%'
             OR originalDescription LIKE '%' || :query || '%'
+            OR modelName LIKE '%' || :query || '%'
             OR EXISTS (SELECT 1 FROM translations WHERE translations.itemId = items.id AND translations.translatedText LIKE '%' || :query || '%')
             OR EXISTS (SELECT 1 FROM sources INNER JOIN item_sources ON sources.id = item_sources.sourceId WHERE item_sources.itemId = items.id AND sources.name LIKE '%' || :query || '%')
             OR tags LIKE '%' || :query || '%'
@@ -97,17 +98,22 @@ interface ContentDao {
         item: ItemEntity,
         source: SourceEntity,
         category: CategoryEntity?,
-    ): Boolean {
+    ): RemoteContentSaveResult {
         val previous = getRemoteItem(item.id, item.externalId)
         val isNew = previous == null
+        val importantChange = previous != null && previous.hasImportantChange(item)
         upsertSource(source)
         upsertItem(
             item.copy(
                 createdAt = item.createdAt.takeIf { it > 0L } ?: previous?.createdAt ?: 0L,
                 updatedAt = item.updatedAt.takeIf { it > 0L } ?: previous?.updatedAt ?: 0L,
+                discoveredAt = previous?.discoveredAt ?: item.discoveredAt ?: item.fetchedAt.takeIf { previous == null },
                 url = item.url ?: previous?.url,
+                originalDescription = item.originalDescription ?: previous?.originalDescription,
                 thumbnailUrl = item.thumbnailUrl ?: previous?.thumbnailUrl,
                 sourceUrl = item.sourceUrl ?: previous?.sourceUrl,
+                modelName = item.modelName ?: previous?.modelName,
+                generationSettings = item.generationSettings ?: previous?.generationSettings,
                 publishedAt = item.publishedAt ?: previous?.publishedAt,
                 sourceUpdatedAt = item.sourceUpdatedAt ?: previous?.sourceUpdatedAt,
                 pushedAt = item.pushedAt ?: previous?.pushedAt,
@@ -118,7 +124,7 @@ interface ContentDao {
             upsertCategory(category)
             upsertItemCategory(ItemCategoryEntity(item.id, category.id))
         }
-        return isNew
+        return RemoteContentSaveResult(isNew, importantChange)
     }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -166,3 +172,20 @@ interface ContentDao {
         const val EXTERNAL_SYNC_ID = "external_sources"
     }
 }
+
+data class RemoteContentSaveResult(
+    val isNew: Boolean,
+    val importantChange: Boolean,
+)
+
+private fun ItemEntity.hasImportantChange(other: ItemEntity): Boolean =
+    freeStatus != other.freeStatus ||
+        verificationLevel != other.verificationLevel ||
+        freeLimit != other.freeLimit ||
+        isActive != other.isActive ||
+        endAt != other.endAt ||
+        requiresAccount != other.requiresAccount ||
+        requiresPaymentCard != other.requiresPaymentCard ||
+        requiresApiKey != other.requiresApiKey ||
+        sourceUrl != other.sourceUrl ||
+        url != other.url

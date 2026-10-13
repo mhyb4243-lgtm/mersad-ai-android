@@ -1,6 +1,8 @@
 package com.mersadai.app.feature.explore.screens
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -98,8 +100,15 @@ import com.mersadai.app.domain.social.SocialPostFormatter
 import com.mersadai.app.feature.explore.ExploreViewModel
 import com.mersadai.app.feature.explore.HomeSection
 import com.mersadai.app.feature.explore.HomeSectionContent
+import com.mersadai.app.feature.explore.PromptFreshness
+import com.mersadai.app.feature.explore.PromptRadarFilters
+import com.mersadai.app.feature.explore.filterPromptRadarItems
 import com.mersadai.app.feature.explore.homeSections
+import com.mersadai.app.feature.explore.isPromptRadarEntry
 import com.mersadai.app.feature.explore.isNewToday
+import com.mersadai.app.feature.explore.originalPromptText
+import com.mersadai.app.feature.explore.promptRadarItems
+import com.mersadai.app.feature.explore.promptFreshness
 import com.mersadai.app.feature.explore.sourceTimestamp
 import com.mersadai.app.data.translation.TranslationFields
 import coil.compose.AsyncImage
@@ -115,6 +124,7 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: ExploreViewModel,
     onOpenSearch: (HomeSection?) -> Unit,
+    onOpenPromptRadar: () -> Unit,
     onOpenItem: (String) -> Unit,
     onManualSync: suspend () -> Unit,
     contentPadding: PaddingValues,
@@ -153,6 +163,19 @@ fun HomeScreen(
                     keyboardActions = KeyboardActions(onSearch = { onOpenSearch(null) }),
                     readOnly = false,
                 )
+            }
+            item {
+                Card(
+                    onClick = onOpenPromptRadar,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.prompt_radar_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.prompt_radar_subtitle), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -221,6 +244,208 @@ fun HomeScreen(
     }
 }
 
+@Composable
+fun PromptRadarScreen(
+    viewModel: ExploreViewModel,
+    onOpenItem: (String) -> Unit,
+    onManualSync: suspend () -> Unit,
+    contentPadding: PaddingValues,
+) {
+    val context = LocalContext.current
+    val content by viewModel.items.collectAsStateWithLifecycle()
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val online by viewModel.isOnline.collectAsStateWithLifecycle()
+    val syncRecord by viewModel.syncRecord.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var query by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedSource by remember { mutableStateOf<String?>(null) }
+    var selectedModel by remember { mutableStateOf<String?>(null) }
+    var onlySaved by remember { mutableStateOf(false) }
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var modelMenuExpanded by remember { mutableStateOf(false) }
+
+    val radarItems = remember(content) { promptRadarItems(content) }
+    val favoriteIds = remember(favorites) { favorites.filter(ContentItem::isPromptRadarEntry).mapTo(mutableSetOf()) { it.id } }
+    val categories = remember(radarItems) { radarItems.mapNotNull(ContentItem::category).distinctBy { it.id }.sortedBy { it.name } }
+    val sources = remember(radarItems) { radarItems.mapNotNull(ContentItem::source).distinctBy { it.id }.sortedBy { it.name } }
+    val models = remember(radarItems) { radarItems.mapNotNull(ContentItem::modelName).distinct().sorted() }
+    val visibleItems = remember(radarItems, favoriteIds, query, selectedCategory, selectedSource, selectedModel, onlySaved) {
+        filterPromptRadarItems(
+            items = radarItems,
+            filters = PromptRadarFilters(query, selectedCategory, selectedSource, selectedModel, onlySaved),
+            favoriteIds = favoriteIds,
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(contentPadding),
+        contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.prompt_radar_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.prompt_radar_discovery_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(
+                    onClick = { scope.launch { onManualSync() } },
+                    enabled = syncRecord?.state != SyncState.SYNCING,
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                }
+            }
+        }
+        when (syncRecord?.state) {
+            SyncState.SYNCING -> item {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.syncing), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            SyncState.FAILURE -> item { StatusBanner(syncRecord?.message ?: stringResource(R.string.sync_failed), isError = true) }
+            SyncState.SUCCESS -> syncRecord?.lastSuccessAt?.let { timestamp ->
+                item { Text(stringResource(R.string.prompt_radar_last_sync, formatDate(timestamp)), style = MaterialTheme.typography.labelSmall) }
+            }
+            else -> Unit
+        }
+        if (!online) item { StatusBanner(stringResource(R.string.offline_message)) }
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+            )
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                item {
+                    FilterChip(
+                        selected = onlySaved,
+                        onClick = { onlySaved = !onlySaved },
+                        label = { Text(stringResource(R.string.prompt_radar_saved_locally)) },
+                    )
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = selectedCategory != null,
+                            onClick = { categoryMenuExpanded = true },
+                            label = {
+                                Text(categories.firstOrNull { it.id == selectedCategory }?.name ?: stringResource(R.string.prompt_radar_all_categories))
+                            },
+                        )
+                        DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.prompt_radar_all_categories)) },
+                                onClick = { selectedCategory = null; categoryMenuExpanded = false },
+                            )
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.name) },
+                                    onClick = { selectedCategory = category.id; categoryMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = selectedSource != null,
+                            onClick = { sourceMenuExpanded = true },
+                            label = { Text(sources.firstOrNull { it.id == selectedSource }?.name ?: stringResource(R.string.prompt_radar_all_sources)) },
+                        )
+                        DropdownMenu(expanded = sourceMenuExpanded, onDismissRequest = { sourceMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.prompt_radar_all_sources)) },
+                                onClick = { selectedSource = null; sourceMenuExpanded = false },
+                            )
+                            sources.forEach { source ->
+                                DropdownMenuItem(
+                                    text = { Text(source.name) },
+                                    onClick = { selectedSource = source.id; sourceMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = selectedModel != null,
+                            onClick = { modelMenuExpanded = true },
+                            label = { Text(selectedModel ?: stringResource(R.string.prompt_radar_all_models)) },
+                        )
+                        DropdownMenu(expanded = modelMenuExpanded, onDismissRequest = { modelMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.prompt_radar_all_models)) },
+                                onClick = { selectedModel = null; modelMenuExpanded = false },
+                            )
+                            models.forEach { model ->
+                                DropdownMenuItem(
+                                    text = { Text(model) },
+                                    onClick = { selectedModel = model; modelMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.prompt_radar_local_saves_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (visibleItems.isEmpty()) {
+            item {
+                EmptyState(
+                    R.string.prompt_radar_empty_title,
+                    if (radarItems.isEmpty()) R.string.prompt_radar_empty_message else R.string.empty_search_message,
+                )
+            }
+        } else {
+            items(visibleItems, key = ContentItem::id) { item ->
+                ContentCard(item = item, viewModel = viewModel, onClick = { onOpenItem(item.id) }, largePromptPreview = true)
+            }
+        }
+        item {
+            HorizontalDivider()
+            Text(stringResource(R.string.prompt_radar_manual_sources), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.prompt_radar_manual_sources_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PROMPT_RADAR_MANUAL_SOURCES) { (label, url) ->
+                    OutlinedButton(onClick = { openPromptRadarSource(context, url) }) { Text(label) }
+                }
+            }
+        }
+    }
+}
+
+private fun openPromptRadarSource(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, context.getString(R.string.open_source_unavailable), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private val PROMPT_RADAR_MANUAL_SOURCES = listOf(
+    "PromptHero" to "https://prompthero.com/",
+    "OpenArt" to "https://openart.ai/",
+    "Lexica" to "https://lexica.art/",
+    "Hugging Face Models" to "https://huggingface.co/models",
+    "Hugging Face Spaces" to "https://huggingface.co/spaces",
+)
+
 private fun ContentItem.isPhotographyPrompt(): Boolean =
     category?.id in setOf("image-prompts", "photorealistic-prompts", "visual-tricks", "social-portraits") ||
         tags.any { it.contains("photo", ignoreCase = true) || it.contains("image", ignoreCase = true) }
@@ -244,9 +469,15 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
     val results by viewModel.searchResults.collectAsStateWithLifecycle()
     val selectedSection by viewModel.searchSection.collectAsStateWithLifecycle()
     val selectedSource by viewModel.searchSource.collectAsStateWithLifecycle()
+    val freeOnly by viewModel.searchFreeOnly.collectAsStateWithLifecycle()
+    val requiresAccount by viewModel.searchRequiresAccount.collectAsStateWithLifecycle()
+    val requiresApiKey by viewModel.searchRequiresApiKey.collectAsStateWithLifecycle()
     val content by viewModel.items.collectAsStateWithLifecycle()
     val sources = remember(content) { content.mapNotNull { it.source }.distinctBy { it.id }.sortedBy { it.name } }
+    var sectionMenuExpanded by remember { mutableStateOf(false) }
     var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var accountMenuExpanded by remember { mutableStateOf(false) }
+    var apiKeyMenuExpanded by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         contentPadding = PaddingValues(20.dp),
@@ -267,18 +498,25 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    FilterChip(
-                        selected = selectedSection == null,
-                        onClick = { viewModel.selectSearchSection(null) },
-                        label = { Text(stringResource(R.string.filter_all)) },
-                    )
-                }
-                items(HomeSection.entries) { section ->
-                    FilterChip(
-                        selected = selectedSection == section,
-                        onClick = { viewModel.selectSearchSection(section) },
-                        label = { Text(stringResource(section.stringResource())) },
-                    )
+                    Box {
+                        FilterChip(
+                            selected = selectedSection != null,
+                            onClick = { sectionMenuExpanded = true },
+                            label = { Text(selectedSection?.let { stringResource(it.stringResource()) } ?: stringResource(R.string.filter_all)) },
+                        )
+                        DropdownMenu(expanded = sectionMenuExpanded, onDismissRequest = { sectionMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.filter_all)) },
+                                onClick = { viewModel.selectSearchSection(null); sectionMenuExpanded = false },
+                            )
+                            HomeSection.entries.forEach { section ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(section.stringResource())) },
+                                    onClick = { viewModel.selectSearchSection(section); sectionMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
                 }
                 item {
                     Box {
@@ -306,9 +544,80 @@ fun SearchScreen(viewModel: ExploreViewModel, onOpenItem: (String) -> Unit, cont
                         }
                     }
                 }
+                item {
+                    FilterChip(
+                        selected = freeOnly,
+                        onClick = { viewModel.setSearchFreeOnly(!freeOnly) },
+                        label = { Text(stringResource(R.string.filter_free_only)) },
+                    )
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = requiresAccount != null,
+                            onClick = { accountMenuExpanded = true },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        when (requiresAccount) {
+                                            true -> R.string.filter_require_account
+                                            false -> R.string.filter_not_required
+                                            null -> R.string.filter_account
+                                        },
+                                    ),
+                                )
+                            },
+                        )
+                        DropdownMenu(expanded = accountMenuExpanded, onDismissRequest = { accountMenuExpanded = false }) {
+                            listOf(
+                                R.string.filter_all_requirements to null,
+                                R.string.filter_required to true,
+                                R.string.filter_not_required to false,
+                            ).forEach { (label, required) ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(label)) },
+                                    onClick = { viewModel.selectRequiresAccount(required); accountMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box {
+                        FilterChip(
+                            selected = requiresApiKey != null,
+                            onClick = { apiKeyMenuExpanded = true },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        when (requiresApiKey) {
+                                            true -> R.string.filter_require_api_key
+                                            false -> R.string.filter_not_required
+                                            null -> R.string.requires_api_key
+                                        },
+                                    ),
+                                )
+                            },
+                        )
+                        DropdownMenu(expanded = apiKeyMenuExpanded, onDismissRequest = { apiKeyMenuExpanded = false }) {
+                            listOf(
+                                R.string.filter_all_requirements to null,
+                                R.string.filter_required to true,
+                                R.string.filter_not_required to false,
+                            ).forEach { (label, required) ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(label)) },
+                                    onClick = { viewModel.selectRequiresApiKey(required); apiKeyMenuExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
-        if (query.isBlank() && selectedSection == null) {
+        if (query.isBlank() && selectedSection == null && selectedSource == null && !freeOnly &&
+            requiresAccount == null && requiresApiKey == null
+        ) {
             item { EmptyState(R.string.search_start_message, R.string.empty_home_message) }
         } else if (results.isEmpty()) {
             item { EmptyState(R.string.empty_search_title, R.string.empty_search_message) }
@@ -430,6 +739,27 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.notification_test_button))
+            }
+        }
+        if (settings.notificationsEnabled) {
+            item { Text(stringResource(R.string.notification_categories), style = MaterialTheme.typography.titleSmall) }
+            listOf(
+                Triple("ai-tools", R.string.notification_category_ai_tools, settings.notifyAiTools),
+                Triple("free-offers", R.string.notification_category_free_offers, settings.notifyFreeOffers),
+                Triple("android-projects", R.string.notification_category_android, settings.notifyAndroidProjects),
+                Triple("models", R.string.notification_category_models, settings.notifyModels),
+                Triple("prompts", R.string.notification_category_prompts, settings.notifyPrompts),
+                Triple("news", R.string.notification_category_news, settings.notifyNews),
+            ).forEach { (type, label, enabled) ->
+                item {
+                    NotificationPreferenceRow(
+                        label = label,
+                        checked = enabled,
+                        onCheckedChange = { value ->
+                            scope.launch { settingsRepository.setNotificationType(type, value) }
+                        },
+                    )
+                }
             }
         }
         item { HorizontalDivider() }
@@ -589,6 +919,9 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                 }
             } else if (content.contentType == ContentType.PROMPT) {
                 content.originalDescription?.let { original -> item { DetailValue(R.string.original_description, original) } }
+                if (content.originalDescription.isNullOrBlank()) {
+                    item { DetailValue(R.string.prompt_unavailable_title, stringResource(R.string.prompt_unavailable_message)) }
+                }
             } else {
                 content.originalDescription?.takeIf { it != content.description && '<' !in it }?.let { original ->
                     item { DetailValue(R.string.original_description, original) }
@@ -607,11 +940,27 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
             content.publishedAt?.let { published ->
                 item { DetailValue(R.string.published_date, formatDate(published)) }
             }
+            if (content.sourceTimestamp() == null) {
+                content.discoveredAt?.let { discoveredAt ->
+                    item { DetailValue(R.string.prompt_discovered_at, formatDate(discoveredAt)) }
+                }
+            }
+            content.modelName?.let { model -> item { DetailValue(R.string.prompt_model, model, forceLtr = true) } }
+            content.generationSettings?.let { settings -> item { DetailValue(R.string.prompt_generation_settings, settings, forceLtr = true) } }
             content.sourceUpdatedAt?.let { updated ->
                 item { DetailValue(R.string.source_updated, formatDate(updated)) }
             }
             item { DetailValue(R.string.content_type, stringResource(content.contentType.stringResource())) }
             content.category?.let { category -> item { DetailValue(R.string.category, category.displayName()) } }
+            item {
+                DetailValue(R.string.requires_account, stringResource(requirementLabel(content.requiresAccount)))
+            }
+            item {
+                DetailValue(R.string.requires_payment_card, stringResource(requirementLabel(content.requiresPaymentCard)))
+            }
+            item {
+                DetailValue(R.string.requires_api_key, stringResource(requirementLabel(content.requiresApiKey)))
+            }
             content.language?.let { item { DetailValue(R.string.language, it, forceLtr = true) } }
             content.starsCount?.let { item { DetailValue(R.string.stars, it.toString(), forceLtr = true) } }
             content.forksCount?.let { item { DetailValue(R.string.forks, it.toString(), forceLtr = true) } }
@@ -639,7 +988,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                 val freeStatus = content.classifiedFreeStatus()
                 DetailValue(
                     R.string.free_status,
-                    stringResource(if (freeStatus == FreeStatus.OPEN_SOURCE) R.string.free_open_source_free else freeStatus.stringResource()),
+                    stringResource(freeStatus.stringResource()),
                 )
             }
             content.freeLimit?.takeIf(String::isNotBlank)?.let { limit ->
@@ -658,11 +1007,37 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                     )
                 }
             }
-            (content.sourceUrl ?: content.url)?.let { sourceUrl ->
-                item { UrlValue(sourceUrl) }
+            content.url?.let { serviceUrl ->
+                item { DetailValue(R.string.service_url, serviceUrl, forceLtr = true) }
                 item {
                     OutlinedButton(onClick = {
-                        val uri = Uri.parse(sourceUrl)
+                        val uri = Uri.parse(serviceUrl)
+                        if (uri.scheme == "https") runCatching { CustomTabsIntent.Builder().build().launchUrl(context, uri) }
+                    }) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.open_service))
+                    }
+                }
+            }
+            content.thumbnailUrl?.let { imageUrl ->
+                item { DetailValue(R.string.prompt_image_url, imageUrl, forceLtr = true) }
+                item {
+                    OutlinedButton(onClick = {
+                        val uri = Uri.parse(imageUrl)
+                        if (uri.scheme == "https") runCatching { CustomTabsIntent.Builder().build().launchUrl(context, uri) }
+                    }) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.prompt_open_image))
+                    }
+                }
+            }
+            content.sourceUrl?.takeIf { it != content.url }?.let { proofUrl ->
+                item { DetailValue(R.string.proof_url, proofUrl, forceLtr = true) }
+                item {
+                    OutlinedButton(onClick = {
+                        val uri = Uri.parse(proofUrl)
                         if (uri.scheme == "https") runCatching { CustomTabsIntent.Builder().build().launchUrl(context, uri) }
                     }) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null)
@@ -679,7 +1054,9 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                         Text(stringResource(if (isFavorite) R.string.remove_favorite else R.string.save_favorite))
                     }
                     Button(onClick = {
-                        val shareText = listOfNotNull(content.title, content.description ?: content.originalDescription, content.sourceUrl ?: content.url).joinToString("\n")
+                        val shareText = listOfNotNull(content.title, content.description ?: content.originalDescription, content.url, content.sourceUrl)
+                            .distinct()
+                            .joinToString("\n")
                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)
@@ -712,9 +1089,7 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
                 }
             }
             if (content.contentType == ContentType.PROMPT) {
-                val promptText = content.originalDescription?.takeIf { it.isNotBlank() }
-                    ?: content.description?.takeIf { it.isNotBlank() }
-                    ?: content.displayDescriptionAr?.takeIf { it.isNotBlank() }
+                val promptText = content.originalPromptText()
                 if (promptText != null) item {
                     Button(onClick = {
                         clipboard.setText(AnnotatedString(promptText))
@@ -737,12 +1112,16 @@ fun DetailsScreen(itemId: String, viewModel: ExploreViewModel, onOpenItem: (Stri
 }
 
 @Composable
-private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick: () -> Unit) {
+private fun ContentCard(
+    item: ContentItem,
+    viewModel: ExploreViewModel,
+    onClick: () -> Unit,
+    largePromptPreview: Boolean = false,
+) {
     val isFavorite by viewModel.observeFavorite(item.id).collectAsStateWithLifecycle(initialValue = false)
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val copyablePrompt = item.originalDescription?.takeIf(String::isNotBlank)
-        ?: item.description?.takeIf(String::isNotBlank)
+    val copyablePrompt = item.originalPromptText()
     LaunchedEffect(item.id, item.title, item.description, item.displayTitleAr, item.displayDescriptionAr) {
         if (item.displayTitleAr == null) {
             item.translatableTitle()?.let { title ->
@@ -763,6 +1142,7 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             val safeThumbnail = item.thumbnailUrl?.takeIf { Uri.parse(it).scheme == "https" }
+            val thumbnailSize = if (largePromptPreview && item.contentType == ContentType.PROMPT) 92.dp else 44.dp
             var thumbnailFailed by remember(item.thumbnailUrl) { mutableStateOf(false) }
             var thumbnailAttempt by remember(item.thumbnailUrl) { mutableStateOf(0) }
             LaunchedEffect(safeThumbnail, thumbnailFailed) {
@@ -779,14 +1159,14 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                         .memoryCacheKey("$safeThumbnail:$thumbnailAttempt")
                         .build(),
                     contentDescription = null,
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(thumbnailSize),
                     contentScale = ContentScale.Crop,
                     onError = { thumbnailFailed = true },
                     onSuccess = { thumbnailFailed = false },
                 )
             } else {
                 Surface(
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(thumbnailSize),
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.tertiaryContainer,
                 ) {
@@ -806,7 +1186,16 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (item.isNewToday(System.currentTimeMillis())) {
+                    val freshness = item.promptFreshness(System.currentTimeMillis())
+                    if (item.contentType == ContentType.PROMPT && freshness != null) {
+                        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
+                            Text(
+                                stringResource(if (freshness == PromptFreshness.SOURCE_NEW) R.string.prompt_badge_new else R.string.prompt_badge_discovered),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    } else if (item.contentType != ContentType.PROMPT && item.isNewToday(System.currentTimeMillis())) {
                         Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(4.dp)) {
                             Text(stringResource(R.string.badge_new), modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
                         }
@@ -815,8 +1204,17 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                 (item.displayDescriptionAr ?: item.description)?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+                if (item.contentType == ContentType.PROMPT && copyablePrompt == null) {
+                    Text(stringResource(R.string.prompt_unavailable_title), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                item.modelName?.let { model ->
+                    Text(stringResource(R.string.prompt_model_short, model), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (item.contentType == ContentType.PROMPT && (safeThumbnail == null || thumbnailFailed)) {
+                    Text(stringResource(R.string.prompt_image_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(
-                    listOfNotNull(item.source?.name, stringResource(item.contentType.stringResource()), item.freeStatus.takeIf { it != FreeStatus.UNKNOWN }?.let { stringResource(it.stringResource()) }).joinToString(" · "),
+                    listOfNotNull(item.source?.name, stringResource(item.contentType.stringResource()), stringResource(item.classifiedFreeStatus().stringResource())).joinToString(" · "),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -852,12 +1250,12 @@ private fun ContentCard(item: ContentItem, viewModel: ExploreViewModel, onClick:
                 }
                 if (item.contentType == ContentType.PROMPT) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = {
-                            copyablePrompt?.let { prompt ->
+                        copyablePrompt?.let { prompt ->
+                            TextButton(onClick = {
                                 clipboard.setText(AnnotatedString(prompt))
                                 Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()
-                            }
-                        }) { Text("نسخ البرومبت") }
+                            }) { Text(stringResource(R.string.copy_prompt)) }
+                        }
                         TextButton(onClick = onClick) { Text("تجربة") }
                     }
                 }
@@ -967,11 +1365,17 @@ private fun DetailValue(label: Int, value: String, forceLtr: Boolean = false) {
 }
 
 @Composable
-private fun UrlValue(url: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(url, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+private fun NotificationPreferenceRow(
+    label: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -996,6 +1400,7 @@ private fun HomeSection.stringResource(): Int = when (this) {
     HomeSection.ANDROID_PROJECTS -> R.string.section_android_projects
     HomeSection.ANDROID_MEDIA_DESIGN -> R.string.section_android_media_design
     HomeSection.MODELS -> R.string.section_models
+    HomeSection.API_FREE_MODELS -> R.string.section_api_free_models
     HomeSection.PROMPTS -> R.string.section_prompts
     HomeSection.IMAGE_PROMPTS -> R.string.section_image_prompts
     HomeSection.REELS_PROMPTS -> R.string.section_reels_prompts
@@ -1064,6 +1469,12 @@ private fun FreeStatus.stringResource(): Int = when (this) {
     FreeStatus.LOCAL_RUNNABLE -> R.string.free_local_runnable
     FreeStatus.EXPIRED -> R.string.expired_offer
     FreeStatus.UNKNOWN -> R.string.free_unknown
+}
+
+private fun requirementLabel(value: Boolean?): Int = when (value) {
+    true -> R.string.requirement_yes
+    false -> R.string.requirement_no
+    null -> R.string.requirement_unknown
 }
 
 private fun VerificationLevel.stringResource(): Int = when (this) {

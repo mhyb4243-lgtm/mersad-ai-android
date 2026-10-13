@@ -6,6 +6,7 @@ import com.mersadai.app.domain.model.ContentType
 import com.mersadai.app.domain.model.Source
 import com.mersadai.app.data.local.SeedContentProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -65,7 +66,7 @@ class LocalContentSearchTest {
 
         assertTrue(items.any { it.contentType == ContentType.ANDROID_PROJECT && it.title.contains("Android") })
         assertTrue(items.any { it.contentType == ContentType.MODEL && it.title.contains("Gemma") })
-        assertTrue(items.any { it.id == "offer-chatgpt-free" })
+        assertFalse(items.any { it.id.startsWith("offer-") || it.id.startsWith("creator-deal-") })
         assertTrue(items.any { it.id == "seed-image-prompt-01" })
         assertEquals(9, items.count { it.category?.id == "reels-prompts" })
         assertEquals(2, items.count { it.category?.id == "character-prompts" })

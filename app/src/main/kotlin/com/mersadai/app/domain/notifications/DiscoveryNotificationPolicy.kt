@@ -4,6 +4,7 @@ import com.mersadai.app.domain.model.AppSettings
 
 enum class DiscoveryNotificationType(val storageKey: String) {
     AI_TOOLS("ai-tools"),
+    FREE_OFFERS("free-offers"),
     ANDROID_PROJECTS("android-projects"),
     MODELS("models"),
     PROMPTS("prompts"),
@@ -12,6 +13,7 @@ enum class DiscoveryNotificationType(val storageKey: String) {
 
     fun enabled(settings: AppSettings): Boolean = when (this) {
         AI_TOOLS -> settings.notifyAiTools
+        FREE_OFFERS -> settings.notifyFreeOffers
         ANDROID_PROJECTS -> settings.notifyAndroidProjects
         MODELS -> settings.notifyModels
         PROMPTS -> settings.notifyPrompts

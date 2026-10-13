@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mersadai.app.data.mapper.toEntity
+import com.mersadai.app.domain.model.ContentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,7 +25,7 @@ import kotlinx.coroutines.launch
         StarSnapshotEntity::class,
         NotificationHistoryEntity::class,
     ],
-    version = 6,
+    version = 8,
     exportSchema = true,
 )
 abstract class MersadDatabase : RoomDatabase() {
@@ -99,6 +100,32 @@ abstract class MersadDatabase : RoomDatabase() {
                             OR id LIKE 'remote-prompts:huggingface-space-%'""",
                 )
             }
+
+        }
+
+        internal val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE items ADD COLUMN requiresApiKey INTEGER")
+                database.execSQL(
+                    """UPDATE items SET title = COALESCE(author, title) || ' — صفحة غير متحقق منها',
+                        originalTitle = COALESCE(author, originalTitle, title),
+                        description = 'لم يتم التحقق من شروط المجانية أو حدود الاستخدام؛ راجع صفحة المصدر الرسمية.',
+                        originalDescription = NULL, freeStatus = 'UNKNOWN', verificationLevel = 'UNVERIFIED',
+                        lastVerifiedAt = NULL, createdAt = 0, updatedAt = 0, publishedAt = NULL,
+                        sourceUpdatedAt = NULL, pushedAt = NULL, freeLimit = NULL, requiresAccount = NULL,
+                        requiresPaymentCard = NULL, requiresApiKey = NULL, isActive = NULL, dealType = NULL,
+                        promoCode = NULL, startAt = NULL, endAt = NULL
+                        WHERE id LIKE 'offer-%' OR id LIKE 'free-perk-%' OR id LIKE 'creator-deal-%'""",
+                )
+            }
+        }
+
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE items ADD COLUMN modelName TEXT")
+                database.execSQL("ALTER TABLE items ADD COLUMN generationSettings TEXT")
+                database.execSQL("ALTER TABLE items ADD COLUMN discoveredAt INTEGER")
+            }
         }
 
         fun create(context: Context): MersadDatabase {
@@ -108,17 +135,19 @@ abstract class MersadDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_3_4)
                 .addMigrations(MIGRATION_4_5)
                 .addMigrations(MIGRATION_5_6)
+                .addMigrations(MIGRATION_6_7)
+                .addMigrations(MIGRATION_7_8)
                 .build()
 
             CoroutineScope(Dispatchers.IO).launch {
                 if (database.contentDao().countItems() == 0) {
-                    SeedContentProvider.items().forEach { item ->
+                    SeedContentProvider.items().filter { it.contentType != ContentType.PROMPT }.forEach { item ->
                         val source = item.source ?: return@forEach
                         val category = item.category
                         database.contentDao().upsertRemoteContent(item.toEntity(), source.toEntity(), category?.toEntity())
                     }
                 }
-                SeedContentProvider.additiveItems().forEach { item ->
+                SeedContentProvider.additiveItems().filter { it.contentType != ContentType.PROMPT }.forEach { item ->
                     if (database.contentDao().hasItem(item.id)) return@forEach
                     val source = item.source ?: return@forEach
                     database.contentDao().upsertRemoteContent(

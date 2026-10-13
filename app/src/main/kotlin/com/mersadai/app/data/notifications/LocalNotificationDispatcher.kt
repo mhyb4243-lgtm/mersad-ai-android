@@ -54,7 +54,13 @@ class LocalNotificationDispatcher(
         val contentIntent = PendingIntent.getActivity(
             context,
             NOTIFICATION_ID,
-            Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_DISCOVERY_SECTION, "LATEST"),
+            Intent(context, MainActivity::class.java).apply {
+                if (batch.total == 1) {
+                    putExtra(MainActivity.EXTRA_DISCOVERY_ITEM_ID, batch.candidates.single().itemId)
+                } else {
+                    putExtra(MainActivity.EXTRA_DISCOVERY_SECTION, "LATEST")
+                }
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -75,6 +81,7 @@ class LocalNotificationDispatcher(
 
     private fun DiscoveryNotificationType.labelResource(): Int = when (this) {
         DiscoveryNotificationType.AI_TOOLS -> R.string.notification_count_ai_tools
+        DiscoveryNotificationType.FREE_OFFERS -> R.string.notification_count_free_offers
         DiscoveryNotificationType.ANDROID_PROJECTS -> R.string.notification_count_android
         DiscoveryNotificationType.MODELS -> R.string.notification_count_models
         DiscoveryNotificationType.PROMPTS -> R.string.notification_count_prompts

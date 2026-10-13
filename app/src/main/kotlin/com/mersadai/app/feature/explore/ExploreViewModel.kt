@@ -28,27 +28,45 @@ class ExploreViewModel(
     private val query = MutableStateFlow("")
     private val selectedSection = MutableStateFlow<HomeSection?>(null)
     private val selectedSource = MutableStateFlow<String?>(null)
+    private val freeOnly = MutableStateFlow(false)
+    private val requiresAccount = MutableStateFlow<Boolean?>(null)
+    private val requiresApiKey = MutableStateFlow<Boolean?>(null)
     private val translationJobs = MutableStateFlow<Set<String>>(emptySet())
     private val translationFailures = MutableStateFlow<Set<String>>(emptySet())
 
     val searchQuery: StateFlow<String> = query
     val searchSection: StateFlow<HomeSection?> = selectedSection
     val searchSource: StateFlow<String?> = selectedSource
+    val searchFreeOnly: StateFlow<Boolean> = freeOnly
+    val searchRequiresAccount: StateFlow<Boolean?> = requiresAccount
+    val searchRequiresApiKey: StateFlow<Boolean?> = requiresApiKey
     val translatingFields: StateFlow<Set<String>> = translationJobs
     val failedTranslations: StateFlow<Set<String>> = translationFailures
     val items: StateFlow<List<ContentItem>> = repository.observeItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val favorites: StateFlow<List<ContentItem>> = repository.observeFavorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val activeFilters = combine(
+        selectedSection,
+        selectedSource,
+        freeOnly,
+        requiresAccount,
+        requiresApiKey,
+    ) { section, source, free, account, apiKey ->
+        SearchFilters(section, source, free, account, apiKey)
+    }
+
     val searchResults: StateFlow<List<ContentItem>> = query
         .debounce(250)
         .flatMapLatest(repository::searchItems)
-        .combine(selectedSection.combine(selectedSource) { section, source -> section to source }) { results, filters ->
-            val (section, source) = filters
+        .combine(activeFilters) { results, filters ->
             results.filter { item ->
                 !item.hasExcludedPromptStyle() &&
-                    (section == null || item.belongsToHomeSection(section)) &&
-                    (source == null || item.source?.id == source)
+                    (filters.section == null || item.belongsToHomeSection(filters.section)) &&
+                    (filters.source == null || item.source?.id == filters.source) &&
+                    (!filters.freeOnly || item.isFreeNow()) &&
+                    (filters.requiresAccount == null || item.requiresAccount == filters.requiresAccount) &&
+                    (filters.requiresApiKey == null || item.requiresApiKey == filters.requiresApiKey)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -69,6 +87,18 @@ class ExploreViewModel(
         selectedSource.value = sourceId
     }
 
+    fun setSearchFreeOnly(enabled: Boolean) {
+        freeOnly.value = enabled
+    }
+
+    fun selectRequiresAccount(required: Boolean?) {
+        requiresAccount.value = required
+    }
+
+    fun selectRequiresApiKey(required: Boolean?) {
+        requiresApiKey.value = required
+    }
+
     fun translateToArabic(itemId: String, field: String, sourceText: String) {
         val key = "$itemId:$field"
         if (key in translationJobs.value || sourceText.isBlank()) return
@@ -82,11 +112,11 @@ class ExploreViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                translationFailures.value = translationFailures.value + key
-            } finally {
-                translationJobs.value = translationJobs.value - key
+                    translationFailures.value = translationFailures.value + key
+                } finally {
+                    translationJobs.value = translationJobs.value - key
+                }
             }
-        }
     }
 
     fun setFavorite(id: String, favorite: Boolean) {
@@ -101,3 +131,11 @@ class ExploreViewModel(
         viewModelScope.launch { repository.clearCache() }
     }
 }
+
+private data class SearchFilters(
+    val section: HomeSection?,
+    val source: String?,
+    val freeOnly: Boolean,
+    val requiresAccount: Boolean?,
+    val requiresApiKey: Boolean?,
+)

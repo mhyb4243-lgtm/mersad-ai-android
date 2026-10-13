@@ -51,6 +51,22 @@ class DiscoveryNotificationPolicyTest {
         assertTrue(plan.handledKeys.isEmpty())
     }
 
+    @Test
+    fun freeOfferNotificationsHaveAnIndependentCategoryPreference() {
+        val candidate = candidate("offer-change", "free-offers")
+        val settings = AppSettings(notificationsEnabled = true, notifyFreeOffers = false)
+
+        val plan = DiscoveryNotificationPolicy.plan(
+            listOf(candidate),
+            settings,
+            notificationPermissionGranted = true,
+            now = NOW,
+        )
+
+        assertNull(plan.batch)
+        assertEquals(setOf("offer-change"), plan.handledKeys)
+    }
+
     private fun candidate(key: String, type: String, discoveredAt: Long = NOW) =
         DiscoveryNotificationCandidate(key, key, type, discoveredAt)
 

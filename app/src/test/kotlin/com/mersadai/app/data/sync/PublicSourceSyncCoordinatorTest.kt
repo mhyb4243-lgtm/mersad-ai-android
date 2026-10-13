@@ -4,6 +4,7 @@ import com.mersadai.app.data.local.CategoryEntity
 import com.mersadai.app.data.local.ItemEntity
 import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
+import com.mersadai.app.data.local.RemoteContentSaveResult
 import com.mersadai.app.data.remote.SourceHttpResponse
 import com.mersadai.app.data.remote.SourceHttpTransport
 import com.mersadai.app.domain.model.ContentType
@@ -34,21 +35,22 @@ class PublicSourceSyncCoordinatorTest {
         val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
 
         assertFalse(result.hasTransientFailure)
-        assertEquals(12, store.states.size)
+        assertEquals(13, store.states.size)
         assertEquals("FAILURE", store.states.getValue("github").state)
         assertEquals(403, store.states.getValue("github").lastHttpStatus)
         assertEquals(now + 3_600_000, store.states.getValue("github").nextAllowedSyncAt)
         assertEquals("FAILURE", store.states.getValue("hf-models").state)
         assertEquals(now + 120_000, store.states.getValue("hf-models").nextAllowedSyncAt)
         assertEquals("SUCCESS", store.states.getValue("hf-spaces").state)
+        assertEquals("SUCCESS", store.states.getValue("openrouter-models").state)
         assertEquals("SUCCESS", store.states.getValue("prompts-chat").state)
         assertEquals("SUCCESS", store.states.getValue("remote-prompts").state)
         assertTrue(calls.any { it.second["Accept"] == "application/vnd.github+json" })
         assertTrue(calls.any { it.second["X-GitHub-Api-Version"] == "2022-11-28" })
         assertTrue(calls.any {
-            it.first.startsWith("https://lexica.art/api/v1/search") &&
-                it.second["Referer"] == "https://lexica.art/" &&
-                it.second["User-Agent"]?.contains("Mozilla/5.0") == true
+            it.first.startsWith("https://civitai.com/api/v1/images") &&
+                it.first.contains("sort=Newest") &&
+                it.first.contains("withMeta=true")
         })
     }
 
@@ -90,6 +92,25 @@ class PublicSourceSyncCoordinatorTest {
             } else {
                 successFor(url)
             }
+        }
+
+        @Test
+        fun openRouterFreeModelsArePersistedWithApiKeyRequirements() = runBlocking {
+            val store = FakeStore()
+            val body = """{"data":[{"id":"provider/model:free","name":"Free Model","description":"A documented model.","created":${(now - 60_000L) / 1000},"pricing":{"prompt":"0","completion":"0"}}]}"""
+            val transport = SourceHttpTransport { url, _ ->
+                if (url == "https://openrouter.ai/api/v1/models") response(200, body = body) else successFor(url)
+            }
+
+            PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+            val model = store.items.single { it.externalId == "openrouter:provider/model:free" }
+            assertEquals(ContentType.MODEL.name, model.contentType)
+            assertEquals(FreeStatus.FREE_TIER.name, model.freeStatus)
+            assertEquals(true, model.requiresApiKey)
+            assertEquals(true, model.requiresAccount)
+            assertEquals("SUCCESS", store.states.getValue("openrouter-models").state)
+            assertEquals("models", store.notifications.single { it.itemId == model.id }.notificationType)
         }
 
         PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
@@ -141,7 +162,7 @@ class PublicSourceSyncCoordinatorTest {
     @Test
     fun remoteFeedParsesPublicationDatesAndOfficialDeals() = runBlocking {
         val publishedAt = now - 60_000L
-        val feed = """{"schema_version":3,"prompts":[{"id":"fresh-prompt","title":"Fresh prompt","category_id":"ai-prompts","prompt":"A useful prompt.","published_at":$publishedAt}],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[{"id":"free-plan","title":"Official free plan","description":"A free plan.","url":"https://example.com/pricing","provider":"Example","free_status":"FREE_TIER","deal_type":"free plan","promo_code":"TRYFREE","is_active":true,"published_at":$publishedAt,"verified_at":$now,"requires_account":true,"requires_payment_card":false,"free_limit":"Daily usage"}]}]}"""
+        val feed = """{"schema_version":3,"prompts":[{"id":"fresh-prompt","title":"Fresh prompt","category_id":"ai-prompts","prompt":"A useful prompt.","published_at":$publishedAt}],"sections":[{"id":"ai-deals-and-trials","title":"AI Deals & Trials","items":[{"id":"free-plan","title":"Official free plan","description":"A free plan.","url":"https://example.com/pricing","source_url":"https://example.com/pricing","provider":"Example","free_status":"FREE_TIER","deal_type":"free plan","promo_code":"TRYFREE","is_active":true,"published_at":$publishedAt,"verified_at":$now,"requires_account":true,"requires_payment_card":false,"free_limit":"Daily usage"}]}]}"""
         val transport = SourceHttpTransport { url, _ ->
             if (url.contains("remote_prompts.json")) response(200, body = feed) else successFor(url)
         }
@@ -154,14 +175,52 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals("ai-prompts", itemCategory(store, prompt.id))
         val deal = store.items.single { it.externalId == "remote-prompts:free-plan" }
         assertEquals(ContentType.AI_TOOL.name, deal.contentType)
-        assertEquals(FreeStatus.FREE_TIER.name, deal.freeStatus)
-        assertEquals(publishedAt, deal.publishedAt)
-        assertEquals(now, deal.lastVerifiedAt)
+        assertEquals(FreeStatus.UNKNOWN.name, deal.freeStatus)
+        assertNull(deal.publishedAt)
+        assertNull(deal.lastVerifiedAt)
         assertEquals("free-perks", itemCategory(store, deal.id))
-        assertEquals("free plan", deal.dealType)
-        assertEquals("TRYFREE", deal.promoCode)
-        assertEquals(true, deal.isActive)
+        assertNull(deal.dealType)
+        assertNull(deal.promoCode)
+        assertNull(deal.isActive)
+        assertNull(deal.freeLimit)
         assertEquals("OFFICIAL_SOURCE", deal.verificationLevel)
+        assertEquals("https://example.com/pricing", deal.sourceUrl)
+        assertTrue(deal.description.orEmpty().contains("لم يتم التحقق"))
+    }
+
+    @Test
+    fun verifiedDealChangesAreNotifiedOnceAndDoNotUseSyntheticPublicationDates() = runBlocking {
+        val store = FakeStore()
+        var status = "FREE_TIER"
+        var limit = "Five uses"
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.contains("remote_prompts.json")) {
+                response(
+                    200,
+                    body = """{"schema_version":3,"prompts":[],"sections":[{"id":"ai-deals-and-trials","title":"AI deals","items":[{"id":"changing-offer","title":"Changing offer","description":"Verified details.","url":"https://example.com/offer","source_url":"https://example.com/terms","source_type":"official","free_status":"$status","terms_verified_at":$now,"published_at":$now,"is_active":true,"free_limit":"$limit"}]}]}""",
+                )
+            } else {
+                successFor(url)
+            }
+        }
+        val coordinator = PublicSourceSyncCoordinator(store, transport) { now }
+
+        coordinator.synchronize(force = true)
+        val initial = store.items.single { it.externalId == "remote-prompts:changing-offer" }
+        assertEquals(FreeStatus.FREE_TIER.name, initial.freeStatus)
+        assertNull(initial.publishedAt)
+        assertEquals("https://example.com/terms", initial.sourceUrl)
+        assertTrue(store.notifications.isEmpty())
+
+        status = "FREE_CREDIT"
+        limit = "Three credits"
+        coordinator.synchronize(force = true)
+        assertEquals(1, store.notifications.size)
+        assertTrue(store.notifications.single().notificationKey.startsWith("change:"))
+        assertEquals("free-offers", store.notifications.single().notificationType)
+
+        coordinator.synchronize(force = true)
+        assertEquals(1, store.notifications.size)
     }
 
     @Test
@@ -237,8 +296,8 @@ class PublicSourceSyncCoordinatorTest {
     fun freshCacheSkipsAllNetworkRequests() = runBlocking {
         val store = FakeStore()
         listOf(
-            "github", "android-media-releases", "hf-models", "hf-spaces", "android-developers",
-            "google-developers", "openai-news", "prompts-chat", "image-prompts", "lexica",
+            "github", "android-media-releases", "hf-models", "openrouter-models", "hf-spaces", "android-developers",
+            "google-developers", "openai-news", "prompts-chat", "image-prompts", "civitai-images",
             "video-prompts", "remote-prompts",
         )
             .forEach { id -> store.states[id] = SyncStateEntity(id, "SUCCESS", now, now, null, lastAttemptAt = now, lastSuccessAt = now) }
@@ -304,6 +363,79 @@ class PublicSourceSyncCoordinatorTest {
         assertEquals("android-projects", store.notifications.single().notificationType)
     }
 
+    @Test
+    fun civitaiKeepsStableItemsAcrossSyncsAndQueuesAtMostOneRecentPromptNotification() = runBlocking {
+        val store = FakeStore()
+        val recentDate = java.time.Instant.ofEpochMilli(now - 60_000L)
+        val body = """{"items":[
+            {"id":42,"url":"https://image.civitai.com/42.jpg","createdAt":"$recentDate","meta":{"prompt":"A cinematic portrait with detailed lighting"}},
+            {"id":43,"url":"https://image.civitai.com/43.jpg","createdAt":"$recentDate","meta":{"prompt":"A surreal landscape with a floating city"}}
+        ]}"""
+        val requests = mutableListOf<String>()
+        val transport = SourceHttpTransport { url, _ ->
+            requests += url
+            if (url.startsWith("https://civitai.com/api/v1/images")) response(200, body = body)
+            else successFor(url)
+        }
+        val coordinator = PublicSourceSyncCoordinator(store, transport) { now }
+
+        val first = coordinator.synchronize(force = true)
+        val second = coordinator.synchronize(force = true)
+
+        assertTrue(requests.any { it.contains("sort=Newest") && it.contains("withMeta=true") })
+        val civitaiItems = store.items.filter { it.externalId?.startsWith("civitai:image:") == true }
+        assertEquals(setOf("civitai:image:42", "civitai:image:43"), civitaiItems.mapNotNull { it.externalId }.toSet())
+        assertEquals(2, civitaiItems.size)
+        assertEquals(2, first.newlyDiscoveredItems.count { it.source?.id == "civitai" })
+        assertTrue(second.newlyDiscoveredItems.none { it.source?.id == "civitai" })
+        assertEquals(1, store.notifications.count { it.notificationType == "prompts" })
+        assertEquals("civitai:image:42", store.notifications.single().itemId)
+    }
+
+    @Test
+    fun oldCivitaiPromptIsSavedWithoutBeingReportedAsNew() = runBlocking {
+        val store = FakeStore()
+        val oldDate = java.time.Instant.ofEpochMilli(now - 30L * 24 * 60 * 60 * 1000)
+        val body = """{"items":[{"id":8,"url":"https://image.civitai.com/8.jpg","createdAt":"$oldDate","meta":{"prompt":"An old original prompt"}}]}"""
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.startsWith("https://civitai.com/api/v1/images")) response(200, body = body)
+            else successFor(url)
+        }
+
+        val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        val oldPrompt = store.items.single { it.externalId == "civitai:image:8" }
+        assertEquals(now, oldPrompt.fetchedAt)
+        assertEquals(now, oldPrompt.discoveredAt)
+        assertTrue(result.newlyDiscoveredItems.none { it.externalId == oldPrompt.externalId })
+        assertTrue(store.notifications.none { it.itemId == oldPrompt.id })
+    }
+
+    @Test
+    fun civitaiNetworkFailureKeepsCachedPromptsAndDoesNotBlockOtherSources() = runBlocking {
+        val store = FakeStore()
+        val cached = item("civitai:image:7").copy(
+            externalId = "civitai:image:7",
+            contentType = ContentType.PROMPT.name,
+            originalDescription = "Previously saved original prompt",
+        )
+        store.items += cached
+        val completed = mutableListOf<String>()
+        val transport = SourceHttpTransport { url, _ ->
+            if (url.startsWith("https://civitai.com/api/v1/images")) error("offline")
+            completed += url
+            successFor(url)
+        }
+
+        val result = PublicSourceSyncCoordinator(store, transport) { now }.synchronize(force = true)
+
+        assertTrue(result.hasTransientFailure)
+        assertTrue(store.items.contains(cached))
+        assertEquals("FAILURE", store.states.getValue("civitai-images").state)
+        assertEquals("SUCCESS", store.states.getValue("hf-spaces").state)
+        assertTrue(completed.any { it.contains("/api/spaces") })
+    }
+
     private fun successFor(url: String): SourceHttpResponse = when {
         url.contains("/releases/latest") -> response(
             200,
@@ -314,9 +446,10 @@ class PublicSourceSyncCoordinatorTest {
             mapOf("ETag" to "\"github\"", "X-RateLimit-Remaining" to "54"),
             """{"incomplete_results":false,"items":[{"id":1,"full_name":"octo/repo","html_url":"https://github.com/octo/repo","owner":{"login":"octo"}},{"id":2,"full_name":"octo/repo-2","html_url":"https://github.com/octo/repo-2","owner":{"login":"octo"}},{"id":3,"full_name":"octo/repo-3","html_url":"https://github.com/octo/repo-3","owner":{"login":"octo"}}]}""",
         )
+        url == "https://openrouter.ai/api/v1/models" -> response(200, body = """{"data":[]}""")
         url.contains("/api/models") || url.contains("/api/spaces") -> response(200, body = "[]")
+        url.startsWith("https://civitai.com/api/v1/images") -> response(200, body = """{"items":[]}""")
         url.contains("datasets-server") -> response(200, body = """{"rows":[],"num_rows_total":0}""")
-        url.startsWith("https://lexica.art/api/") -> response(200, body = """{"images":[]}""")
         url.contains("remote_prompts.json") -> response(200, body = """{"schema_version":1,"prompts":[]}""")
         else -> response(200, body = "<rss version=\"2.0\"><channel></channel></rss>")
     }
@@ -353,13 +486,32 @@ class PublicSourceSyncCoordinatorTest {
 
         override suspend fun getState(sourceId: String): SyncStateEntity? = states[sourceId]
         override suspend fun saveState(state: SyncStateEntity) { states[state.id] = state }
-        override suspend fun saveContent(item: ItemEntity, source: SourceEntity, category: CategoryEntity?): Boolean {
-            val inserted = items.none { it.id == item.id || (item.externalId != null && it.externalId == item.externalId) }
+        override suspend fun saveContent(
+            item: ItemEntity,
+            source: SourceEntity,
+            category: CategoryEntity?,
+        ): RemoteContentSaveResult {
+            val previous = items.firstOrNull { it.id == item.id || (item.externalId != null && it.externalId == item.externalId) }
+            val inserted = previous == null
+            val changed = previous != null && listOf(
+                previous.freeStatus != item.freeStatus,
+                previous.verificationLevel != item.verificationLevel,
+                previous.freeLimit != item.freeLimit,
+                previous.isActive != item.isActive,
+                previous.endAt != item.endAt,
+                previous.requiresAccount != item.requiresAccount,
+                previous.requiresPaymentCard != item.requiresPaymentCard,
+                previous.requiresApiKey != item.requiresApiKey,
+                previous.sourceUrl != item.sourceUrl,
+                previous.url != item.url,
+            ).any { it }
             items.removeAll { it.id == item.id }
-            items += item
+            items += item.copy(
+                discoveredAt = previous?.discoveredAt ?: item.discoveredAt ?: item.fetchedAt.takeIf { previous == null },
+            )
             categories[item.id] = category?.id
             sources[item.id] = source.id
-            return inserted
+            return RemoteContentSaveResult(inserted, changed)
         }
 
         override suspend fun enqueueNotifications(entries: List<com.mersadai.app.data.local.NotificationHistoryEntity>) {

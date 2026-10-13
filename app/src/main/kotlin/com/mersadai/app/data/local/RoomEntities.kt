@@ -25,6 +25,8 @@ data class ItemEntity(
     val language: String?,
     val thumbnailUrl: String?,
     val sourceUrl: String? = null,
+    val modelName: String? = null,
+    val generationSettings: String? = null,
     val externalId: String?,
     val tags: String? = null,
     val license: String? = null,
@@ -57,9 +59,11 @@ data class ItemEntity(
     val promoCode: String? = null,
     val isActive: Boolean? = null,
     val localRunnable: Boolean? = null,
+    val requiresApiKey: Boolean? = null,
     val lastVerificationError: String? = null,
     val startAt: Long? = null,
     val endAt: Long? = null,
+    val discoveredAt: Long? = null,
 )
 
 @Entity(tableName = "sources")

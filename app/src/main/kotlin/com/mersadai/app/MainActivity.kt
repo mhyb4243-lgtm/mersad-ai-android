@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_DISCOVERY_SECTION = "discovery_section"
+        const val EXTRA_DISCOVERY_ITEM_ID = "discovery_item_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
                         },
                         initialDiscoverySection = intent.getStringExtra(EXTRA_DISCOVERY_SECTION)
                             ?.let { runCatching { HomeSection.valueOf(it) }.getOrNull() },
+                        initialDiscoveryItemId = intent.getStringExtra(EXTRA_DISCOVERY_ITEM_ID),
                     )
                 }
             }

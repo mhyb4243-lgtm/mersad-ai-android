@@ -16,6 +16,7 @@ import com.mersadai.app.domain.prompts.VideoPromptPolicy
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.net.URI
+import java.math.BigDecimal
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -69,36 +70,85 @@ object SourceParsers {
         )
     }
 
-    fun lexicaImagePrompts(body: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
+    fun civitaiImages(body: String): List<ContentItem> {
         val root = JsonParser.parseString(body).asObjectOrNull()
-            ?: throw SourceSchemaException("Lexica response is not an object")
-        val results = root.array("images") ?: throw SourceSchemaException("Lexica response has no images array")
-        return results.mapNotNull { element ->
+            ?: throw SourceSchemaException("Civitai response is not an object")
+        val images = root.array("items")
+            ?: throw SourceSchemaException("Civitai response has no items array")
+        return images.mapNotNull { element ->
             val image = element.asObjectOrNull() ?: return@mapNotNull null
-            val prompt = image.string("prompt")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val promptId = image.string("id") ?: image.string("promptid") ?: prompt.hashCode().toString()
-            val imageUrl = image.string("src")?.httpsUrl()
-            val sourceUrl = (image.string("url") ?: image.string("href"))?.httpsUrl()
-            val sourceDate = (image.string("createdAt") ?: image.string("date")).epochMillis()
+            val imageId = image.long("id")?.takeIf { it > 0L } ?: return@mapNotNull null
+            val metadata = image.obj("meta")
+            val prompt = metadata?.string("prompt")?.trim()?.takeIf(String::isNotBlank)
+            val imageUrl = image.string("url").civitaiImageUrl()
+            if (prompt == null && imageUrl == null) return@mapNotNull null
+
+            val publishedAt = image.string("createdAt").epochMillis()
+            val postUrl = "https://civitai.com/images/$imageId"
+            val tags = (image.strings("tags") + metadata?.strings("tags").orEmpty())
+                .distinct()
+            val modelName = metadata?.string("Model")
+                ?: metadata?.strings("models")?.joinToString(", ")?.takeIf(String::isNotBlank)
+                ?: image.string("baseModel")
+            val searchableMetadata = listOfNotNull(prompt, modelName).plus(tags).joinToString(" ").lowercase(Locale.ROOT)
+            val category = when {
+                listOf("text-to-video", "ai video", "video generation", "cinematic scene").any(searchableMetadata::contains) ->
+                    Category("reels-prompts", "برومبتات الفيديو والمشاهد السينمائية")
+                listOf("advertisement", "advertising", "product photography", "product ad", "brand campaign").any(searchableMetadata::contains) ->
+                    Category("advertising-prompts", "تصاميم الإعلانات والمنتجات")
+                listOf("inpainting", "outpainting", "image-to-image", "retouch", "upscal", "restoration", "edit this image").any(searchableMetadata::contains) ->
+                    Category("image-editing-prompts", "تعديل الصور وتحسينها")
+                listOf("portrait", "headshot", "editorial photography").any(searchableMetadata::contains) ->
+                    Category("social-portraits", "البورتريه والتصوير الاحترافي")
+                listOf("photoreal", "realistic", "cinematic", "film still", "cinematography").any(searchableMetadata::contains) ->
+                    Category("photorealistic-prompts", "صور سينمائية وواقعية")
+                listOf("surreal", "fantasy", "dreamscape", "impossible scene").any(searchableMetadata::contains) ->
+                    Category("surreal-prompts", "صور خيالية وسريالية")
+                listOf("optical illusion", "forced perspective", "visual trick", "anamorphic").any(searchableMetadata::contains) ->
+                    Category("visual-tricks", "مؤثرات بصرية وخدع إبداعية")
+                else -> Category("image-prompts", "برومبتات الصور")
+            }
+            val settings = metadata?.let { meta ->
+                val selected = listOf(
+                    "negativePrompt", "seed", "steps", "cfgScale", "sampler", "scheduler",
+                    "width", "height", "denoise", "engine",
+                ).mapNotNull { key -> meta.get(key)?.takeUnless { it.isJsonNull }?.let { key to it } }
+                    .toMap(LinkedHashMap())
+                if (selected.isEmpty()) null else JsonObject().apply {
+                    selected.forEach { (key, value) -> add(key, value) }
+                }.toString()
+            }
+            val imageTitle = prompt?.lineSequence()?.firstOrNull()?.trim()?.take(96)
+                ?.takeIf(String::isNotBlank) ?: "صورة منشورة بلا برومبت #$imageId"
             ContentItem(
-                id = "lexica:$promptId",
-                externalId = "lexica:$promptId",
-                title = prompt.take(100).ifBlank { "Lexica image prompt" },
-                description = "Prompt from Lexica's public image search.",
+                id = "civitai:image:$imageId",
+                externalId = "civitai:image:$imageId",
+                title = imageTitle,
+                originalTitle = null,
+                description = null,
                 originalDescription = prompt,
-                url = sourceUrl,
+                url = postUrl,
                 contentType = ContentType.PROMPT,
-                category = Category("image-prompts", "أوامر صور وتصميم"),
+                category = category,
                 freeStatus = FreeStatus.UNKNOWN,
-                verificationLevel = VerificationLevel.COMMUNITY_SOURCE,
-                source = Source("lexica", "Lexica", "lexica", "https://lexica.art", "https://lexica.art/api/v1/search?q=cinematic"),
-                createdAt = sourceDate,
-                updatedAt = sourceDate,
-                publishedAt = sourceDate,
-                sourceUrl = sourceUrl,
+                verificationLevel = VerificationLevel.OFFICIAL_SOURCE,
+                source = Source(
+                    "civitai",
+                    "Civitai",
+                    imageId.toString(),
+                    "https://civitai.com/images",
+                    "https://civitai.com/api/v1/images",
+                ),
+                createdAt = publishedAt,
+                updatedAt = publishedAt,
                 thumbnailUrl = imageUrl,
-                tags = listOf("lexica", "text-to-image", "image-generation"),
+                sourceUrl = postUrl,
+                tags = tags + "civitai",
+                publishedAt = publishedAt,
+                author = image.string("username"),
                 promptType = "text-to-image",
+                modelName = modelName,
+                generationSettings = settings,
             )
         }
     }
@@ -190,6 +240,63 @@ object SourceParsers {
                 gated = model.boolean("gated"),
                 isPrivate = model.boolean("private"),
                 libraryName = model.string("library_name"),
+            )
+        }
+    }
+
+    fun openRouterModels(body: String, now: Long = System.currentTimeMillis()): List<ContentItem> {
+        val root = JsonParser.parseString(body).asObjectOrNull()
+            ?: throw SourceSchemaException("OpenRouter response is not an object")
+        val results = root.array("data")
+            ?: throw SourceSchemaException("OpenRouter response has no data array")
+        return results.mapNotNull { element ->
+            val model = element.asObjectOrNull() ?: return@mapNotNull null
+            val id = model.string("id")?.takeIf { OPENROUTER_MODEL_ID.matches(it) } ?: return@mapNotNull null
+            val pricing = model.obj("pricing")
+            val isFree = pricing?.let { it.isZeroPrice("prompt") && it.isZeroPrice("completion") } == true
+            val name = model.string("name")?.takeIf(String::isNotBlank) ?: id
+            val createdAt = model.long("created")?.takeIf { it > 0L }?.times(1000)
+            val architecture = model.obj("architecture")
+            val modality = architecture?.string("modality")
+            val modalityTags = listOfNotNull(modality?.takeIf(String::isNotBlank))
+                .flatMap { it.split(Regex("[^a-zA-Z0-9+>-]+")) }
+                .filter(String::isNotBlank)
+            val detailsUrl = "https://openrouter.ai/$id"
+
+            ContentItem(
+                id = "openrouter:$id",
+                externalId = "openrouter:$id",
+                title = name,
+                originalTitle = name,
+                description = model.string("description")?.shortText(),
+                originalDescription = model.string("description"),
+                url = detailsUrl,
+                sourceUrl = detailsUrl,
+                contentType = ContentType.MODEL,
+                category = Category(
+                    if (isFree) "api-free-models" else "models",
+                    if (isFree) "نماذج API مجانية" else "نماذج OpenRouter",
+                ),
+                freeStatus = if (isFree) FreeStatus.FREE_TIER else FreeStatus.UNKNOWN,
+                verificationLevel = VerificationLevel.OFFICIAL,
+                source = Source(
+                    "openrouter",
+                    "OpenRouter",
+                    id,
+                    "https://openrouter.ai",
+                    "https://openrouter.ai/api/v1/models",
+                ),
+                lastVerifiedAt = now,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+                fetchedAt = now,
+                publishedAt = createdAt,
+                author = id.substringBefore('/'),
+                pipelineTag = modality,
+                pipelineCategory = pipelineCategory(modality),
+                tags = (listOf("openrouter", "api") + modalityTags).distinct(),
+                requiresAccount = true,
+                requiresApiKey = true,
             )
         }
     }
@@ -470,6 +577,9 @@ object SourceParsers {
         ?.let { runCatching { it.asLong }.getOrNull() }
     private fun JsonObject.double(key: String): Double? = get(key)?.takeUnless { it.isJsonNull || !it.isJsonPrimitive }
         ?.let { runCatching { it.asDouble }.getOrNull() }
+    private fun JsonObject.isZeroPrice(key: String): Boolean =
+        get(key)?.takeUnless { it.isJsonNull || !it.isJsonPrimitive }
+            ?.let { runCatching { BigDecimal(it.asString).compareTo(BigDecimal.ZERO) == 0 }.getOrNull() } == true
     private fun JsonObject.boolean(key: String): Boolean? = get(key)?.takeUnless { it.isJsonNull || !it.isJsonPrimitive }
         ?.let { runCatching { it.asBoolean }.getOrNull() }
     private fun JsonObject.strings(key: String): List<String> = array(key)?.mapNotNull { element ->
@@ -497,6 +607,10 @@ object SourceParsers {
         runCatching { URI(raw).scheme?.equals("https", ignoreCase = true) == true }.getOrDefault(false)
     }
 
+    private fun String?.civitaiImageUrl(): String? = httpsUrl()?.takeIf { url ->
+        runCatching { URI(url).host?.equals("image.civitai.com", ignoreCase = true) == true }.getOrDefault(false)
+    }
+
     private fun String?.epochMillis(): Long? {
         val value = this?.trim()?.takeIf(String::isNotBlank) ?: return null
         return runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
@@ -508,6 +622,8 @@ object SourceParsers {
 
     private fun String.sha256(): String = MessageDigest.getInstance("SHA-256")
         .digest(toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+    private val OPENROUTER_MODEL_ID = Regex("[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+")
 }
 
 class SourceSchemaException(message: String) : IllegalStateException(message)

@@ -47,16 +47,22 @@ class FactVerseFeedTests(unittest.TestCase):
         fetch_text.assert_called_once_with(updater.GITHUB_DEALS_URL)
 
     @patch("update_remote_prompts.verify_offer", side_effect=RuntimeError("temporarily unavailable"))
-    def test_official_tool_cards_remain_visible_when_plan_page_cannot_be_verified(self, _verify):
-        section, verified = updater.build_deals([], [], 1_797_000_000_000)
+    def test_official_pages_are_not_claimed_as_free_when_terms_are_unverified(self, _verify):
+        section, reachable = updater.build_deals([], [], 1_797_000_000_000)
 
-        self.assertEqual(0, verified)
+        self.assertEqual(0, reachable)
         offers = {offer["id"]: offer for offer in section["items"]}
         self.assertTrue(set(updater.OFFER_DETAILS).issubset(offers))
         for offer_id in updater.OFFER_DETAILS:
-            self.assertTrue(offers[offer_id]["url"].startswith("https://"))
-            self.assertIsNone(offers[offer_id]["verified_date"])
-            self.assertIn(updater.OFFER_DETAILS[offer_id][1], offers[offer_id]["free_limit"])
+            offer = offers[offer_id]
+            self.assertTrue(offer["url"].startswith("https://"))
+            self.assertEqual("UNKNOWN", offer["free_status"])
+            self.assertNotIn("published_at", offer)
+            self.assertNotIn("verified_at", offer)
+            self.assertNotIn("terms_verified_at", offer)
+            self.assertIsNone(offer["free_limit"])
+            self.assertIsNone(offer["is_active"])
+            self.assertIn("لم يتم التحقق", offer["description"])
 
     def test_parses_sciencedaily_rss_as_english_https_article(self):
         rss = """<?xml version="1.0"?><rss><channel><item>
@@ -194,21 +200,7 @@ class FactVerseFeedTests(unittest.TestCase):
             },
         )
 
-    def test_lexica_and_civitai_live_prompts_are_normalized_to_photo_category(self):
-        query = updater.PHOTO_MANIPULATION_QUERIES[0][0]
-        lexica = updater.parse_lexica_illusion_prompts(
-            {
-                "images": [
-                    {
-                        "id": "lexica-1",
-                        "prompt": "A forced perspective optical illusion portrait",
-                        "src": "https://image.lexica.art/preview.jpg",
-                    },
-                ],
-            },
-            query,
-            1000,
-        )[0]
+    def test_civitai_live_prompts_are_normalized_to_photo_category(self):
         civitai = updater.parse_civitai_illusion_prompts(
             {
                 "items": [
@@ -228,17 +220,11 @@ class FactVerseFeedTests(unittest.TestCase):
             1000,
         )[0]
 
-        self.assertEqual("lexica-illusion-lexica-1", lexica["id"])
-        self.assertEqual("visual-tricks", lexica["category_id"])
-        self.assertEqual("https://image.lexica.art/preview.jpg", lexica["thumbnail_url"])
-        self.assertNotIn("url", lexica)
-        self.assertNotIn("source_url", lexica)
         self.assertEqual("https://civitai.com/images/42", civitai["url"])
         self.assertEqual("https://civitai.com/images/42", civitai["source_url"])
         self.assertEqual("https://image.civitai.com/preview.jpg", civitai["thumbnail_url"])
         self.assertEqual(1735787045000, civitai["published_at"])
-        self.assertNotIn("published_at", lexica)
-        self.assertEqual(["Lexica", "Civitai"], [lexica["tags"][-1], civitai["tags"][-1]])
+        self.assertEqual("Civitai", civitai["tags"][-1])
 
     def test_huggingface_prompt_dataset_returns_attributed_live_image_prompts(self):
         records = [
@@ -273,31 +259,25 @@ class FactVerseFeedTests(unittest.TestCase):
 
     @patch("update_remote_prompts.fetch_text_range", return_value="")
     @patch("update_remote_prompts.fetch_json")
-    def test_photo_manipulation_discovery_uses_short_lexica_queries_civitai_and_huggingface(
+    def test_photo_manipulation_discovery_uses_civitai_and_huggingface_official_apis(
         self,
         fetch_json,
         fetch_text_range,
     ):
-        fetch_json.side_effect = [{"images": []}, {"images": []}, {"items": []}]
+        fetch_json.return_value = {"items": []}
         now_ms = 1_797_000_000_000
 
         prompts, successful_sources = updater.discover_photo_manipulation_prompts(now_ms)
 
-        self.assertEqual(4, successful_sources)
+        self.assertEqual(2, successful_sources)
         self.assertEqual([], prompts)
-        self.assertEqual(3, fetch_json.call_count)
+        self.assertEqual(1, fetch_json.call_count)
         fetch_text_range.assert_called_once_with(
             updater.HUGGINGFACE_PROMPT_METADATA_URL,
             updater.HUGGINGFACE_PROMPT_TAIL_BYTES,
         )
-        for call, (query, _, _) in zip(fetch_json.call_args_list[:2], updater.PHOTO_MANIPULATION_QUERIES):
-            self.assertIn("q=" + query, call.args[0])
-            self.assertEqual(1, len(call.args))
-            self.assertEqual("https://lexica.art/", call.kwargs["headers"]["Referer"])
-            self.assertIn("Mozilla/5.0", call.kwargs["headers"]["User-Agent"])
-            self.assertEqual("application/json", call.kwargs["headers"]["Accept"])
         self.assertEqual(updater.PHOTO_MANIPULATION_API_URL, fetch_json.call_args.args[0])
-        self.assertIn("Mozilla/5.0", fetch_json.call_args.kwargs["headers"]["User-Agent"])
+        self.assertEqual("application/json", fetch_json.call_args.kwargs["headers"]["Accept"])
 
     @patch("update_remote_prompts.fetch_json")
     def test_huggingface_spaces_are_live_cards_without_claiming_free_access(self, fetch_json):

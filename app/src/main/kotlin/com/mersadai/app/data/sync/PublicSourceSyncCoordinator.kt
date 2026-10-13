@@ -26,6 +26,7 @@ import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.security.MessageDigest
 
 class PublicSourceSyncCoordinator(
     private val store: SyncStore,
@@ -80,17 +81,30 @@ class PublicSourceSyncCoordinator(
                                 item.freeStatus
                             },
                         )
-                        val inserted = store.saveContent(
+                        val saveResult = store.saveContent(
                             item = persistedItem.toEntity(),
                             source = itemSource.toEntity(),
                             category = item.category?.let { CategoryEntity(it.id, it.name, it.parentId) },
                         )
-                        val notificationType = item.notificationType()
-                        if (inserted && item.hasRecentSourceDate(discoveredAt) && notificationType != null) {
-                            sourceDiscoveries += item
+                        val notificationType = item.notificationType(saveResult.importantChange)
+                        val isPromptNotification = item.contentType == ContentType.PROMPT
+                        if (
+                            (
+                                if (isPromptNotification) {
+                                    saveResult.isNew && item.hasRecentSourceDate(discoveredAt) && item.isWorthPromptNotification()
+                                } else {
+                                    saveResult.isNew && item.hasRecentSourceDate(discoveredAt) || saveResult.importantChange
+                                }
+                            ) &&
+                            notificationType != null
+                        ) {
+                            if (saveResult.isNew) sourceDiscoveries += item
                             sourceNotifications += NotificationHistoryEntity(
-                                notificationKey = item.externalId?.let { "external:$it" }
-                                    ?: "source:${item.source.id}:${item.id}",
+                                notificationKey = when {
+                                    saveResult.isNew -> item.externalId?.let { "external:$it" }
+                                        ?: "source:${item.source.id}:${item.id}"
+                                    else -> item.changeNotificationKey()
+                                },
                                 itemId = item.id,
                                 notificationType = notificationType,
                                 discoveredAt = discoveredAt,
@@ -104,7 +118,7 @@ class PublicSourceSyncCoordinator(
             }
             if (outcome.error == null) {
                 newlyDiscovered += sourceDiscoveries
-                store.enqueueNotifications(sourceNotifications)
+                store.enqueueNotifications(if (source.id == "civitai-images") sourceNotifications.take(1) else sourceNotifications)
             }
             if (outcome.transient) transientFailure = true
             val finishedAt = now()
@@ -135,20 +149,49 @@ class PublicSourceSyncCoordinator(
     private fun ContentItem.hasRecentSourceDate(timestamp: Long): Boolean =
         (publishedAt ?: pushedAt ?: sourceUpdatedAt)?.let { it in (timestamp - NOTIFICATION_FRESHNESS_WINDOW)..timestamp } == true
 
-    private fun ContentItem.notificationType(): String? = when (contentType) {
-        com.mersadai.app.domain.model.ContentType.AI_TOOL -> "ai-tools"
+    private fun ContentItem.isWorthPromptNotification(): Boolean =
+        source?.id == "civitai" &&
+            originalDescription?.isNotBlank() == true &&
+            thumbnailUrl?.startsWith("https://") == true
+
+    private fun ContentItem.notificationType(importantChange: Boolean): String? = when (contentType) {
+        com.mersadai.app.domain.model.ContentType.AI_TOOL ->
+            if (category?.id == "free-perks") "free-offers" else "ai-tools"
         com.mersadai.app.domain.model.ContentType.ANDROID_PROJECT -> "android-projects"
-        com.mersadai.app.domain.model.ContentType.MODEL -> "models"
-        com.mersadai.app.domain.model.ContentType.PROMPT -> "prompts"
+        com.mersadai.app.domain.model.ContentType.MODEL ->
+            "models".takeIf { source?.id != "openrouter" || freeStatus == FreeStatus.FREE_TIER || importantChange }
+        com.mersadai.app.domain.model.ContentType.PROMPT -> "prompts".takeIf { source?.id == "civitai" }
         com.mersadai.app.domain.model.ContentType.NEWS -> "news"
         com.mersadai.app.domain.model.ContentType.OTHER -> null
+    }
+
+    private fun ContentItem.changeNotificationKey(): String {
+        val state = listOf(
+            freeStatus.name,
+            freeLimit,
+            isActive,
+            endAt,
+            requiresAccount,
+            requiresPaymentCard,
+            requiresApiKey,
+            verificationLevel.name,
+            sourceUrl,
+            url,
+        ).joinToString("\u001f")
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(state.toByteArray(Charsets.UTF_8))
+            .take(12)
+            .joinToString("") { "%02x".format(it) }
+        return "change:${id}:$digest"
     }
 
     private suspend fun fetch(source: SourceDefinition, previous: SyncStateEntity?): FetchOutcome = when (source.id) {
         "github" -> fetchGitHub(source, previous)
         "android-media-releases" -> fetchAndroidMediaReleases(source, previous)
         "hf-models" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceModels(it) }
+        "openrouter-models" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.openRouterModels(it, now()) }
         "hf-spaces" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceSpaces(it) }
+        "civitai-images" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.civitaiImages(it) }
         "android-developers", "google-developers", "openai-news" ->
             fetchSingle(source, previous, source.endpoint) { body ->
                 SourceParsers.rssFeed(body, source.id, source.name, source.endpoint)
@@ -160,7 +203,6 @@ class PublicSourceSyncCoordinator(
             totalCount = SourceParsers::promptsChatTotalCount,
         ) { SourceParsers.promptsChat(it) }
         "image-prompts" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.imageGenerationPrompts(it) }
-        "lexica" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.lexicaImagePrompts(it) }
         "video-prompts" -> fetchLatestVideoPrompts(source, previous)
         "remote-prompts" -> fetchSingle(source, previous, source.endpoint, parser = ::remotePromptFeed)
         else -> FetchOutcome(error = "مصدر غير معروف.")
@@ -250,7 +292,7 @@ class PublicSourceSyncCoordinator(
                 ?.takeIf { it.startsWith("https://") },
             tags = tags,
             promptType = promptType,
-            publishedAt = entry.long("published_at"),
+            publishedAt = timestamp,
         )
     }
 
@@ -351,43 +393,61 @@ class PublicSourceSyncCoordinator(
             ?.takeIf(String::isNotBlank) ?: return null
         val title = entry.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
             ?.takeIf(String::isNotBlank) ?: return null
-        val url = entry.get("url")?.takeIf { it.isJsonPrimitive }?.asString?.trim()
+        val url = (entry.get("deal_url") ?: entry.get("url"))?.takeIf { it.isJsonPrimitive }?.asString?.trim()
             ?.takeIf { it.startsWith("https://") } ?: return null
-        val timestamp = entry.long("published_at")
+        val sourceType = entry.get("source_type")?.takeIf { it.isJsonPrimitive }?.asString
+        val isCommunity = sourceType == "community"
+        val timestamp = if (isCommunity) entry.long("published_at") else null
         val description = entry.get("description")?.takeIf { it.isJsonPrimitive }?.asString
+        val proofUrl = entry.get("source_url")?.takeIf { it.isJsonPrimitive }?.asString
+            ?.trim()?.takeIf { it.startsWith("https://") } ?: url
+        val termsVerifiedAt = entry.long("terms_verified_at")?.takeIf { it > 0L }
+        val termsVerified = sourceType == "official" && termsVerifiedAt != null && proofUrl != null
         return ContentItem(
             id = "remote-prompts:$externalId",
             externalId = "remote-prompts:$externalId",
             title = title,
             originalTitle = title,
-            description = description,
-            originalDescription = description,
+            description = if (termsVerified) description else "لم يتم التحقق من شروط المجانية أو حدود الاستخدام؛ راجع صفحة المصدر الرسمية.",
+            originalDescription = description?.takeIf { termsVerified },
             url = url,
             contentType = ContentType.AI_TOOL,
             category = Category("free-perks", "عروض واشتراكات الذكاء الاصطناعي المجانية (AI Deals & Trials)"),
-            freeStatus = entry.get("free_status")?.takeIf { it.isJsonPrimitive }?.asString
-                ?.let { runCatching { FreeStatus.valueOf(it) }.getOrNull() } ?: FreeStatus.FREE_TIER,
-            verificationLevel = if (
-                entry.get("source_type")?.takeIf { it.isJsonPrimitive }?.asString == "community"
-            ) {
-                VerificationLevel.COMMUNITY_SOURCE
+            freeStatus = if (termsVerified) {
+                entry.get("free_status")?.takeIf { it.isJsonPrimitive }?.asString
+                    ?.let { runCatching { FreeStatus.valueOf(it) }.getOrNull() } ?: FreeStatus.UNKNOWN
             } else {
-                VerificationLevel.OFFICIAL_SOURCE
+                FreeStatus.UNKNOWN
             },
-            source = Source("official-free-perks", "مصادر العروض الرسمية", "remote-prompts", url, url),
-            lastVerifiedAt = entry.long("verified_at"),
+            verificationLevel = if (isCommunity) {
+                VerificationLevel.COMMUNITY_SOURCE
+            } else if (proofUrl != null) {
+                VerificationLevel.OFFICIAL_SOURCE
+            } else {
+                VerificationLevel.UNVERIFIED
+            },
+            source = Source(
+                "official-free-perks",
+                entry.get("source_name")?.takeIf { it.isJsonPrimitive }?.asString ?: "مصدر العرض",
+                externalId,
+                proofUrl ?: url,
+                proofUrl,
+            ),
+            lastVerifiedAt = termsVerifiedAt,
             createdAt = timestamp,
-            updatedAt = entry.long("verified_at") ?: timestamp,
-            publishedAt = entry.long("published_at"),
+            updatedAt = termsVerifiedAt ?: timestamp,
+            publishedAt = timestamp,
             author = entry.get("provider")?.takeIf { it.isJsonPrimitive }?.asString,
-            requiresAccount = entry.boolean("requires_account"),
-            requiresPaymentCard = entry.boolean("requires_payment_card"),
-            freeLimit = entry.get("free_limit")?.takeIf { it.isJsonPrimitive }?.asString,
-            dealType = entry.get("deal_type")?.takeIf { it.isJsonPrimitive }?.asString,
-            promoCode = entry.get("promo_code")?.takeIf { it.isJsonPrimitive }?.asString,
-            isActive = entry.boolean("is_active"),
-            startAt = entry.long("start_at"),
-            endAt = entry.long("end_at"),
+            requiresAccount = entry.boolean("requires_account").takeIf { termsVerified },
+            requiresPaymentCard = entry.boolean("requires_payment_card").takeIf { termsVerified },
+            requiresApiKey = entry.boolean("requires_api_key").takeIf { termsVerified },
+            freeLimit = entry.get("free_limit")?.takeIf { termsVerified && it.isJsonPrimitive }?.asString,
+            dealType = entry.get("deal_type")?.takeIf { termsVerified && it.isJsonPrimitive }?.asString,
+            promoCode = entry.get("promo_code")?.takeIf { termsVerified && it.isJsonPrimitive }?.asString,
+            isActive = entry.boolean("is_active").takeIf { termsVerified },
+            startAt = entry.long("start_at").takeIf { termsVerified },
+            endAt = entry.long("end_at").takeIf { termsVerified },
+            sourceUrl = proofUrl,
             tags = entry.getAsJsonArray("tags")?.mapNotNull { tag ->
                 tag.takeIf { it.isJsonPrimitive }?.asString?.takeIf(String::isNotBlank)
             }.orEmpty(),
@@ -436,11 +496,6 @@ class PublicSourceSyncCoordinator(
         parser: (String) -> List<ContentItem>,
     ): FetchOutcome {
         val headers = conditionalHeaders(previous).toMutableMap().apply {
-            if (source.id == "lexica") {
-                put("Accept", "application/json")
-                put("Referer", "https://lexica.art/")
-                put("User-Agent", "Mozilla/5.0 (compatible; MersadAI/1.0; +https://github.com/mhyb4243-lgtm/mersad-ai-android)")
-            }
         }
         val response = transport.get(url, headers)
         val headerData = responseMetadata(response)
@@ -649,13 +704,14 @@ class PublicSourceSyncCoordinator(
             SourceDefinition("github", "GitHub", "https://api.github.com/search/repositories", 6 * HOUR),
             SourceDefinition("android-media-releases", "إصدارات تطبيقات الميديا والتصميم", "https://api.github.com", 6 * HOUR),
             SourceDefinition("hf-models", "Hugging Face Models", "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20&full=true", 3 * HOUR),
+            SourceDefinition("openrouter-models", "نماذج OpenRouter", "https://openrouter.ai/api/v1/models", 3 * HOUR),
             SourceDefinition("hf-spaces", "Hugging Face Spaces", "https://huggingface.co/api/spaces?sort=trendingScore&direction=-1&limit=20&full=true", 3 * HOUR),
+            SourceDefinition("civitai-images", "Civitai", "https://civitai.com/api/v1/images?limit=20&sort=Newest&nsfw=None&withMeta=true", 6 * HOUR),
             SourceDefinition("android-developers", "Android Developers", "https://android-developers.googleblog.com/feeds/posts/default?alt=rss", 6 * HOUR),
             SourceDefinition("google-developers", "Google Developers", "https://developers.googleblog.com/feeds/posts/default?alt=rss", 6 * HOUR),
             SourceDefinition("openai-news", "OpenAI News", "https://openai.com/news/rss.xml", 6 * HOUR),
             SourceDefinition("prompts-chat", "prompts.chat", "https://datasets-server.huggingface.co/rows?dataset=fka%2Fprompts.chat&config=default&split=train&offset=0&length=100", DAY),
             SourceDefinition("image-prompts", "Stable Diffusion Prompts", "https://datasets-server.huggingface.co/rows?dataset=Gustavosta%2FStable-Diffusion-Prompts&config=default&split=train&offset=0&length=100", DAY),
-            SourceDefinition("lexica", "Lexica public image prompts", "https://lexica.art/api/v1/search?q=cinematic", 6 * HOUR),
             SourceDefinition("video-prompts", "AI Video Prompt Book 2026", "https://datasets-server.huggingface.co/rows?dataset=hrrcne%2Fai-video-prompt-book-2026&config=default&split=train", 6 * HOUR),
             SourceDefinition("remote-prompts", "موجز البرومبتات المتجدد", REMOTE_PROMPTS_FEED_URL, 12 * HOUR),
         )

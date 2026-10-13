@@ -96,7 +96,7 @@ class FavoritesDaoTest {
     }
 
     @Test
-    fun resyncWithoutSourceMetadataPreservesDatesLinksAndFavorite() = runBlocking {
+    fun resyncWithoutSourceMetadataPreservesDiscoveryTimePromptModelAndFavorite() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val database = Room.inMemoryDatabaseBuilder(context, MersadDatabase::class.java)
             .allowMainThreadQueries()
@@ -113,6 +113,10 @@ class FavoritesDaoTest {
                 sourceUpdatedAt = 4_000L,
                 pushedAt = 5_000L,
                 fetchedAt = 6_000L,
+                discoveredAt = 5_500L,
+                originalDescription = "Original prompt",
+                modelName = "Published model",
+                generationSettings = """{"steps":24}""",
                 externalId = "github:42",
             )
             val source = SourceEntity("github", "GitHub", "github", "https://github.com", "https://api.github.com")
@@ -129,6 +133,9 @@ class FavoritesDaoTest {
                 sourceUpdatedAt = null,
                 pushedAt = null,
                 fetchedAt = 8_000L,
+                originalDescription = null,
+                modelName = null,
+                generationSettings = null,
             ), source, null)
 
             val saved = dao.observeItem("remote").first()?.item ?: error("remote item was not saved")
@@ -139,6 +146,10 @@ class FavoritesDaoTest {
             assertEquals("https://github.com/example/project", saved.sourceUrl)
             assertEquals("https://images.example/project.png", saved.thumbnailUrl)
             assertEquals(8_000L, saved.fetchedAt)
+            assertEquals(5_500L, saved.discoveredAt)
+            assertEquals("Original prompt", saved.originalDescription)
+            assertEquals("Published model", saved.modelName)
+            assertEquals("""{"steps":24}""", saved.generationSettings)
             assertTrue(dao.isFavorite("remote"))
         } finally {
             database.close()

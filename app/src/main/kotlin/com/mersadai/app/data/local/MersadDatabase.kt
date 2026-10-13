@@ -24,8 +24,9 @@ import kotlinx.coroutines.launch
         SyncStateEntity::class,
         StarSnapshotEntity::class,
         NotificationHistoryEntity::class,
+        PromptEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class MersadDatabase : RoomDatabase() {
@@ -128,6 +129,25 @@ abstract class MersadDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS prompts (
+                        sourceId TEXT NOT NULL,
+                        sourcePostId TEXT NOT NULL,
+                        postId INTEGER,
+                        prompt TEXT NOT NULL,
+                        postUrl TEXT NOT NULL,
+                        imageUrl TEXT,
+                        modelName TEXT,
+                        publishedAt INTEGER,
+                        discoveredAt INTEGER NOT NULL,
+                        PRIMARY KEY(sourceId, sourcePostId)
+                    )""",
+                )
+            }
+        }
+
         fun create(context: Context): MersadDatabase {
             val database = Room.databaseBuilder(context, MersadDatabase::class.java, "mersad.db")
                 .addMigrations(MIGRATION_1_2)
@@ -137,6 +157,7 @@ abstract class MersadDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_5_6)
                 .addMigrations(MIGRATION_6_7)
                 .addMigrations(MIGRATION_7_8)
+                .addMigrations(MIGRATION_8_9)
                 .build()
 
             CoroutineScope(Dispatchers.IO).launch {

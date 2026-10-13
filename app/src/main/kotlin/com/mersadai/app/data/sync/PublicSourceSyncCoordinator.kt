@@ -5,6 +5,7 @@ import com.google.gson.JsonParser
 import com.mersadai.app.data.dedup.DeduplicationService
 import com.mersadai.app.data.local.CategoryEntity
 import com.mersadai.app.data.local.NotificationHistoryEntity
+import com.mersadai.app.data.local.PromptEntity
 import com.mersadai.app.data.local.SourceEntity
 import com.mersadai.app.data.local.SyncStateEntity
 import com.mersadai.app.data.mapper.toEntity
@@ -116,6 +117,27 @@ class PublicSourceSyncCoordinator(
                     }
                 }
             }
+            if (outcome.error == null && outcome.prompts.isNotEmpty()) {
+                try {
+                    store.savePrompts(
+                        outcome.prompts.distinctBy { it.sourcePostId }.map { prompt ->
+                            PromptEntity(
+                                sourceId = "civitai",
+                                sourcePostId = prompt.sourcePostId,
+                                postId = prompt.postId,
+                                prompt = prompt.prompt,
+                                postUrl = prompt.postUrl,
+                                imageUrl = prompt.imageUrl,
+                                modelName = prompt.modelName,
+                                publishedAt = prompt.publishedAt,
+                                discoveredAt = now(),
+                            )
+                        },
+                    )
+                } catch (_: Exception) {
+                    outcome = outcome.copy(error = "تعذر حفظ برومبتات ${source.name}؛ احتُفظ بالبيانات السابقة.")
+                }
+            }
             if (outcome.error == null) {
                 newlyDiscovered += sourceDiscoveries
                 store.enqueueNotifications(if (source.id == "civitai-images") sourceNotifications.take(1) else sourceNotifications)
@@ -191,7 +213,7 @@ class PublicSourceSyncCoordinator(
         "hf-models" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceModels(it) }
         "openrouter-models" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.openRouterModels(it, now()) }
         "hf-spaces" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.huggingFaceSpaces(it) }
-        "civitai-images" -> fetchSingle(source, previous, source.endpoint) { SourceParsers.civitaiImages(it) }
+        "civitai-images" -> fetchCivitai(source, previous)
         "android-developers", "google-developers", "openai-news" ->
             fetchSingle(source, previous, source.endpoint) { body ->
                 SourceParsers.rssFeed(body, source.id, source.name, source.endpoint)
@@ -206,6 +228,31 @@ class PublicSourceSyncCoordinator(
         "video-prompts" -> fetchLatestVideoPrompts(source, previous)
         "remote-prompts" -> fetchSingle(source, previous, source.endpoint, parser = ::remotePromptFeed)
         else -> FetchOutcome(error = "مصدر غير معروف.")
+    }
+
+    private suspend fun fetchCivitai(
+        source: SourceDefinition,
+        previous: SyncStateEntity?,
+    ): FetchOutcome {
+        val response = transport.get(source.endpoint, conditionalHeaders(previous))
+        val headerData = responseMetadata(response)
+        if (response.statusCode == 304) return headerData.copy(notModified = true)
+        if (response.statusCode == 403 || response.statusCode == 429) {
+            return rateLimited(source, response, previous, headerData)
+        }
+        if (response.statusCode !in 200..299) {
+            return headerData.copy(
+                error = "تعذر تحديث ${source.name} (HTTP ${response.statusCode}).",
+                transient = response.statusCode >= 500,
+                nextAllowedSyncAt = if (response.statusCode >= 500) null else now() + FAILURE_COOLDOWN,
+            )
+        }
+        return try {
+            val parsed = SourceParsers.civitaiImagesAndPrompts(response.body)
+            headerData.copy(items = parsed.items, prompts = parsed.prompts)
+        } catch (_: Exception) {
+            headerData.copy(error = "تغير تنسيق بيانات ${source.name}؛ احتُفظ بالنسخة المخزنة.")
+        }
     }
 
     private fun remotePromptFeed(body: String): List<ContentItem> {
@@ -667,6 +714,7 @@ class PublicSourceSyncCoordinator(
 
     private data class FetchOutcome(
         val items: List<ContentItem> = emptyList(),
+        val prompts: List<com.mersadai.app.data.remote.CivitaiPromptRecord> = emptyList(),
         val statusCode: Int? = null,
         val error: String? = null,
         val transient: Boolean = false,

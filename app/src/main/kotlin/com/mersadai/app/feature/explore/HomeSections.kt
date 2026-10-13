@@ -73,6 +73,8 @@ fun filterPromptRadarItems(
             item.originalDescription,
             item.modelName,
             item.author,
+            item.source?.name,
+            item.source?.id,
         ).plus(item.tags).any { it.contains(filters.query.trim(), ignoreCase = true) })
 }
 

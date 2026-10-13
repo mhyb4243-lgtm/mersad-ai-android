@@ -23,6 +23,21 @@ import java.time.OffsetDateTime
 import java.util.Locale
 import kotlin.math.min
 
+data class CivitaiPromptRecord(
+    val sourcePostId: String,
+    val postId: Long?,
+    val prompt: String,
+    val postUrl: String,
+    val imageUrl: String?,
+    val modelName: String?,
+    val publishedAt: Long?,
+)
+
+data class CivitaiImagesResult(
+    val items: List<ContentItem>,
+    val prompts: List<CivitaiPromptRecord>,
+)
+
 object SourceParsers {
     fun githubLatestRelease(body: String, repository: String, now: Long = System.currentTimeMillis()): ContentItem {
         val release = JsonParser.parseString(body).asObjectOrNull()
@@ -71,23 +86,39 @@ object SourceParsers {
     }
 
     fun civitaiImages(body: String): List<ContentItem> {
+        return civitaiImagesAndPrompts(body).items
+    }
+
+    fun civitaiImagesAndPrompts(body: String): CivitaiImagesResult {
         val root = JsonParser.parseString(body).asObjectOrNull()
             ?: throw SourceSchemaException("Civitai response is not an object")
         val images = root.array("items")
             ?: throw SourceSchemaException("Civitai response has no items array")
-        return images.mapNotNull { element ->
+        val parsed = images.mapNotNull { element ->
             val image = element.asObjectOrNull() ?: return@mapNotNull null
             val imageId = image.long("id")?.takeIf { it > 0L } ?: return@mapNotNull null
             val metadata = image.obj("meta")
-            val prompt = metadata?.string("prompt")?.trim()?.takeIf(String::isNotBlank)
+            val prompt = (metadata?.string("prompt") ?: image.string("prompt"))
+                ?.trim()?.takeIf(String::isNotBlank)
             val imageUrl = image.string("url").civitaiImageUrl()
             if (prompt == null && imageUrl == null) return@mapNotNull null
 
             val publishedAt = image.string("createdAt").epochMillis()
-            val postUrl = "https://civitai.com/images/$imageId"
+            val postId = image.long("postId")?.takeIf { it > 0L }
+            val postUrl = if (postId != null) {
+                "https://civitai.com/posts/$postId"
+            } else {
+                "https://civitai.com/images/$imageId"
+            }
             val tags = (image.strings("tags") + metadata?.strings("tags").orEmpty())
                 .distinct()
+            val checkpointName = metadata?.array("resources")?.mapNotNull { resource ->
+                resource.asObjectOrNull()
+                    ?.takeIf { it.string("type").equals("checkpoint", ignoreCase = true) }
+                    ?.string("name")
+            }?.firstOrNull()
             val modelName = metadata?.string("Model")
+                ?: checkpointName
                 ?: metadata?.strings("models")?.joinToString(", ")?.takeIf(String::isNotBlank)
                 ?: image.string("baseModel")
             val searchableMetadata = listOfNotNull(prompt, modelName).plus(tags).joinToString(" ").lowercase(Locale.ROOT)
@@ -149,8 +180,22 @@ object SourceParsers {
                 promptType = "text-to-image",
                 modelName = modelName,
                 generationSettings = settings,
-            )
+            ) to prompt?.let {
+                CivitaiPromptRecord(
+                    sourcePostId = postId?.toString() ?: "image:$imageId",
+                    postId = postId,
+                    prompt = it,
+                    postUrl = postUrl,
+                    imageUrl = imageUrl,
+                    modelName = modelName,
+                    publishedAt = publishedAt,
+                )
+            }
         }
+        return CivitaiImagesResult(
+            items = parsed.map { it.first },
+            prompts = parsed.mapNotNull { it.second },
+        )
     }
 
     fun githubIncompleteResults(body: String): Boolean = JsonParser.parseString(body)

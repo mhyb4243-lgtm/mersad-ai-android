@@ -251,30 +251,31 @@ fun PromptRadarScreen(
     onManualSync: suspend () -> Unit,
     contentPadding: PaddingValues,
 ) {
-    val context = LocalContext.current
-    val content by viewModel.items.collectAsStateWithLifecycle()
-    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val radarItems by viewModel.radarItems.collectAsStateWithLifecycle()
+    val favorites by viewModel.promptRadarFavorites.collectAsStateWithLifecycle()
     val online by viewModel.isOnline.collectAsStateWithLifecycle()
     val syncRecord by viewModel.syncRecord.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedSource by remember { mutableStateOf<String?>(null) }
     var selectedModel by remember { mutableStateOf<String?>(null) }
-    var onlySaved by remember { mutableStateOf(false) }
-    var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(PromptRadarTab.LATEST) }
     var sourceMenuExpanded by remember { mutableStateOf(false) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
 
-    val radarItems = remember(content) { promptRadarItems(content) }
-    val favoriteIds = remember(favorites) { favorites.filter(ContentItem::isPromptRadarEntry).mapTo(mutableSetOf()) { it.id } }
-    val categories = remember(radarItems) { radarItems.mapNotNull(ContentItem::category).distinctBy { it.id }.sortedBy { it.name } }
+    val favoriteIds = remember(favorites) { favorites.mapTo(mutableSetOf()) { it.id } }
     val sources = remember(radarItems) { radarItems.mapNotNull(ContentItem::source).distinctBy { it.id }.sortedBy { it.name } }
     val models = remember(radarItems) { radarItems.mapNotNull(ContentItem::modelName).distinct().sorted() }
-    val visibleItems = remember(radarItems, favoriteIds, query, selectedCategory, selectedSource, selectedModel, onlySaved) {
+    val visibleItems = remember(radarItems, favoriteIds, query, selectedTab, selectedSource, selectedModel) {
         filterPromptRadarItems(
             items = radarItems,
-            filters = PromptRadarFilters(query, selectedCategory, selectedSource, selectedModel, onlySaved),
+            filters = PromptRadarFilters(
+                query = query,
+                categoryId = selectedTab.categoryId,
+                sourceId = selectedTab.sourceId ?: selectedSource,
+                modelName = selectedModel,
+                savedOnly = selectedTab.savedOnly,
+            ),
             favoriteIds = favoriteIds,
         )
     }
@@ -317,43 +318,27 @@ fun PromptRadarScreen(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.search_hint)) },
+                placeholder = { Text(stringResource(R.string.prompt_radar_search_hint)) },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
             )
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                item {
+                items(PromptRadarTab.entries, key = PromptRadarTab::name) { tab ->
                     FilterChip(
-                        selected = onlySaved,
-                        onClick = { onlySaved = !onlySaved },
-                        label = { Text(stringResource(R.string.prompt_radar_saved_locally)) },
+                        selected = selectedTab == tab,
+                        onClick = {
+                            selectedTab = tab
+                            selectedSource = null
+                        },
+                        label = { Text(stringResource(tab.label)) },
                     )
                 }
-                item {
-                    Box {
-                        FilterChip(
-                            selected = selectedCategory != null,
-                            onClick = { categoryMenuExpanded = true },
-                            label = {
-                                Text(categories.firstOrNull { it.id == selectedCategory }?.name ?: stringResource(R.string.prompt_radar_all_categories))
-                            },
-                        )
-                        DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.prompt_radar_all_categories)) },
-                                onClick = { selectedCategory = null; categoryMenuExpanded = false },
-                            )
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category.name) },
-                                    onClick = { selectedCategory = category.id; categoryMenuExpanded = false },
-                                )
-                            }
-                        }
-                    }
-                }
+            }
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 item {
                     Box {
                         FilterChip(
@@ -407,14 +392,43 @@ fun PromptRadarScreen(
         }
         if (visibleItems.isEmpty()) {
             item {
-                EmptyState(
-                    R.string.prompt_radar_empty_title,
-                    if (radarItems.isEmpty()) R.string.prompt_radar_empty_message else R.string.empty_search_message,
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (radarItems.isEmpty() && syncRecord?.state == SyncState.SYNCING) {
+                        CircularProgressIndicator()
+                        Text(stringResource(R.string.prompt_radar_loading))
+                    } else {
+                        EmptyState(
+                            R.string.prompt_radar_empty_title,
+                            if (radarItems.isEmpty()) {
+                                if (online) R.string.prompt_radar_empty_message else R.string.offline_message
+                            } else {
+                                R.string.empty_search_message
+                            },
+                        )
+                    }
+                    if (radarItems.isEmpty()) {
+                        OutlinedButton(
+                            onClick = { scope.launch { onManualSync() } },
+                            enabled = syncRecord?.state != SyncState.SYNCING,
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(Modifier.size(6.dp))
+                            Text(stringResource(R.string.prompt_radar_retry))
+                        }
+                    }
+                }
             }
         } else {
             items(visibleItems, key = ContentItem::id) { item ->
-                ContentCard(item = item, viewModel = viewModel, onClick = { onOpenItem(item.id) }, largePromptPreview = true)
+                PromptCard(
+                    item = item,
+                    viewModel = viewModel,
+                    onOpenItem = { onOpenItem(item.id) },
+                )
             }
         }
         item {
@@ -425,6 +439,176 @@ fun PromptRadarScreen(
                 items(PROMPT_RADAR_MANUAL_SOURCES) { (label, url) ->
                     OutlinedButton(onClick = { openPromptRadarSource(context, url) }) { Text(label) }
                 }
+            }
+        }
+    }
+}
+
+private enum class PromptRadarTab(
+    val label: Int,
+    val categoryId: String? = null,
+    val sourceId: String? = null,
+    val savedOnly: Boolean = false,
+) {
+    LATEST(R.string.prompt_radar_tab_latest),
+    REALISTIC(R.string.prompt_radar_tab_realistic, categoryId = "photorealistic-prompts"),
+    ADS(R.string.prompt_radar_tab_ads, categoryId = "advertising-prompts"),
+    EDITING(R.string.prompt_radar_tab_editing, categoryId = "image-editing-prompts"),
+    VIDEO(R.string.prompt_radar_tab_video, sourceId = "video-prompts"),
+    SAVED(R.string.prompt_radar_tab_saved, savedOnly = true),
+}
+
+@Composable
+private fun PromptCard(
+    item: ContentItem,
+    viewModel: ExploreViewModel,
+    onOpenItem: () -> Unit,
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val isFavorite by viewModel.observeFavorite(item.id).collectAsStateWithLifecycle(initialValue = false)
+    var expanded by remember(item.id) { mutableStateOf(false) }
+    var imageLoading by remember(item.thumbnailUrl) { mutableStateOf(item.thumbnailUrl != null) }
+    var imageFailed by remember(item.thumbnailUrl) { mutableStateOf(false) }
+    val prompt = item.originalPromptText()
+    val imageUrl = item.thumbnailUrl?.takeIf { Uri.parse(it).scheme == "https" }
+
+    Card(
+        onClick = onOpenItem,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (imageUrl != null && !imageFailed) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(210.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {}
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(imageUrl).crossfade(true).build(),
+                        contentDescription = stringResource(R.string.prompt_radar_image_description),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        onLoading = { imageLoading = true },
+                        onSuccess = { imageLoading = false },
+                        onError = { imageLoading = false; imageFailed = true },
+                    )
+                    if (imageLoading) CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.prompt_radar_no_image), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Text(
+                        item.source?.name ?: stringResource(R.string.prompt_radar_civitai_source),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+                val publishedAt = item.sourceTimestamp()
+                Text(
+                    text = publishedAt?.let { stringResource(R.string.prompt_radar_published, formatDate(it)) }
+                        ?: stringResource(R.string.prompt_radar_discovered),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                IconButton(onClick = { viewModel.setFavorite(item.id, !isFavorite) }) {
+                    Icon(
+                        if (isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkAdd,
+                        contentDescription = stringResource(if (isFavorite) R.string.remove_favorite else R.string.save_favorite),
+                    )
+                }
+            }
+
+            Text(
+                text = prompt ?: stringResource(R.string.prompt_unavailable_title),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.ContentOrLtr),
+                maxLines = if (expanded) Int.MAX_VALUE else 6,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if ((prompt?.count { it == '\n' } ?: 0) >= 6) {
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(stringResource(if (expanded) R.string.prompt_radar_collapse else R.string.prompt_radar_expand))
+                }
+            }
+
+            item.modelName?.let { model ->
+                Text(
+                    stringResource(R.string.prompt_model_short, model),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            item.generationSettings?.let { metadata ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.prompt_radar_meta), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        metadata,
+                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.ContentOrLtr),
+                        maxLines = if (expanded) 8 else 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = {
+                        prompt?.let {
+                            clipboard.setText(AnnotatedString(it))
+                            Toast.makeText(context, context.getString(R.string.prompt_copied), Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = prompt != null,
+                ) { Text(stringResource(R.string.copy_prompt)) }
+                TextButton(
+                    onClick = {
+                        item.sourceUrl?.let { url -> openPromptRadarSource(context, url) }
+                    },
+                    enabled = item.sourceUrl != null,
+                ) { Text(stringResource(R.string.prompt_radar_post)) }
+                TextButton(
+                    onClick = {
+                        prompt?.let {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, it)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.prompt_radar_share)))
+                        }
+                    },
+                    enabled = prompt != null,
+                ) { Text(stringResource(R.string.prompt_radar_share)) }
             }
         }
     }

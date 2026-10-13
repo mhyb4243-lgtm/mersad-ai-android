@@ -54,6 +54,12 @@ interface ContentDao {
     @Query("SELECT COUNT(*) FROM items")
     suspend fun countItems(): Int
 
+    @Query("SELECT * FROM prompts ORDER BY COALESCE(publishedAt, discoveredAt) DESC, sourceId, sourcePostId")
+    fun observePrompts(): Flow<List<PromptEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPromptsIgnore(prompts: List<PromptEntity>): List<Long>
+
     @Query("SELECT EXISTS(SELECT 1 FROM items WHERE id = :id)")
     suspend fun hasItem(id: String): Boolean
 

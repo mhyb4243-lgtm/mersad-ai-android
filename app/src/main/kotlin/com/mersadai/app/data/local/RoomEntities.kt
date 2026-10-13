@@ -66,6 +66,19 @@ data class ItemEntity(
     val discoveredAt: Long? = null,
 )
 
+@Entity(tableName = "prompts", primaryKeys = ["sourceId", "sourcePostId"])
+data class PromptEntity(
+    val sourceId: String,
+    val sourcePostId: String,
+    val postId: Long?,
+    val prompt: String,
+    val postUrl: String,
+    val imageUrl: String?,
+    val modelName: String?,
+    val publishedAt: Long?,
+    val discoveredAt: Long,
+)
+
 @Entity(tableName = "sources")
 data class SourceEntity(
     @PrimaryKey val id: String,

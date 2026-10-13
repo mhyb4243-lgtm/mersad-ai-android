@@ -437,6 +437,7 @@ fun PromptRadarScreen(
             Text(stringResource(R.string.prompt_radar_manual_sources_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(PROMPT_RADAR_MANUAL_SOURCES) { (label, url) ->
+                        val context = LocalContext.current
                     OutlinedButton(onClick = { openPromptRadarSource(context, url) }) { Text(label) }
                 }
             }
